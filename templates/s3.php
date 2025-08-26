@@ -3,12 +3,14 @@
 function parseSimpleYaml($yamlContent) {
     $data = [];
     $lines = explode("\n", $yamlContent);
+    $i = 0;
     
-    foreach ($lines as $line) {
-        $line = trim($line);
+    while ($i < count($lines)) {
+        $line = trim($lines[$i]);
         
         // Skip comments and empty lines
         if (empty($line) || $line[0] === '#') {
+            $i++;
             continue;
         }
         
@@ -18,13 +20,41 @@ function parseSimpleYaml($yamlContent) {
             $key = trim($key);
             $value = trim($value);
             
+            // Handle multi-line values (starts with |)
+            if ($value === '|') {
+                $multilineValue = '';
+                $i++; // Move to next line
+                
+                // Read subsequent indented lines
+                while ($i < count($lines)) {
+                    $nextLine = $lines[$i];
+                    if (empty(trim($nextLine))) {
+                        $i++;
+                        break; // End of multiline block
+                    }
+                    if (preg_match('/^  (.*)$/', $nextLine, $matches)) {
+                        if ($multilineValue !== '') {
+                            $multilineValue .= ' ';
+                        }
+                        $multilineValue .= $matches[1];
+                        $i++;
+                    } else {
+                        break; // End of multiline block
+                    }
+                }
+                $data[$key] = $multilineValue;
+                continue;
+            }
+            
+            // Handle regular values
             // Remove quotes if present
-            if (($value[0] === '"' && $value[-1] === '"') || ($value[0] === "'" && $value[-1] === "'")) {
+            if (strlen($value) >= 2 && (($value[0] === '"' && $value[-1] === '"') || ($value[0] === "'" && $value[-1] === "'"))) {
                 $value = substr($value, 1, -1);
             }
             
             $data[$key] = $value;
         }
+        $i++;
     }
     
     return $data;
@@ -163,7 +193,7 @@ try {
                             'price' => $data['price'],
                             'contact_email' => $data['contact_email'],
                             'image_key' => $imageKey,
-                            'posted_date' => $data['posted_date'] ?? 'Unknown',
+                            'posted_date' => $data['submitted_at'] ?? 'Unknown',
                             'yaml_key' => $object['key']
                         ];
                     }

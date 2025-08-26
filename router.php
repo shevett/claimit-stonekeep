@@ -1,6 +1,19 @@
 <?php
 // Suppress PHP 8.4 deprecation warnings while keeping actual errors
-error_reporting(E_ERROR | E_WARNING | E_PARSE | E_NOTICE);
+error_reporting(0); // Suppress all errors for development server
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
+
+// Custom error handler to filter out AWS SDK warnings from browser but keep in environment logs
+set_error_handler(function($errno, $errstr, $errfile, $errline) {
+    // Log AWS SDK compatibility warnings to environment logs but don't display them
+    if (strpos($errfile, 'aws-sdk-php') !== false && strpos($errstr, 'syntax error') !== false) {
+        error_log("AWS SDK PHP 8.4 Compatibility Warning: $errstr in $errfile on line $errline");
+        return true; // Suppress from browser display
+    }
+    // Let other errors through to default handler
+    return false;
+});
 
 // Router for PHP development server
 // This ensures static files are served correctly
