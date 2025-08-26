@@ -242,4 +242,25 @@ class AwsService
     {
         return $this->config['region'];
     }
+    
+    /**
+     * Delete an object from S3
+     * 
+     * @param string $key S3 object key
+     * @return bool True if successful
+     */
+    public function deleteObject(string $key): bool
+    {
+        try {
+            $this->s3Client->deleteObject([
+                'Bucket' => $this->config['s3']['bucket'],
+                'Key' => $key
+            ]);
+            
+            return true;
+            
+        } catch (AwsException $e) {
+            throw new \Exception('Failed to delete S3 object: ' . $e->getMessage());
+        }
+    }
 } 

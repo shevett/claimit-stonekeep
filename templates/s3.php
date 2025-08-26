@@ -148,6 +148,64 @@ if (isset($_GET['action']) && $_GET['action'] === 'presigned' && isset($_GET['ke
     redirect('s3');
 }
 
+// Handle item deletion via AJAX
+if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['tracking_number'])) {
+    header('Content-Type: application/json');
+    
+    $trackingNumber = $_POST['tracking_number'];
+    
+    if (!preg_match('/^\d{14}$/', $trackingNumber)) {
+        echo json_encode(['success' => false, 'message' => 'Invalid tracking number']);
+        exit;
+    }
+    
+    try {
+        $awsService = getAwsService();
+        if (!$awsService) {
+            throw new Exception('AWS service not available');
+        }
+        
+        // Delete both YAML and image files
+        $yamlKey = $trackingNumber . '.yaml';
+        $imageDeleted = false;
+        $yamlDeleted = false;
+        
+        // Try to delete the YAML file
+        try {
+            $awsService->deleteObject($yamlKey);
+            $yamlDeleted = true;
+        } catch (Exception $e) {
+            // YAML file might not exist, continue
+        }
+        
+        // Try to delete the image file (try different extensions)
+        $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
+        foreach ($imageExtensions as $ext) {
+            $imageKey = $trackingNumber . '.' . $ext;
+            try {
+                if ($awsService->objectExists($imageKey)) {
+                    $awsService->deleteObject($imageKey);
+                    $imageDeleted = true;
+                    break;
+                }
+            } catch (Exception $e) {
+                // Continue to next extension
+            }
+        }
+        
+        if ($yamlDeleted || $imageDeleted) {
+            echo json_encode(['success' => true, 'message' => 'Item deleted successfully']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'No files found to delete']);
+        }
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Failed to delete item: ' . $e->getMessage()]);
+    }
+    
+    exit;
+}
+
 // Get list of S3 objects and parse YAML files for item listings
 $items = [];
 $error = null;
@@ -314,6 +372,11 @@ if ($presignedUrl) {
                                                 🔗 Share Image
                                             </a>
                                         <?php endif; ?>
+                                        <button onclick="deleteItem('<?php echo escape($item['tracking_number']); ?>')" 
+                                                class="btn btn-danger delete-btn" 
+                                                title="Delete this item">
+                                            🗑️ Delete
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -345,6 +408,112 @@ function copyToClipboard(text) {
         }
         document.body.removeChild(textArea);
     });
+}
+
+function deleteItem(trackingNumber) {
+    if (!confirm('Are you sure you want to delete this item? This action cannot be undone.')) {
+        return;
+    }
+    
+    // Find the item card element
+    const itemCard = event.target.closest('.item-card');
+    const deleteBtn = event.target;
+    
+    // Disable the delete button and show loading state
+    deleteBtn.disabled = true;
+    deleteBtn.innerHTML = '⏳ Deleting...';
+    deleteBtn.style.opacity = '0.6';
+    
+    // Create form data
+    const formData = new FormData();
+    formData.append('action', 'delete');
+    formData.append('tracking_number', trackingNumber);
+    
+    // Send AJAX request
+    fetch(window.location.href, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Fade out and remove the item card
+            itemCard.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+            itemCard.style.opacity = '0';
+            itemCard.style.transform = 'scale(0.95)';
+            
+            setTimeout(() => {
+                itemCard.remove();
+                
+                // Check if there are no more items
+                const remainingItems = document.querySelectorAll('.item-card');
+                if (remainingItems.length === 0) {
+                    // Reload the page to show the "no items" message
+                    window.location.reload();
+                } else {
+                    // Update the count
+                    const countElement = document.querySelector('.items-list h3');
+                    if (countElement) {
+                        const newCount = remainingItems.length;
+                        countElement.textContent = `Available Items (${newCount})`;
+                    }
+                }
+            }, 500);
+            
+            // Show success message
+            showMessage(data.message, 'success');
+        } else {
+            // Re-enable the button and show error
+            deleteBtn.disabled = false;
+            deleteBtn.innerHTML = '🗑️ Delete';
+            deleteBtn.style.opacity = '1';
+            showMessage(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        
+        // Re-enable the button
+        deleteBtn.disabled = false;
+        deleteBtn.innerHTML = '🗑️ Delete';
+        deleteBtn.style.opacity = '1';
+        
+        showMessage('An error occurred while deleting the item. Please try again.', 'error');
+    });
+}
+
+function showMessage(message, type) {
+    // Create a temporary alert message
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type}`;
+    alertDiv.style.position = 'fixed';
+    alertDiv.style.top = '20px';
+    alertDiv.style.right = '20px';
+    alertDiv.style.zIndex = '9999';
+    alertDiv.style.maxWidth = '400px';
+    alertDiv.style.opacity = '0';
+    alertDiv.style.transform = 'translateX(100%)';
+    alertDiv.style.transition = 'all 0.3s ease';
+    alertDiv.innerHTML = message;
+    
+    document.body.appendChild(alertDiv);
+    
+    // Animate in
+    setTimeout(() => {
+        alertDiv.style.opacity = '1';
+        alertDiv.style.transform = 'translateX(0)';
+    }, 100);
+    
+    // Remove after 4 seconds
+    setTimeout(() => {
+        alertDiv.style.opacity = '0';
+        alertDiv.style.transform = 'translateX(100%)';
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.parentNode.removeChild(alertDiv);
+            }
+        }, 300);
+    }, 4000);
 }
 </script>
 
@@ -472,6 +641,26 @@ function copyToClipboard(text) {
     padding: 0.5rem 1rem;
 }
 
+.delete-btn {
+    background-color: #dc3545 !important;
+    border-color: #dc3545 !important;
+    color: white !important;
+    transition: all 0.3s ease !important;
+}
+
+.delete-btn:hover {
+    background-color: #c82333 !important;
+    border-color: #bd2130 !important;
+    transform: translateY(-1px);
+}
+
+.delete-btn:disabled {
+    background-color: #6c757d !important;
+    border-color: #6c757d !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+}
+
 .no-items {
     text-align: center;
     padding: 4rem 2rem;
@@ -509,10 +698,23 @@ function copyToClipboard(text) {
     
     .item-actions {
         flex-direction: column;
+        gap: 0.5rem;
     }
     
     .item-actions .btn {
         min-width: auto;
+        flex: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .item-actions {
+        gap: 0.5rem;
+    }
+    
+    .item-actions .btn {
+        font-size: 0.8rem;
+        padding: 0.4rem 0.8rem;
     }
 }
 </style> 
