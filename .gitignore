@@ -1,0 +1,62 @@
+# Dependencies
+/vendor/
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Runtime data
+pids
+*.pid
+*.seed
+
+# Cache
+cache/
+*.cache
+
+# Temporary files
+tmp/
+temp/
+
+# User uploads (when implemented)
+uploads/
+
+# Backup files
+*.bak
+*.backup
+
+# Configuration files with sensitive data
+config/database.php
+config/secrets.php
+
+# Composer
+composer.phar
+
+# PHPUnit
+/phpunit.xml
+.phpunit.result.cache
+
+# Coverage reports
+coverage/
+*.coverage 
