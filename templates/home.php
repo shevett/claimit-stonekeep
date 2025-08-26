@@ -3,7 +3,7 @@
         <h1 class="hero-title">Welcome to ClaimIt</h1>
         <p class="hero-subtitle">Your trusted platform for managing claims efficiently and securely</p>
         <div class="hero-buttons">
-            <a href="?page=claim" class="btn btn-primary">Make a Claim</a>
+            <a href="?page=claim" class="btn btn-primary">Make a new posting</a>
             <a href="?page=about" class="btn btn-secondary">Learn More</a>
         </div>
     </div>

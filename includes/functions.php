@@ -81,4 +81,100 @@ function setFlashMessage($message, $type = 'info') {
     ];
 }
 
+/**
+ * Get AWS service instance
+ * 
+ * @return ClaimIt\AwsService|null
+ */
+function getAwsService() {
+    try {
+        return new ClaimIt\AwsService();
+    } catch (Exception $e) {
+        error_log('AWS Service initialization failed: ' . $e->getMessage());
+        return null;
+    }
+}
+
+/**
+ * Format file size in human readable format
+ * 
+ * @param int $bytes File size in bytes
+ * @return string Formatted size
+ */
+function formatFileSize($bytes) {
+    if ($bytes == 0) return '0 B';
+    
+    $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    $factor = floor(log($bytes, 1024));
+    
+    return sprintf('%.1f %s', $bytes / pow(1024, $factor), $units[$factor]);
+}
+
+/**
+ * Get file extension from filename or path
+ * 
+ * @param string $filename
+ * @return string File extension (lowercase)
+ */
+function getFileExtension($filename) {
+    return strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+}
+
+/**
+ * Get MIME type for file extension
+ * 
+ * @param string $extension File extension
+ * @return string MIME type
+ */
+function getMimeType($extension) {
+    $mimeTypes = [
+        'txt' => 'text/plain',
+        'pdf' => 'application/pdf',
+        'doc' => 'application/msword',
+        'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'xls' => 'application/vnd.ms-excel',
+        'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'jpg' => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'png' => 'image/png',
+        'gif' => 'image/gif',
+        'zip' => 'application/zip',
+        'rar' => 'application/x-rar-compressed',
+        'json' => 'application/json',
+        'xml' => 'application/xml',
+        'csv' => 'text/csv'
+    ];
+    
+    return $mimeTypes[$extension] ?? 'application/octet-stream';
+}
+
+/**
+ * Check if AWS credentials are configured
+ * 
+ * @return bool True if credentials file exists
+ */
+function hasAwsCredentials() {
+    return file_exists(__DIR__ . '/../config/aws-credentials.php');
+}
+
+/**
+ * Validate S3 object key format
+ * 
+ * @param string $key S3 object key
+ * @return bool True if valid
+ */
+function isValidS3Key($key) {
+    // Basic validation for S3 key names
+    if (empty($key) || strlen($key) > 1024) {
+        return false;
+    }
+    
+    // Check for invalid characters
+    if (preg_match('/[\x00-\x1F\x7F]/', $key)) {
+        return false;
+    }
+    
+    return true;
+}
+
 ?> 

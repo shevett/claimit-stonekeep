@@ -1,0 +1,488 @@
+<?php
+// Simple YAML parser for our specific format
+function parseSimpleYaml($yamlContent) {
+    $data = [];
+    $lines = explode("\n", $yamlContent);
+    
+    foreach ($lines as $line) {
+        $line = trim($line);
+        
+        // Skip comments and empty lines
+        if (empty($line) || $line[0] === '#') {
+            continue;
+        }
+        
+        // Parse key: value pairs
+        if (strpos($line, ':') !== false) {
+            list($key, $value) = explode(':', $line, 2);
+            $key = trim($key);
+            $value = trim($value);
+            
+            // Remove quotes if present
+            if (($value[0] === '"' && $value[-1] === '"') || ($value[0] === "'" && $value[-1] === "'")) {
+                $value = substr($value, 1, -1);
+            }
+            
+            $data[$key] = $value;
+        }
+    }
+    
+    return $data;
+}
+
+// Check if AWS credentials are configured
+if (!hasAwsCredentials()) {
+    ?>
+    <div class="page-header">
+        <div class="container">
+            <h1>S3 Assets</h1>
+            <p class="page-subtitle">AWS S3 bucket file management</p>
+        </div>
+    </div>
+    
+    <div class="content-section">
+        <div class="container">
+            <div class="alert alert-error">
+                <h3>AWS Credentials Not Configured</h3>
+                <p>To use S3 functionality, you need to configure your AWS credentials:</p>
+                <ol>
+                    <li>Copy <code>config/aws-credentials.example.php</code> to <code>config/aws-credentials.php</code></li>
+                    <li>Fill in your AWS Access Key ID, Secret Access Key, and S3 bucket name</li>
+                    <li>Refresh this page</li>
+                </ol>
+                <p><strong>Note:</strong> The credentials file is automatically excluded from git for security.</p>
+            </div>
+        </div>
+    </div>
+    <?php
+    return;
+}
+
+// Handle file download request
+if (isset($_GET['action']) && $_GET['action'] === 'download' && isset($_GET['key'])) {
+    $key = $_GET['key'];
+    
+    if (!isValidS3Key($key)) {
+        setFlashMessage('Invalid file key provided.', 'error');
+        redirect('s3');
+    }
+    
+    try {
+        $awsService = getAwsService();
+        if (!$awsService) {
+            throw new Exception('AWS service not available');
+        }
+        
+        $object = $awsService->getObject($key);
+        
+        // Set headers for file download
+        header('Content-Type: ' . $object['content_type']);
+        header('Content-Length: ' . $object['content_length']);
+        header('Content-Disposition: attachment; filename="' . basename($key) . '"');
+        header('Cache-Control: no-cache, must-revalidate');
+        
+        echo $object['content'];
+        exit;
+        
+    } catch (Exception $e) {
+        setFlashMessage('Failed to download file: ' . $e->getMessage(), 'error');
+        redirect('s3');
+    }
+}
+
+// Handle presigned URL generation
+if (isset($_GET['action']) && $_GET['action'] === 'presigned' && isset($_GET['key'])) {
+    $key = $_GET['key'];
+    
+    if (!isValidS3Key($key)) {
+        setFlashMessage('Invalid file key provided.', 'error');
+        redirect('s3');
+    }
+    
+    try {
+        $awsService = getAwsService();
+        if (!$awsService) {
+            throw new Exception('AWS service not available');
+        }
+        
+        $url = $awsService->getPresignedUrl($key, 3600); // 1 hour expiration
+        setFlashMessage('Presigned URL generated successfully.', 'success');
+        
+        // Store URL in session for display
+        $_SESSION['presigned_url'] = $url;
+        
+    } catch (Exception $e) {
+        setFlashMessage('Failed to generate presigned URL: ' . $e->getMessage(), 'error');
+    }
+    
+    redirect('s3');
+}
+
+// Get list of S3 objects and parse YAML files for item listings
+$items = [];
+$error = null;
+$awsService = null;
+
+try {
+    $awsService = getAwsService();
+    if ($awsService) {
+        // Get all objects in the bucket
+        $result = $awsService->listObjects('', 1000);
+        $objects = $result['objects'];
+        
+        // Find all YAML files and parse them
+        foreach ($objects as $object) {
+            if (substr($object['key'], -5) === '.yaml') {
+                try {
+                    // Extract tracking number from filename
+                    $trackingNumber = basename($object['key'], '.yaml');
+                    
+                    // Get YAML content
+                    $yamlObject = $awsService->getObject($object['key']);
+                    $yamlContent = $yamlObject['content'];
+                    
+                    // Parse YAML content (simple parser for our specific format)
+                    $data = parseSimpleYaml($yamlContent);
+                    if ($data && isset($data['description']) && isset($data['price']) && isset($data['contact_email'])) {
+                        // Check if corresponding image exists
+                        $imageKey = null;
+                        $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
+                        foreach ($imageExtensions as $ext) {
+                            $possibleImageKey = $trackingNumber . '.' . $ext;
+                            foreach ($objects as $imgObj) {
+                                if ($imgObj['key'] === $possibleImageKey) {
+                                    $imageKey = $possibleImageKey;
+                                    break 2;
+                                }
+                            }
+                        }
+                        
+                        $items[] = [
+                            'tracking_number' => $trackingNumber,
+                            'description' => $data['description'],
+                            'price' => $data['price'],
+                            'contact_email' => $data['contact_email'],
+                            'image_key' => $imageKey,
+                            'posted_date' => $data['posted_date'] ?? 'Unknown',
+                            'yaml_key' => $object['key']
+                        ];
+                    }
+                } catch (Exception $e) {
+                    // Skip invalid YAML files
+                    continue;
+                }
+            }
+        }
+        
+        // Sort items by tracking number (newest first)
+        usort($items, function($a, $b) {
+            return strcmp($b['tracking_number'], $a['tracking_number']);
+        });
+    }
+} catch (Exception $e) {
+    $error = $e->getMessage();
+}
+
+$flashMessage = showFlashMessage();
+$presignedUrl = $_SESSION['presigned_url'] ?? null;
+if ($presignedUrl) {
+    unset($_SESSION['presigned_url']);
+}
+?>
+
+<div class="page-header">
+    <div class="container">
+        <h1>Available Items</h1>
+        <p class="page-subtitle">Browse items posted for sale</p>
+    </div>
+</div>
+
+<div class="content-section">
+    <div class="container">
+        <?php if ($flashMessage): ?>
+            <div class="alert alert-<?php echo escape($flashMessage['type']); ?>">
+                <?php echo escape($flashMessage['text']); ?>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($presignedUrl): ?>
+            <div class="alert alert-info">
+                <h4>Presigned URL Generated</h4>
+                <p>This URL is valid for 1 hour:</p>
+                <div class="url-container">
+                    <input type="text" value="<?php echo escape($presignedUrl); ?>" readonly onclick="this.select()" style="width: 100%; padding: 0.5rem; margin: 0.5rem 0; font-family: monospace; font-size: 0.9rem;">
+                </div>
+                <button onclick="copyToClipboard('<?php echo escape($presignedUrl); ?>')" class="btn btn-secondary">Copy URL</button>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($error): ?>
+            <div class="alert alert-error">
+                <strong>Error:</strong> <?php echo escape($error); ?>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($awsService): ?>
+            <?php if (empty($items)): ?>
+                <div class="no-items">
+                    <div class="no-items-content">
+                        <h3>No items posted yet</h3>
+                        <p>There are currently no items available for sale.</p>
+                        <a href="?page=claim" class="btn btn-primary">Post your first item</a>
+                    </div>
+                </div>
+            <?php else: ?>
+                <div class="items-list">
+                    <h3>Available Items (<?php echo count($items); ?>)</h3>
+                    
+                    <div class="items-grid">
+                        <?php foreach ($items as $item): ?>
+                            <div class="item-card">
+                                <div class="item-image">
+                                    <?php if ($item['image_key']): ?>
+                                        <?php 
+                                        $imageUrl = $awsService->getPresignedUrl($item['image_key'], 3600);
+                                        ?>
+                                        <img src="<?php echo escape($imageUrl); ?>" 
+                                             alt="<?php echo escape($item['description']); ?>" 
+                                             loading="lazy">
+                                    <?php else: ?>
+                                        <div class="no-image-placeholder">
+                                            <span>📷</span>
+                                            <p>No Image Available</p>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                                
+                                <div class="item-details">
+                                    <h4 class="item-price">$<?php echo escape(number_format($item['price'], 2)); ?></h4>
+                                    <p class="item-description"><?php echo escape($item['description']); ?></p>
+                                    
+                                    <div class="item-meta">
+                                        <div class="item-contact">
+                                            <strong>Contact:</strong> 
+                                            <a href="mailto:<?php echo escape($item['contact_email']); ?>">
+                                                <?php echo escape($item['contact_email']); ?>
+                                            </a>
+                                        </div>
+                                        <div class="item-posted">
+                                            <strong>Posted:</strong> <?php echo escape($item['posted_date']); ?>
+                                        </div>
+                                        <div class="item-tracking">
+                                            <strong>ID:</strong> #<?php echo escape($item['tracking_number']); ?>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="item-actions">
+                                        <a href="mailto:<?php echo escape($item['contact_email']); ?>?subject=Interest in item #<?php echo escape($item['tracking_number']); ?>" 
+                                           class="btn btn-primary">
+                                            📧 Contact Seller
+                                        </a>
+                                        <?php if ($item['image_key']): ?>
+                                            <a href="?page=s3&action=presigned&key=<?php echo urlencode($item['image_key']); ?>" 
+                                               class="btn btn-secondary">
+                                                🔗 Share Image
+                                            </a>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+        <?php endif; ?>
+    </div>
+</div>
+
+<script>
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        alert('URL copied to clipboard!');
+    }, function(err) {
+        console.error('Could not copy text: ', err);
+        // Fallback for older browsers
+        var textArea = document.createElement("textarea");
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            alert('URL copied to clipboard!');
+        } catch (err) {
+            alert('Failed to copy URL');
+        }
+        document.body.removeChild(textArea);
+    });
+}
+</script>
+
+<style>
+.items-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 2rem;
+    margin-top: 2rem;
+}
+
+.item-card {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border: 1px solid #e9ecef;
+}
+
+.item-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.item-image {
+    width: 100%;
+    height: 250px;
+    position: relative;
+    overflow: hidden;
+    background: #f8f9fa;
+}
+
+.item-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.item-card:hover .item-image img {
+    transform: scale(1.05);
+}
+
+.no-image-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #6c757d;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+.no-image-placeholder span {
+    font-size: 3rem;
+    margin-bottom: 0.5rem;
+    opacity: 0.7;
+}
+
+.no-image-placeholder p {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.item-details {
+    padding: 1.5rem;
+}
+
+.item-price {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #28a745;
+    margin: 0 0 1rem 0;
+}
+
+.item-description {
+    color: #2c3e50;
+    line-height: 1.5;
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+}
+
+.item-meta {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    font-size: 0.85rem;
+}
+
+.item-meta > div {
+    margin-bottom: 0.5rem;
+}
+
+.item-meta > div:last-child {
+    margin-bottom: 0;
+}
+
+.item-meta strong {
+    color: #495057;
+}
+
+.item-meta a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+.item-meta a:hover {
+    text-decoration: underline;
+}
+
+.item-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.item-actions .btn {
+    flex: 1;
+    min-width: 120px;
+    text-align: center;
+    font-size: 0.875rem;
+    padding: 0.5rem 1rem;
+}
+
+.no-items {
+    text-align: center;
+    padding: 4rem 2rem;
+}
+
+.no-items-content {
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.no-items h3 {
+    color: #495057;
+    margin-bottom: 1rem;
+}
+
+.no-items p {
+    color: #6c757d;
+    margin-bottom: 2rem;
+    line-height: 1.6;
+}
+
+.url-container {
+    background: #f8f9fa;
+    padding: 0.5rem;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .items-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    
+    .item-actions {
+        flex-direction: column;
+    }
+    
+    .item-actions .btn {
+        min-width: auto;
+    }
+}
+</style> 

@@ -50,6 +50,15 @@ uploads/
 config/database.php
 config/secrets.php
 
+# AWS credentials and environment files
+.env
+.env.local
+.env.production
+config/aws-credentials.php
+aws-credentials.json
+*.pem
+*.key
+
 # Composer
 composer.phar
 

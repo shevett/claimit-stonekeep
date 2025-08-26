@@ -9,32 +9,89 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     // Validate form fields
-    $claimType = trim($_POST['claim_type'] ?? '');
     $description = trim($_POST['description'] ?? '');
     $amount = trim($_POST['amount'] ?? '');
     $contactEmail = trim($_POST['contact_email'] ?? '');
-    
-    if (empty($claimType)) {
-        $errors[] = 'Claim type is required';
-    }
     
     if (empty($description)) {
         $errors[] = 'Description is required';
     }
     
-    if (empty($amount) || !is_numeric($amount)) {
-        $errors[] = 'Valid amount is required';
+    if ($amount === '' || !is_numeric($amount) || (float)$amount < 0) {
+        $errors[] = 'Valid amount is required (must be 0 or greater)';
     }
     
     if (empty($contactEmail) || !filter_var($contactEmail, FILTER_VALIDATE_EMAIL)) {
         $errors[] = 'Valid email address is required';
     }
     
+    // Validate uploaded file if present
+    $uploadedFile = $_FILES['item_photo'] ?? null;
+    if ($uploadedFile && $uploadedFile['error'] !== UPLOAD_ERR_NO_FILE) {
+        if ($uploadedFile['error'] !== UPLOAD_ERR_OK) {
+            $errors[] = 'Error uploading file';
+        } elseif ($uploadedFile['size'] > 5 * 1024 * 1024) { // 5MB limit
+            $errors[] = 'File size must be less than 5MB';
+        } elseif (!in_array(strtolower(pathinfo($uploadedFile['name'], PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'gif'])) {
+            $errors[] = 'File must be a valid image (JPG, PNG, GIF)';
+        }
+    }
+    
     if (empty($errors)) {
-        // Process the claim (in a real app, this would save to database)
-        $claimId = 'CLM-' . date('Y') . '-' . sprintf('%06d', rand(1, 999999));
-        setFlashMessage("Your claim has been submitted successfully! Claim ID: {$claimId}", 'success');
-        redirect('claim');
+        try {
+            // Generate tracking number (reverse datestamp)
+            $trackingNumber = date('YmdHis');
+            
+            // Get AWS service
+            $awsService = getAwsService();
+            if (!$awsService) {
+                throw new Exception('AWS service not available');
+            }
+            
+            // Upload image if provided
+            $imageKey = null;
+            if ($uploadedFile && $uploadedFile['error'] === UPLOAD_ERR_OK) {
+                $imageExtension = strtolower(pathinfo($uploadedFile['name'], PATHINFO_EXTENSION));
+                $imageKey = $trackingNumber . '.' . $imageExtension;
+                
+                $imageContent = file_get_contents($uploadedFile['tmp_name']);
+                $mimeType = mime_content_type($uploadedFile['tmp_name']);
+                
+                $awsService->putObject($imageKey, $imageContent, $mimeType);
+            }
+            
+            // Create YAML content
+            $yamlData = [
+                'tracking_number' => $trackingNumber,
+                'description' => $description,
+                'price' => floatval($amount),
+                'contact_email' => $contactEmail,
+                'image_file' => $imageKey,
+                'submitted_at' => date('Y-m-d H:i:s'),
+                'submitted_timestamp' => time()
+            ];
+            
+            // Convert to YAML format
+            $yamlContent = "# Item Posting Data\n";
+            $yamlContent .= "tracking_number: '" . $yamlData['tracking_number'] . "'\n";
+            $yamlContent .= "description: |\n";
+            $yamlContent .= "  " . str_replace("\n", "\n  ", $yamlData['description']) . "\n";
+            $yamlContent .= "price: " . $yamlData['price'] . "\n";
+            $yamlContent .= "contact_email: '" . $yamlData['contact_email'] . "'\n";
+            $yamlContent .= "image_file: " . ($yamlData['image_file'] ? "'" . $yamlData['image_file'] . "'" : "null") . "\n";
+            $yamlContent .= "submitted_at: '" . $yamlData['submitted_at'] . "'\n";
+            $yamlContent .= "submitted_timestamp: " . $yamlData['submitted_timestamp'] . "\n";
+            
+            // Upload YAML file
+            $yamlKey = $trackingNumber . '.yaml';
+            $awsService->putObject($yamlKey, $yamlContent, 'text/plain');
+            
+            setFlashMessage("Your item has been posted successfully! Tracking number: {$trackingNumber}", 'success');
+            redirect('claim');
+            
+        } catch (Exception $e) {
+            $errors[] = 'Failed to submit posting: ' . $e->getMessage();
+        }
     }
 }
 
@@ -43,8 +100,8 @@ $flashMessage = showFlashMessage();
 
 <div class="page-header">
     <div class="container">
-        <h1>Submit a Claim</h1>
-        <p class="page-subtitle">Fill out the form below to submit your claim</p>
+        <h1>Post an Item</h1>
+        <p class="page-subtitle">Fill out the form below to post your item for sale</p>
     </div>
 </div>
 
@@ -66,28 +123,22 @@ $flashMessage = showFlashMessage();
             </div>
         <?php endif; ?>
 
-        <form method="POST" class="claim-form">
+        <form method="POST" class="claim-form" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
             
             <div class="form-group">
-                <label for="claim_type">Claim Type</label>
-                <select name="claim_type" id="claim_type" required>
-                    <option value="">Select claim type...</option>
-                    <option value="insurance" <?php echo ($claimType ?? '') === 'insurance' ? 'selected' : ''; ?>>Insurance Claim</option>
-                    <option value="warranty" <?php echo ($claimType ?? '') === 'warranty' ? 'selected' : ''; ?>>Warranty Claim</option>
-                    <option value="refund" <?php echo ($claimType ?? '') === 'refund' ? 'selected' : ''; ?>>Refund Request</option>
-                    <option value="compensation" <?php echo ($claimType ?? '') === 'compensation' ? 'selected' : ''; ?>>Compensation</option>
-                    <option value="other" <?php echo ($claimType ?? '') === 'other' ? 'selected' : ''; ?>>Other</option>
-                </select>
-            </div>
-
-            <div class="form-group">
                 <label for="description">Description</label>
-                <textarea name="description" id="description" rows="5" required placeholder="Describe your claim in detail..."><?php echo escape($description ?? ''); ?></textarea>
+                <textarea name="description" id="description" rows="5" required placeholder="Describe the item in detail..."><?php echo escape($description ?? ''); ?></textarea>
             </div>
 
             <div class="form-group">
-                <label for="amount">Claim Amount ($)</label>
+                <label for="item_photo">Upload a picture of your item</label>
+                <input type="file" name="item_photo" id="item_photo" accept="image/*">
+                <small style="color: var(--gray-500); font-size: 0.875rem;">Accepted formats: JPG, PNG, GIF (max 5MB)</small>
+            </div>
+
+            <div class="form-group">
+                <label for="amount">Item price ($)</label>
                 <input type="number" name="amount" id="amount" step="0.01" min="0" required value="<?php echo escape($amount ?? ''); ?>">
             </div>
 
@@ -97,7 +148,7 @@ $flashMessage = showFlashMessage();
             </div>
 
             <div class="form-group">
-                <button type="submit" class="btn btn-primary">Submit Claim</button>
+                <button type="submit" class="btn btn-primary">Post Item</button>
                 <a href="?page=home" class="btn btn-secondary">Cancel</a>
             </div>
         </form>

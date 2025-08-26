@@ -1,0 +1,53 @@
+<?php
+// Suppress PHP 8.4 deprecation warnings while keeping actual errors
+error_reporting(E_ERROR | E_WARNING | E_PARSE | E_NOTICE);
+
+// Router for PHP development server
+// This ensures static files are served correctly
+
+$requestUri = $_SERVER['REQUEST_URI'];
+$path = parse_url($requestUri, PHP_URL_PATH);
+
+// Handle static files
+if (preg_match('/\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/', $path)) {
+    // For static files, check if they exist and serve them directly
+    $filePath = __DIR__ . $path;
+    
+    if (file_exists($filePath)) {
+        // Set correct content type
+        $mimeTypes = [
+            'css' => 'text/css',
+            'js' => 'application/javascript',
+            'png' => 'image/png',
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'gif' => 'image/gif',
+            'ico' => 'image/x-icon',
+            'svg' => 'image/svg+xml',
+            'woff' => 'font/woff',
+            'woff2' => 'font/woff2',
+            'ttf' => 'font/ttf',
+            'eot' => 'application/vnd.ms-fontobject'
+        ];
+        
+        $extension = pathinfo($path, PATHINFO_EXTENSION);
+        $contentType = $mimeTypes[$extension] ?? 'application/octet-stream';
+        
+        // Clear any previous headers and set the correct content type
+        header_remove();
+        header('Content-Type: ' . $contentType);
+        header('Content-Length: ' . filesize($filePath));
+        
+        // Output the file and exit
+        readfile($filePath);
+        exit;
+    } else {
+        // File not found
+        http_response_code(404);
+        echo "File not found";
+        exit;
+    }
+}
+
+// For all other requests, serve through index.php
+require_once __DIR__ . '/public/index.php'; 
