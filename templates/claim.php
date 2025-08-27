@@ -9,9 +9,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     // Validate form fields
+    $title = trim($_POST['title'] ?? '');
     $description = trim($_POST['description'] ?? '');
     $amount = trim($_POST['amount'] ?? '');
     $contactEmail = trim($_POST['contact_email'] ?? '');
+    
+    if (empty($title)) {
+        $errors[] = 'Title is required';
+    }
     
     if (empty($description)) {
         $errors[] = 'Description is required';
@@ -63,6 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Create YAML content
             $yamlData = [
                 'tracking_number' => $trackingNumber,
+                'title' => $title,
                 'description' => $description,
                 'price' => floatval($amount),
                 'contact_email' => $contactEmail,
@@ -74,6 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Convert to YAML format
             $yamlContent = "# Item Posting Data\n";
             $yamlContent .= "tracking_number: '" . $yamlData['tracking_number'] . "'\n";
+            $yamlContent .= "title: '" . str_replace("'", "''", $yamlData['title']) . "'\n";
             $yamlContent .= "description: |\n";
             $yamlContent .= "  " . str_replace("\n", "\n  ", $yamlData['description']) . "\n";
             $yamlContent .= "price: " . $yamlData['price'] . "\n";
@@ -126,6 +133,11 @@ $flashMessage = showFlashMessage();
         <form method="POST" class="claim-form" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
             
+            <div class="form-group">
+                <label for="title">Item Title</label>
+                <input type="text" name="title" id="title" required placeholder="Give your item a descriptive title..." value="<?php echo escape($title ?? ''); ?>">
+            </div>
+
             <div class="form-group">
                 <label for="description">Description</label>
                 <textarea name="description" id="description" rows="5" required placeholder="Describe the item in detail..."><?php echo escape($description ?? ''); ?></textarea>

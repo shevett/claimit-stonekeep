@@ -129,9 +129,14 @@ try {
                             }
                         }
                         
+                        // Handle backward compatibility - use description as title if title is missing
+                        $title = $data['title'] ?? $data['description'];
+                        $description = $data['description'];
+                        
                         $items[] = [
                             'tracking_number' => $trackingNumber,
-                            'description' => $data['description'],
+                            'title' => $title,
+                            'description' => $description,
                             'price' => $data['price'],
                             'contact_email' => $data['contact_email'],
                             'image_key' => $imageKey,
@@ -228,8 +233,17 @@ if ($presignedUrl) {
                                 </div>
                                 
                                 <div class="item-details">
-                                    <h4 class="item-price">$<?php echo escape(number_format($item['price'], 2)); ?></h4>
-                                    <p class="item-description"><?php echo escape($item['description']); ?></p>
+                                    <div class="item-header">
+                                        <h4 class="item-title"><?php echo escape($item['title']); ?></h4>
+                                        <div class="item-price">
+                                            <?php if ($item['price'] == 0): ?>
+                                                <span class="price-free">FREE</span>
+                                            <?php else: ?>
+                                                <span class="price-amount">$<?php echo escape(number_format($item['price'], 2)); ?></span>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                    <p class="item-description"><?php echo escape(strlen($item['description']) > 100 ? substr($item['description'], 0, 100) . '...' : $item['description']); ?></p>
                                     
                                     <div class="item-meta">
                                         <div class="item-contact">
@@ -253,7 +267,7 @@ if ($presignedUrl) {
                                             📧 Contact Seller
                                         </a>
                                         <button onclick="claimItem('<?php echo escape($item['tracking_number']); ?>')" 
-                                                class="btn btn-success claim-btn" 
+                                                class="btn btn-primary claim-btn" 
                                                 title="Claim this item">
                                             🏆 Claim this!
                                         </button>
@@ -541,18 +555,58 @@ function showMessage(message, type) {
     padding: 1.5rem;
 }
 
+.item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.item-title {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #343a40;
+    flex-grow: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .item-price {
-    font-size: 1.5rem;
+    font-size: 1.1rem;
     font-weight: 700;
     color: #28a745;
-    margin: 0 0 1rem 0;
+    background: #e9ecef;
+    padding: 0.4rem 0.8rem;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.price-free {
+    color: #28a745;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.price-amount {
+    color: #28a745;
+    font-weight: 600;
+    font-size: 0.9rem;
 }
 
 .item-description {
-    color: #2c3e50;
+    color: #495057;
     line-height: 1.5;
     margin-bottom: 1.5rem;
     font-size: 0.95rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2; /* Show 2 lines of text */
+    -webkit-box-orient: vertical;
 }
 
 .item-meta {
@@ -697,17 +751,27 @@ function showMessage(message, type) {
 @media (max-width: 768px) {
     .items-grid {
         grid-template-columns: 1fr;
-        gap: 1.5rem;
+        gap: 1rem;
     }
     
-    .item-actions {
+    .item-card {
+        margin-bottom: 1rem;
+    }
+    
+    .item-header {
         flex-direction: column;
+        align-items: flex-start;
         gap: 0.5rem;
     }
     
-    .item-actions .btn {
-        min-width: auto;
-        flex: none;
+    .item-title {
+        white-space: normal;
+        line-height: 1.3;
+        margin-bottom: 0;
+    }
+    
+    .item-price {
+        align-self: flex-end;
     }
 }
 

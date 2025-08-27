@@ -44,9 +44,14 @@ try {
                     }
                 }
                 
+                // Handle backward compatibility - use description as title if title is missing
+                $title = $data['title'] ?? $data['description'];
+                $description = $data['description'];
+                
                 $item = [
                     'tracking_number' => $itemId,
-                    'description' => $data['description'],
+                    'title' => $title,
+                    'description' => $description,
                     'price' => $data['price'],
                     'contact_email' => $data['contact_email'],
                     'image_key' => $imageKey,
@@ -80,7 +85,7 @@ $flashMessage = showFlashMessage();
     <div class="container">
         <div class="header-with-back">
             <a href="?page=items" class="back-link">← Back to All Items</a>
-            <h1>Item Details</h1>
+            <h1><?php echo escape($item['title']); ?></h1>
             <p class="page-subtitle">Item #<?php echo escape($item['tracking_number']); ?></p>
         </div>
     </div>
@@ -98,13 +103,13 @@ $flashMessage = showFlashMessage();
             <div class="item-detail-image">
                 <?php if ($item['image_key']): ?>
                     <?php 
-                    $imageUrl = $awsService->getPresignedUrl($item['image_key'], 3600);
+                        $imageUrl = $awsService->getPresignedUrl($item['image_key'], 3600);
                     ?>
                     <img src="<?php echo escape($imageUrl); ?>" 
-                         alt="<?php echo escape($item['description']); ?>" 
-                         class="main-item-image">
+                         alt="<?php echo escape($item['title']); ?>" 
+                         class="detail-image">
                 <?php else: ?>
-                    <div class="no-image-placeholder large">
+                    <div class="no-image-placeholder">
                         <span>📷</span>
                         <p>No Image Available</p>
                     </div>
@@ -149,12 +154,12 @@ $flashMessage = showFlashMessage();
                 
                 <div class="actions-section">
                     <div class="action-buttons">
-                        <a href="mailto:<?php echo escape($item['contact_email']); ?>?subject=Interest in item #<?php echo escape($item['tracking_number']); ?>&body=Hi! I'm interested in your item: <?php echo escape($item['description']); ?>" 
+                        <a href="mailto:<?php echo escape($item['contact_email']); ?>?subject=Interest in <?php echo urlencode($item['title']); ?> (Item #<?php echo escape($item['tracking_number']); ?>)&body=Hi! I'm interested in your item: <?php echo urlencode($item['title']); ?>" 
                            class="btn btn-primary btn-large">
                             📧 Contact Seller
                         </a>
                         <button onclick="claimItem('<?php echo escape($item['tracking_number']); ?>')" 
-                                class="btn btn-success btn-large claim-btn" 
+                                class="btn btn-primary btn-large claim-btn" 
                                 title="Claim this item">
                             🏆 Claim this!
                         </button>
@@ -220,23 +225,28 @@ $flashMessage = showFlashMessage();
     height: fit-content;
 }
 
-.main-item-image {
+.detail-image {
     width: 100%;
+    max-width: 500px;
+    max-height: 70vh;
     height: auto;
     border-radius: 12px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    object-fit: contain;
+    display: block;
 }
 
-.no-image-placeholder.large {
+.no-image-placeholder {
     background: #f8f9fa;
     border: 2px dashed #dee2e6;
     border-radius: 12px;
     padding: 4rem 2rem;
     text-align: center;
     color: #6c757d;
+    max-width: 500px;
 }
 
-.no-image-placeholder.large span {
+.no-image-placeholder span {
     font-size: 4rem;
     display: block;
     margin-bottom: 1rem;
