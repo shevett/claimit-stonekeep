@@ -91,7 +91,7 @@ This guide will help you set up Google OAuth authentication for your ClaimIt mar
 After logging in, verify these features work:
 
 - ✅ User avatar and name appear in navigation
-- ✅ "My Posts" dashboard shows user-specific items
+- ✅ "My Listings" dashboard shows user-specific items
 - ✅ "Make a new posting" creates items associated with your user
 - ✅ Delete buttons only appear on your own items
 - ✅ Other users' items cannot be deleted (security)

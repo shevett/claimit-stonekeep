@@ -464,6 +464,21 @@ p {
     border: 2px dashed var(--gray-300);
 }
 
+.about-image {
+    width: 100%;
+    height: auto;
+    max-height: 400px;
+    object-fit: cover;
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.about-image:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-xl);
+}
+
 /* Modern Forms */
 .form-group {
     margin-bottom: var(--space-6);

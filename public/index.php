@@ -203,7 +203,7 @@ $isLoggedIn = isLoggedIn();
                     <li><a href="?page=items" class="nav-link <?php echo $page === 'items' ? 'active' : ''; ?>">View available items</a></li>
                     <?php if ($isLoggedIn): ?>
                         <li><a href="?page=claim" class="nav-link <?php echo $page === 'claim' ? 'active' : ''; ?>">Make a new posting</a></li>
-                        <li><a href="?page=dashboard" class="nav-link <?php echo $page === 'dashboard' ? 'active' : ''; ?>">My Posts</a></li>
+                        <li><a href="?page=dashboard" class="nav-link <?php echo $page === 'dashboard' ? 'active' : ''; ?>">My Listings</a></li>
                         <li class="nav-user-menu">
                             <span class="nav-user-info">
                                 <?php if (!empty($currentUser['picture'])): ?>
