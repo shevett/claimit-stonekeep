@@ -1,64 +1,4 @@
 <?php
-// Simple YAML parser for our specific format
-function parseSimpleYaml($yamlContent) {
-    $data = [];
-    $lines = explode("\n", $yamlContent);
-    $i = 0;
-    
-    while ($i < count($lines)) {
-        $line = trim($lines[$i]);
-        
-        // Skip comments and empty lines
-        if (empty($line) || $line[0] === '#') {
-            $i++;
-            continue;
-        }
-        
-        // Parse key: value pairs
-        if (strpos($line, ':') !== false) {
-            list($key, $value) = explode(':', $line, 2);
-            $key = trim($key);
-            $value = trim($value);
-            
-            // Handle multi-line values (starts with |)
-            if ($value === '|') {
-                $multilineValue = '';
-                $i++; // Move to next line
-                
-                // Read subsequent indented lines
-                while ($i < count($lines)) {
-                    $nextLine = $lines[$i];
-                    if (empty(trim($nextLine))) {
-                        $i++;
-                        break; // End of multiline block
-                    }
-                    if (preg_match('/^  (.*)$/', $nextLine, $matches)) {
-                        if ($multilineValue !== '') {
-                            $multilineValue .= ' ';
-                        }
-                        $multilineValue .= $matches[1];
-                        $i++;
-                    } else {
-                        break; // End of multiline block
-                    }
-                }
-                $data[$key] = $multilineValue;
-                continue;
-            }
-            
-            // Handle regular values
-            // Remove quotes if present
-            if (strlen($value) >= 2 && (($value[0] === '"' && $value[-1] === '"') || ($value[0] === "'" && $value[-1] === "'"))) {
-                $value = substr($value, 1, -1);
-            }
-            
-            $data[$key] = $value;
-        }
-        $i++;
-    }
-    
-    return $data;
-}
 
 // Check if AWS credentials are configured
 if (!hasAwsCredentials()) {
@@ -270,7 +210,8 @@ if ($presignedUrl) {
                     <div class="items-grid">
                         <?php foreach ($items as $item): ?>
                             <div class="item-card">
-                                <div class="item-image">
+                                <a href="?page=item&id=<?php echo escape($item['tracking_number']); ?>" class="item-link">
+                                    <div class="item-image">
                                     <?php if ($item['image_key']): ?>
                                         <?php 
                                         $imageUrl = $awsService->getPresignedUrl($item['image_key'], 3600);
@@ -304,6 +245,7 @@ if ($presignedUrl) {
                                             <strong>ID:</strong> #<?php echo escape($item['tracking_number']); ?>
                                         </div>
                                     </div>
+                                </a>
                                     
                                     <div class="item-actions">
                                         <a href="mailto:<?php echo escape($item['contact_email']); ?>?subject=Interest in item #<?php echo escape($item['tracking_number']); ?>" 
@@ -674,6 +616,39 @@ function showMessage(message, type) {
     border-color: #6c757d !important;
     cursor: not-allowed !important;
     transform: none !important;
+}
+
+.item-link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.item-link:hover .item-card {
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+}
+
+.item-link:hover .item-image img {
+    transform: scale(1.02);
+}
+
+.item-card {
+    transition: all 0.3s ease;
+}
+
+.item-meta a {
+    position: relative;
+    z-index: 2;
+    pointer-events: auto;
+}
+
+.item-actions {
+    position: relative;
+    z-index: 3;
+    pointer-events: auto;
 }
 
 .claim-btn {
