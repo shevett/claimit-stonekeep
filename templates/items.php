@@ -94,7 +94,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'download' && isset($_GET['key
     
     if (!isValidS3Key($key)) {
         setFlashMessage('Invalid file key provided.', 'error');
-        redirect('s3');
+        redirect('items');
     }
     
     try {
@@ -116,7 +116,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'download' && isset($_GET['key
         
     } catch (Exception $e) {
         setFlashMessage('Failed to download file: ' . $e->getMessage(), 'error');
-        redirect('s3');
+        redirect('items');
     }
 }
 
@@ -126,7 +126,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'presigned' && isset($_GET['ke
     
     if (!isValidS3Key($key)) {
         setFlashMessage('Invalid file key provided.', 'error');
-        redirect('s3');
+        redirect('items');
     }
     
     try {
@@ -145,7 +145,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'presigned' && isset($_GET['ke
         setFlashMessage('Failed to generate presigned URL: ' . $e->getMessage(), 'error');
     }
     
-    redirect('s3');
+    redirect('items');
 }
 
 

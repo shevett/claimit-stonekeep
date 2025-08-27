@@ -76,12 +76,12 @@ sudo systemctl restart apache2
 ### With .htaccess (Clean URLs):
 - `https://claimit.stonekeep.com/` → Home
 - `https://claimit.stonekeep.com/claim` → Post Item  
-- `https://claimit.stonekeep.com/s3` → View Items
+- `https://claimit.stonekeep.com/items` → View Items
 
 ### Without .htaccess (Query Parameters):
 - `https://claimit.stonekeep.com/` → Home
 - `https://claimit.stonekeep.com/?page=claim` → Post Item
-- `https://claimit.stonekeep.com/?page=s3` → View Items
+- `https://claimit.stonekeep.com/?page=items` → View Items
 
 ## 🔒 Security Considerations
 

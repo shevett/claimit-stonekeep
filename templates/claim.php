@@ -87,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $awsService->putObject($yamlKey, $yamlContent, 'text/plain');
             
             setFlashMessage("Your item has been posted successfully! Tracking number: {$trackingNumber}", 'success');
-            redirect('s3');
+            redirect('items');
             
         } catch (Exception $e) {
             $errors[] = 'Failed to submit posting: ' . $e->getMessage();

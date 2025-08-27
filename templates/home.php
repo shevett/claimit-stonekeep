@@ -3,7 +3,7 @@
         <h1 class="hero-title">Welcome to ClaimIt</h1>
         <div class="hero-buttons">
             <a href="?page=claim" class="btn btn-primary">Make a new posting</a>
-            <a href="?page=s3" class="btn btn-secondary">View available items</a>
+            <a href="?page=items" class="btn btn-secondary">View available items</a>
         </div>
     </div>
 </div>

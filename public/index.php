@@ -97,7 +97,7 @@ $page = $_GET['page'] ?? 'home';
 $page = preg_replace('/[^a-zA-Z0-9\-]/', '', $page);
 
 // Define available pages
-$availablePages = ['home', 'about', 'contact', 'claim', 's3'];
+$availablePages = ['home', 'about', 'contact', 'claim', 'items'];
 
 if (!in_array($page, $availablePages)) {
     $page = 'home';
@@ -123,7 +123,7 @@ if (!in_array($page, $availablePages)) {
                 <ul class="nav-menu">
                     <li><a href="?page=about" class="nav-link <?php echo $page === 'about' ? 'active' : ''; ?>">About</a></li>
                     <li><a href="?page=claim" class="nav-link <?php echo $page === 'claim' ? 'active' : ''; ?>">Make a new posting</a></li>
-                    <li><a href="?page=s3" class="nav-link <?php echo $page === 's3' ? 'active' : ''; ?>">View available items</a></li>
+                                            <li><a href="?page=items" class="nav-link <?php echo $page === 'items' ? 'active' : ''; ?>">View available items</a></li>
                     <li><a href="?page=contact" class="nav-link <?php echo $page === 'contact' ? 'active' : ''; ?>">Contact</a></li>
                 </ul>
             </div>
