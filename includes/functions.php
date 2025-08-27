@@ -19,20 +19,66 @@ function redirect($page = 'home') {
 }
 
 /**
- * Check if user is logged in (placeholder function)
+ * Get Authentication service instance
  */
-function isLoggedIn() {
-    return isset($_SESSION['user_id']);
+function getAuthService() {
+    static $authService = null;
+    
+    if ($authService === null) {
+        try {
+            $awsService = getAwsService();
+            if (!$awsService) {
+                throw new Exception('AWS service not available');
+            }
+            $authService = new AuthService($awsService);
+        } catch (Exception $e) {
+            error_log('Failed to initialize Auth service: ' . $e->getMessage());
+            return null;
+        }
+    }
+    
+    return $authService;
 }
 
 /**
- * Get current user data (placeholder function)
+ * Check if user is logged in
+ */
+function isLoggedIn() {
+    $authService = getAuthService();
+    return $authService ? $authService->isLoggedIn() : false;
+}
+
+/**
+ * Get current authenticated user
  */
 function getCurrentUser() {
-    if (isLoggedIn()) {
-        return $_SESSION['user_data'] ?? null;
+    $authService = getAuthService();
+    return $authService ? $authService->getCurrentUser() : null;
+}
+
+/**
+ * Require authentication (redirect to login if not authenticated)
+ */
+function requireAuth() {
+    $authService = getAuthService();
+    if ($authService) {
+        $authService->requireAuth();
+    } else {
+        redirect('login');
     }
-    return null;
+}
+
+/**
+ * Check if current user owns an item
+ */
+function currentUserOwnsItem(string $trackingNumber): bool {
+    $user = getCurrentUser();
+    if (!$user) {
+        return false;
+    }
+    
+    $authService = getAuthService();
+    return $authService ? $authService->userOwnsItem($user['id'], $trackingNumber) : false;
 }
 
 /**
@@ -87,12 +133,18 @@ function setFlashMessage($message, $type = 'info') {
  * @return ClaimIt\AwsService|null
  */
 function getAwsService() {
-    try {
-        return new ClaimIt\AwsService();
-    } catch (Exception $e) {
-        error_log('AWS Service initialization failed: ' . $e->getMessage());
-        return null;
+    static $awsService = null;
+    
+    if ($awsService === null) {
+        try {
+            $awsService = new ClaimIt\AwsService();
+        } catch (Exception $e) {
+            error_log('AWS Service initialization failed: ' . $e->getMessage());
+            return null;
+        }
     }
+    
+    return $awsService;
 }
 
 /**

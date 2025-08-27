@@ -271,11 +271,13 @@ if ($presignedUrl) {
                                                 title="Claim this item">
                                             🏆 Claim this!
                                         </button>
-                                        <button onclick="deleteItem('<?php echo escape($item['tracking_number']); ?>')" 
-                                                class="btn btn-danger delete-btn" 
-                                                title="Delete this item">
-                                            🗑️ Delete
-                                        </button>
+                                        <?php if (currentUserOwnsItem($item['tracking_number'])): ?>
+                                            <button onclick="deleteItem('<?php echo escape($item['tracking_number']); ?>')" 
+                                                    class="btn btn-danger delete-btn" 
+                                                    title="Delete this item">
+                                                🗑️ Delete
+                                            </button>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                             </div>

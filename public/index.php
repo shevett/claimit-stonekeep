@@ -32,6 +32,9 @@ session_start();
 // Load includes
 require_once __DIR__ . '/../includes/functions.php';
 
+// Load authentication service
+require_once __DIR__ . '/../src/AuthService.php';
+
 // Handle AJAX delete requests before any HTML output
 if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['tracking_number'])) {
     header('Content-Type: application/json');
@@ -40,6 +43,18 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['tr
     
     if (!preg_match('/^\d{14}$/', $trackingNumber)) {
         echo json_encode(['success' => false, 'message' => 'Invalid tracking number']);
+        exit;
+    }
+    
+    // Check if user is logged in
+    if (!isLoggedIn()) {
+        echo json_encode(['success' => false, 'message' => 'Authentication required']);
+        exit;
+    }
+    
+    // Check if user owns this item
+    if (!currentUserOwnsItem($trackingNumber)) {
+        echo json_encode(['success' => false, 'message' => 'You can only delete your own items']);
         exit;
     }
     
@@ -90,6 +105,65 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['tr
     exit;
 }
 
+// Handle authentication routes before any HTML output
+if (isset($_GET['page']) && $_GET['page'] === 'auth' && isset($_GET['action'])) {
+    $action = $_GET['action'];
+    
+    if ($action === 'google') {
+        // Redirect to Google OAuth
+        try {
+            $authService = getAuthService();
+            if ($authService) {
+                $authUrl = $authService->getAuthUrl();
+                header('Location: ' . $authUrl);
+                exit;
+            } else {
+                setFlashMessage('Authentication service unavailable', 'error');
+                redirect('login');
+            }
+        } catch (Exception $e) {
+            setFlashMessage('Authentication error: ' . $e->getMessage(), 'error');
+            redirect('login');
+        }
+    } elseif ($action === 'callback') {
+        // Handle Google OAuth callback
+        try {
+            if (isset($_GET['code'])) {
+                $authService = getAuthService();
+                if ($authService) {
+                    $user = $authService->handleCallback($_GET['code']);
+                    setFlashMessage('Welcome, ' . $user['name'] . '!', 'success');
+                    redirect('dashboard');
+                } else {
+                    throw new Exception('Authentication service unavailable');
+                }
+            } elseif (isset($_GET['error'])) {
+                throw new Exception('OAuth error: ' . $_GET['error']);
+            } else {
+                throw new Exception('No authorization code received');
+            }
+        } catch (Exception $e) {
+            setFlashMessage('Login failed: ' . $e->getMessage(), 'error');
+            redirect('login');
+        }
+    } elseif ($action === 'logout') {
+        // Handle logout
+        try {
+            $authService = getAuthService();
+            if ($authService) {
+                $authService->logout();
+            }
+            setFlashMessage('You have been logged out successfully', 'success');
+            redirect('home');
+        } catch (Exception $e) {
+            setFlashMessage('Logout error: ' . $e->getMessage(), 'error');
+            redirect('home');
+        }
+    }
+}
+
+
+
 // Simple routing based on URL parameter
 $page = $_GET['page'] ?? 'home';
 
@@ -97,11 +171,15 @@ $page = $_GET['page'] ?? 'home';
 $page = preg_replace('/[^a-zA-Z0-9\-]/', '', $page);
 
 // Define available pages
-$availablePages = ['home', 'about', 'contact', 'claim', 'items', 'item'];
+$availablePages = ['home', 'about', 'contact', 'claim', 'items', 'item', 'login', 'dashboard'];
 
 if (!in_array($page, $availablePages)) {
     $page = 'home';
 }
+
+// Get current user for navigation and page context
+$currentUser = getCurrentUser();
+$isLoggedIn = isLoggedIn();
 
 ?>
 <!DOCTYPE html>
@@ -122,8 +200,33 @@ if (!in_array($page, $availablePages)) {
                 <a href="?page=home" class="nav-logo">ClaimIt</a>
                 <ul class="nav-menu">
                     <li><a href="?page=about" class="nav-link <?php echo $page === 'about' ? 'active' : ''; ?>">About</a></li>
-                    <li><a href="?page=claim" class="nav-link <?php echo $page === 'claim' ? 'active' : ''; ?>">Make a new posting</a></li>
-                                            <li><a href="?page=items" class="nav-link <?php echo $page === 'items' ? 'active' : ''; ?>">View available items</a></li>
+                    <li><a href="?page=items" class="nav-link <?php echo $page === 'items' ? 'active' : ''; ?>">View available items</a></li>
+                    <?php if ($isLoggedIn): ?>
+                        <li><a href="?page=claim" class="nav-link <?php echo $page === 'claim' ? 'active' : ''; ?>">Make a new posting</a></li>
+                        <li><a href="?page=dashboard" class="nav-link <?php echo $page === 'dashboard' ? 'active' : ''; ?>">My Posts</a></li>
+                        <li class="nav-user-menu">
+                            <span class="nav-user-info">
+                                <?php if (!empty($currentUser['picture'])): ?>
+                                    <img src="<?php echo escape($currentUser['picture']); ?>" 
+                                         alt="Profile" 
+                                         class="nav-user-avatar"
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';"
+                                         referrerpolicy="no-referrer">
+                                    <div class="nav-user-avatar-fallback" style="display:none;">
+                                        <?php echo strtoupper(substr($currentUser['name'], 0, 1)); ?>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="nav-user-avatar-fallback">
+                                        <?php echo strtoupper(substr($currentUser['name'], 0, 1)); ?>
+                                    </div>
+                                <?php endif; ?>
+                                <?php echo escape($currentUser['name']); ?>
+                            </span>
+                            <a href="?page=auth&action=logout" class="nav-link">Logout</a>
+                        </li>
+                    <?php else: ?>
+                        <li><a href="?page=login" class="nav-link <?php echo $page === 'login' ? 'active' : ''; ?>">Login</a></li>
+                    <?php endif; ?>
                     <li><a href="?page=contact" class="nav-link <?php echo $page === 'contact' ? 'active' : ''; ?>">Contact</a></li>
                 </ul>
             </div>

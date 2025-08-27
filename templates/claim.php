@@ -1,4 +1,9 @@
 <?php
+// Require authentication to post items
+requireAuth();
+
+$currentUser = getCurrentUser();
+
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $errors = [];
@@ -73,6 +78,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'price' => floatval($amount),
                 'contact_email' => $contactEmail,
                 'image_file' => $imageKey,
+                'user_id' => $currentUser['id'],
+                'user_name' => $currentUser['name'],
+                'user_email' => $currentUser['email'],
                 'submitted_at' => date('Y-m-d H:i:s'),
                 'submitted_timestamp' => time()
             ];
@@ -86,6 +94,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $yamlContent .= "price: " . $yamlData['price'] . "\n";
             $yamlContent .= "contact_email: '" . $yamlData['contact_email'] . "'\n";
             $yamlContent .= "image_file: " . ($yamlData['image_file'] ? "'" . $yamlData['image_file'] . "'" : "null") . "\n";
+            $yamlContent .= "user_id: '" . $yamlData['user_id'] . "'\n";
+            $yamlContent .= "user_name: '" . str_replace("'", "''", $yamlData['user_name']) . "'\n";
+            $yamlContent .= "user_email: '" . $yamlData['user_email'] . "'\n";
             $yamlContent .= "submitted_at: '" . $yamlData['submitted_at'] . "'\n";
             $yamlContent .= "submitted_timestamp: " . $yamlData['submitted_timestamp'] . "\n";
             

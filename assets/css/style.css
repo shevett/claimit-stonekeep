@@ -112,6 +112,7 @@ p {
     max-width: 1280px;
     margin: 0 auto;
     padding: 0 var(--space-6);
+    min-height: 60px; /* Ensure consistent container height */
 }
 
 .nav-logo {
@@ -125,8 +126,15 @@ p {
 
 .nav-menu {
     display: flex;
+    align-items: center;
     list-style: none;
     gap: var(--space-8);
+    min-height: 44px; /* Consistent height for navigation bar */
+}
+
+.nav-menu li {
+    display: flex;
+    align-items: center;
 }
 
 .nav-link {
@@ -138,6 +146,9 @@ p {
     border-radius: var(--radius-lg);
     transition: all 0.2s ease;
     position: relative;
+    display: flex;
+    align-items: center;
+    min-height: 36px; /* Consistent height with user info */
 }
 
 .nav-link:hover {
@@ -149,6 +160,95 @@ p {
     color: var(--primary-600);
     background-color: var(--primary-100);
     font-weight: 600;
+}
+
+/* User Navigation Menu */
+.nav-user-menu {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    position: relative;
+}
+
+.nav-user-info {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--gray-700);
+    font-weight: 500;
+    padding: var(--space-2) var(--space-3);
+    background: var(--gray-100);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--gray-200);
+    min-height: 36px; /* Match nav-link height */
+    box-sizing: border-box;
+}
+
+.nav-user-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: var(--shadow-sm);
+    flex-shrink: 0; /* Prevent avatar from shrinking */
+    object-fit: cover; /* Ensure image scales properly */
+}
+
+.nav-user-avatar-fallback {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: var(--shadow-sm);
+    flex-shrink: 0;
+    background: var(--primary-500);
+    color: white;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+}
+
+@media (max-width: 768px) {
+    .nav-menu {
+        flex-direction: column;
+        gap: var(--space-2);
+        align-items: stretch; /* Full width on mobile */
+        min-height: auto;
+    }
+    
+    .nav-menu li {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .nav-container {
+        flex-direction: column;
+        gap: var(--space-4);
+        min-height: auto;
+        padding: var(--space-4) var(--space-6);
+    }
+    
+    .nav-user-menu {
+        flex-direction: column;
+        gap: var(--space-2);
+        width: 100%;
+        align-items: center;
+    }
+    
+    .nav-user-info {
+        justify-content: center;
+        width: 100%;
+        max-width: 300px;
+    }
+    
+    .nav-link {
+        justify-content: center;
+        width: 100%;
+        max-width: 300px;
+    }
 }
 
 /* Modern Main Content */

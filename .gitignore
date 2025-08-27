@@ -55,6 +55,7 @@ config/secrets.php
 .env.local
 .env.production
 config/aws-credentials.php
+config/google-oauth.php
 aws-credentials.json
 *.pem
 *.key
