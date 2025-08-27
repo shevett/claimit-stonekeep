@@ -332,6 +332,24 @@ if ($presignedUrl) {
     </div>
 </div>
 
+<!-- Delete Confirmation Modal -->
+<div id="modalOverlay" class="modal-overlay" onclick="hideDeleteModal()"></div>
+<div id="deleteModal" class="delete-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>🗑️ Delete Item</h3>
+        </div>
+        <div class="modal-body">
+            <p>Are you sure you want to delete this item?</p>
+            <p class="warning-text">This action cannot be undone.</p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="hideDeleteModal()">Cancel</button>
+            <button type="button" class="btn btn-danger" onclick="confirmDelete()">Delete Item</button>
+        </div>
+    </div>
+</div>
+
 <script>
 function copyToClipboard(text) {
     navigator.clipboard.writeText(text).then(function() {
@@ -355,13 +373,63 @@ function copyToClipboard(text) {
 }
 
 function deleteItem(trackingNumber) {
-    if (!confirm('Are you sure you want to delete this item? This action cannot be undone.')) {
-        return;
-    }
+    // Store the context for the modal
+    window.deleteItemContext = {
+        trackingNumber: trackingNumber,
+        itemCard: event.target.closest('.item-card'),
+        deleteBtn: event.target
+    };
     
-    // Find the item card element
-    const itemCard = event.target.closest('.item-card');
-    const deleteBtn = event.target;
+    // Show the confirmation modal
+    showDeleteModal();
+}
+
+function showDeleteModal() {
+    const modal = document.getElementById('deleteModal');
+    const overlay = document.getElementById('modalOverlay');
+    
+    modal.style.display = 'block';
+    overlay.style.display = 'block';
+    
+    // Add keyboard support
+    document.addEventListener('keydown', handleModalKeydown);
+    
+    // Animate in
+    setTimeout(() => {
+        overlay.classList.add('show');
+        modal.classList.add('show');
+    }, 10);
+}
+
+function hideDeleteModal() {
+    const modal = document.getElementById('deleteModal');
+    const overlay = document.getElementById('modalOverlay');
+    
+    modal.classList.remove('show');
+    overlay.classList.remove('show');
+    
+    // Remove keyboard support
+    document.removeEventListener('keydown', handleModalKeydown);
+    
+    setTimeout(() => {
+        modal.style.display = 'none';
+        overlay.style.display = 'none';
+    }, 300);
+}
+
+function handleModalKeydown(event) {
+    if (event.key === 'Escape') {
+        hideDeleteModal();
+    }
+}
+
+function confirmDelete() {
+    hideDeleteModal();
+    
+    const context = window.deleteItemContext;
+    if (!context) return;
+    
+    const { trackingNumber, itemCard, deleteBtn } = context;
     
     // Disable the delete button and show loading state
     deleteBtn.disabled = true;
@@ -659,6 +727,122 @@ function showMessage(message, type) {
     .item-actions .btn {
         font-size: 0.8rem;
         padding: 0.4rem 0.8rem;
+    }
+}
+
+/* Delete Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9998;
+    display: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.modal-overlay.show {
+    opacity: 1;
+}
+
+.delete-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.7);
+    z-index: 9999;
+    display: none;
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+.delete-modal.show {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.modal-content {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    min-width: 400px;
+    max-width: 90vw;
+}
+
+.modal-header {
+    padding: 1.5rem 2rem 1rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #dc3545;
+    font-size: 1.25rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.modal-body {
+    padding: 1.5rem 2rem;
+    color: #495057;
+    line-height: 1.6;
+}
+
+.modal-body p {
+    margin: 0 0 1rem 0;
+}
+
+.modal-body p:last-child {
+    margin-bottom: 0;
+}
+
+.warning-text {
+    color: #dc3545 !important;
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.modal-footer {
+    padding: 1rem 2rem 1.5rem;
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    border-top: 1px solid #e9ecef;
+}
+
+.modal-footer .btn {
+    min-width: 100px;
+    font-weight: 500;
+}
+
+/* Mobile responsive modal */
+@media (max-width: 480px) {
+    .modal-content {
+        min-width: 300px;
+        margin: 1rem;
+    }
+    
+    .modal-header {
+        padding: 1rem 1.5rem 0.75rem;
+    }
+    
+    .modal-body {
+        padding: 1rem 1.5rem;
+    }
+    
+    .modal-footer {
+        padding: 0.75rem 1.5rem 1rem;
+        flex-direction: column-reverse;
+    }
+    
+    .modal-footer .btn {
+        min-width: auto;
+        width: 100%;
     }
 }
 </style> 
