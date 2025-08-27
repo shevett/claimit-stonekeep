@@ -101,7 +101,7 @@ $flashMessage = showFlashMessage();
 <div class="page-header">
     <div class="container">
         <h1>Post an Item</h1>
-        <p class="page-subtitle">Fill out the form below to post your item for sale</p>
+        <p class="page-subtitle">Fill out the form below to post your item for sale or for giveaway</p>
     </div>
 </div>
 

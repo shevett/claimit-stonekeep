@@ -225,7 +225,7 @@ if ($presignedUrl) {
 <div class="page-header">
     <div class="container">
         <h1>Available Items</h1>
-        <p class="page-subtitle">Browse items posted for sale</p>
+        <p class="page-subtitle">Browse items posted for sale or for giveaway</p>
     </div>
 </div>
 
@@ -259,7 +259,7 @@ if ($presignedUrl) {
                 <div class="no-items">
                     <div class="no-items-content">
                         <h3>No items posted yet</h3>
-                        <p>There are currently no items available for sale.</p>
+                        <p>There are currently no items available for sale or for giveaway.</p>
                         <a href="?page=claim" class="btn btn-primary">Post your first item</a>
                     </div>
                 </div>
