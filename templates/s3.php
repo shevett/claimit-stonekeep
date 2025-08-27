@@ -310,12 +310,11 @@ if ($presignedUrl) {
                                            class="btn btn-primary">
                                             📧 Contact Seller
                                         </a>
-                                        <?php if ($item['image_key']): ?>
-                                            <a href="?page=s3&action=presigned&key=<?php echo urlencode($item['image_key']); ?>" 
-                                               class="btn btn-secondary">
-                                                🔗 Share Image
-                                            </a>
-                                        <?php endif; ?>
+                                        <button onclick="claimItem('<?php echo escape($item['tracking_number']); ?>')" 
+                                                class="btn btn-success claim-btn" 
+                                                title="Claim this item">
+                                            🏆 Claim this!
+                                        </button>
                                         <button onclick="deleteItem('<?php echo escape($item['tracking_number']); ?>')" 
                                                 class="btn btn-danger delete-btn" 
                                                 title="Delete this item">
@@ -382,6 +381,10 @@ function deleteItem(trackingNumber) {
     
     // Show the confirmation modal
     showDeleteModal();
+}
+
+function claimItem(trackingNumber) {
+    alert('Not implemented yet!\n\nThis feature will allow users to claim items in the future.\n\nTracking Number: ' + trackingNumber);
 }
 
 function showDeleteModal() {
@@ -671,6 +674,20 @@ function showMessage(message, type) {
     border-color: #6c757d !important;
     cursor: not-allowed !important;
     transform: none !important;
+}
+
+.claim-btn {
+    background-color: #28a745 !important;
+    border-color: #28a745 !important;
+    color: white !important;
+    transition: all 0.3s ease !important;
+}
+
+.claim-btn:hover {
+    background-color: #218838 !important;
+    border-color: #1e7e34 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
 }
 
 .no-items {
