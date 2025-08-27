@@ -32,6 +32,64 @@ session_start();
 // Load includes
 require_once __DIR__ . '/../includes/functions.php';
 
+// Handle AJAX delete requests before any HTML output
+if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['tracking_number'])) {
+    header('Content-Type: application/json');
+    
+    $trackingNumber = $_POST['tracking_number'];
+    
+    if (!preg_match('/^\d{14}$/', $trackingNumber)) {
+        echo json_encode(['success' => false, 'message' => 'Invalid tracking number']);
+        exit;
+    }
+    
+    try {
+        $awsService = getAwsService();
+        if (!$awsService) {
+            throw new Exception('AWS service not available');
+        }
+        
+        // Delete both YAML and image files
+        $yamlKey = $trackingNumber . '.yaml';
+        $imageDeleted = false;
+        $yamlDeleted = false;
+        
+        // Try to delete the YAML file
+        try {
+            $awsService->deleteObject($yamlKey);
+            $yamlDeleted = true;
+        } catch (Exception $e) {
+            // YAML file might not exist, continue
+        }
+        
+        // Try to delete the image file (try different extensions)
+        $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
+        foreach ($imageExtensions as $ext) {
+            $imageKey = $trackingNumber . '.' . $ext;
+            try {
+                if ($awsService->objectExists($imageKey)) {
+                    $awsService->deleteObject($imageKey);
+                    $imageDeleted = true;
+                    break;
+                }
+            } catch (Exception $e) {
+                // Continue to next extension
+            }
+        }
+        
+        if ($yamlDeleted || $imageDeleted) {
+            echo json_encode(['success' => true, 'message' => 'Item deleted successfully']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'No files found to delete']);
+        }
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Failed to delete item: ' . $e->getMessage()]);
+    }
+    
+    exit;
+}
+
 // Simple routing based on URL parameter
 $page = $_GET['page'] ?? 'home';
 
