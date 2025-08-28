@@ -1,7 +1,5 @@
 RewriteEngine On
 
-# Handle static assets (CSS, JS, images)
-RewriteRule ^assets/(.*)$ ../assets/$1 [L]
 
 # Clean URL routing (optional)
 RewriteCond %{REQUEST_FILENAME} !-f
