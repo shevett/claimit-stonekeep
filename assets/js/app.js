@@ -63,6 +63,12 @@ const ClaimItApp = {
             contactForm.addEventListener('submit', this.validateContactForm);
         }
         
+        // File upload validation
+        const fileInput = document.querySelector('#item_photo');
+        if (fileInput) {
+            fileInput.addEventListener('change', this.validateFileUpload);
+        }
+        
         // Real-time validation
         this.setupRealTimeValidation();
     },
@@ -130,18 +136,74 @@ const ClaimItApp = {
         return isValid;
     },
     
+    // File upload validation
+    validateFileUpload: function(e) {
+        const file = e.target.files[0];
+        const maxSize = 512000; // 500KB in bytes
+        
+        // Clear previous error
+        ClaimItApp.clearFieldError(e.target);
+        
+        if (file) {
+            // Check file size
+            if (file.size > maxSize) {
+                ClaimItApp.showFieldError(e.target, 'Picture uploads are limited to under 500k');
+                e.target.value = ''; // Clear the selected file
+                return false;
+            }
+            
+            // Check file type
+            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+            if (!allowedTypes.includes(file.type.toLowerCase())) {
+                ClaimItApp.showFieldError(e.target, 'File must be a valid image (JPG, PNG, GIF)');
+                e.target.value = ''; // Clear the selected file
+                return false;
+            }
+            
+            // Show success feedback
+            ClaimItApp.showFieldSuccess(e.target, `File selected: ${file.name} (${Math.round(file.size/1024)}KB)`);
+        }
+        
+        return true;
+    },
+    
     // Show field error
     showFieldError: function(field, message) {
+        this.clearFieldError(field);
         field.classList.add('error');
         
         const errorDiv = document.createElement('div');
         errorDiv.className = 'error-message';
         errorDiv.textContent = message;
-        errorDiv.style.color = '#dc3545';
+        errorDiv.style.color = 'var(--danger-color)';
         errorDiv.style.fontSize = '0.875rem';
         errorDiv.style.marginTop = '0.25rem';
         
         field.parentNode.appendChild(errorDiv);
+    },
+    
+    // Show field success
+    showFieldSuccess: function(field, message) {
+        this.clearFieldError(field);
+        field.classList.remove('error');
+        
+        const successDiv = document.createElement('div');
+        successDiv.className = 'success-message';
+        successDiv.textContent = message;
+        successDiv.style.color = 'var(--success-color)';
+        successDiv.style.fontSize = '0.875rem';
+        successDiv.style.marginTop = '0.25rem';
+        
+        field.parentNode.appendChild(successDiv);
+    },
+    
+    // Clear field error/success
+    clearFieldError: function(field) {
+        field.classList.remove('error');
+        const errorMsg = field.parentNode.querySelector('.error-message');
+        const successMsg = field.parentNode.querySelector('.success-message');
+        if (errorMsg) errorMsg.remove();
+        if (successMsg) successMsg.remove();
     },
     
     // Validate claim form
@@ -161,8 +223,8 @@ const ClaimItApp = {
         const amount = form.querySelector('#amount');
         if (amount && amount.value) {
             const amountValue = parseFloat(amount.value);
-            if (amountValue <= 0) {
-                ClaimItApp.showFieldError(amount, 'Claim amount must be greater than 0');
+            if (amountValue < 0) {
+                ClaimItApp.showFieldError(amount, 'Valid amount is required (must be 0 or greater)');
                 isValid = false;
             }
         }

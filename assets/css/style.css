@@ -35,6 +35,21 @@
     --accent-rose: #f43f5e;
     --accent-amber: #f59e0b;
     
+    /* Orange Colors */
+    --orange-50: #fff7ed;
+    --orange-200: #fed7aa;
+    --orange-500: #f97316;
+    --orange-600: #ea580c;
+    
+    /* Green Colors */
+    --green-50: #f0fdf4;
+    --green-200: #bbf7d0;
+    --green-800: #166534;
+    
+    /* Success and Error Colors */
+    --success-color: #10b981;
+    --danger-color: #f43f5e;
+    
     /* Spacing */
     --space-1: 0.25rem;
     --space-2: 0.5rem;
@@ -853,4 +868,60 @@ footer {
     .contact-form {
         padding: var(--space-4);
     }
+}
+
+/* Claim status styling */
+.item-claimed {
+    color: var(--accent-amber);
+    font-weight: 500;
+    background: #fef3c7;
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-md);
+    border: 1px solid #fbbf24;
+    font-size: 0.9rem;
+}
+
+.claim-date {
+    color: var(--gray-500);
+    font-size: 0.85rem;
+    font-weight: 400;
+    margin-left: var(--space-1);
+}
+
+/* Button styling for claim states */
+.btn-warning {
+    background-color: var(--accent-amber);
+    border-color: var(--accent-amber);
+    color: white;
+}
+
+.btn-warning:hover {
+    background-color: #d97706;
+    border-color: #d97706;
+}
+
+.btn-secondary:disabled,
+.btn-secondary.disabled {
+    background-color: var(--gray-400);
+    border-color: var(--gray-400);
+    color: white;
+    cursor: not-allowed;
+}
+
+.btn-secondary:disabled:hover,
+.btn-secondary.disabled:hover {
+    background-color: var(--gray-400);
+    border-color: var(--gray-400);
+    transform: none;
+    box-shadow: var(--shadow-sm);
+}
+
+/* Success message styling */
+.alert-success {
+    background-color: #f0fdf4;
+    border: 1px solid var(--accent-emerald);
+    color: #166534;
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--space-4);
 } 

@@ -4,6 +4,13 @@ requireAuth();
 
 $currentUser = getCurrentUser();
 
+// Initialize form variables with defaults
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    $contactEmail = $currentUser['email'] ?? '';
+} else {
+    $contactEmail = trim($_POST['contact_email'] ?? '');
+}
+
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $errors = [];
@@ -17,7 +24,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = trim($_POST['title'] ?? '');
     $description = trim($_POST['description'] ?? '');
     $amount = trim($_POST['amount'] ?? '');
-    $contactEmail = trim($_POST['contact_email'] ?? '');
     
     if (empty($title)) {
         $errors[] = 'Title is required';
@@ -38,10 +44,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Validate uploaded file if present
     $uploadedFile = $_FILES['item_photo'] ?? null;
     if ($uploadedFile && $uploadedFile['error'] !== UPLOAD_ERR_NO_FILE) {
+        // Check for PHP upload errors first
         if ($uploadedFile['error'] !== UPLOAD_ERR_OK) {
-            $errors[] = 'Error uploading file';
-        } elseif ($uploadedFile['size'] > 5 * 1024 * 1024) { // 5MB limit
-            $errors[] = 'File size must be less than 5MB';
+            switch ($uploadedFile['error']) {
+                case UPLOAD_ERR_INI_SIZE:
+                case UPLOAD_ERR_FORM_SIZE:
+                    $errors[] = 'Picture uploads are limited to under 500k';
+                    break;
+                case UPLOAD_ERR_PARTIAL:
+                    $errors[] = 'File upload was interrupted. Please try again.';
+                    break;
+                case UPLOAD_ERR_NO_TMP_DIR:
+                    $errors[] = 'Server configuration error. Please contact support.';
+                    break;
+                case UPLOAD_ERR_CANT_WRITE:
+                    $errors[] = 'File upload failed due to server permissions.';
+                    break;
+                case UPLOAD_ERR_EXTENSION:
+                    $errors[] = 'File upload blocked by server configuration.';
+                    break;
+                default:
+                    $errors[] = 'Error uploading file. Please try again.';
+            }
+        } elseif ($uploadedFile['size'] > 512000) { // 500KB limit (512000 bytes)
+            $errors[] = 'Picture uploads are limited to under 500k';
         } elseif (!in_array(strtolower(pathinfo($uploadedFile['name'], PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'gif'])) {
             $errors[] = 'File must be a valid image (JPG, PNG, GIF)';
         }
@@ -143,6 +169,7 @@ $flashMessage = showFlashMessage();
 
         <form method="POST" class="claim-form" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
+            <input type="hidden" name="MAX_FILE_SIZE" value="512000">
             
             <div class="form-group">
                 <label for="title">Item Title</label>
@@ -157,7 +184,7 @@ $flashMessage = showFlashMessage();
             <div class="form-group">
                 <label for="item_photo">Upload a picture of your item</label>
                 <input type="file" name="item_photo" id="item_photo" accept="image/*">
-                <small style="color: var(--gray-500); font-size: 0.875rem;">Accepted formats: JPG, PNG, GIF (max 5MB)</small>
+                <small style="color: var(--gray-500); font-size: 0.875rem;">Accepted formats: JPG, PNG, GIF (max 500k)</small>
             </div>
 
             <div class="form-group">
