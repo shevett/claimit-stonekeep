@@ -105,6 +105,130 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['tr
     exit;
 }
 
+// Handle AJAX claim/unclaim requests before any HTML output
+if (isset($_POST['action']) && ($_POST['action'] === 'claim' || $_POST['action'] === 'unclaim') && isset($_POST['tracking_number'])) {
+    header('Content-Type: application/json');
+    
+    $trackingNumber = $_POST['tracking_number'];
+    $action = $_POST['action'];
+    
+    if (!preg_match('/^\d{14}$/', $trackingNumber)) {
+        echo json_encode(['success' => false, 'message' => 'Invalid tracking number']);
+        exit;
+    }
+    
+    // Check if user is logged in
+    if (!isLoggedIn()) {
+        echo json_encode(['success' => false, 'message' => 'You must be logged in to claim items']);
+        exit;
+    }
+    
+    $currentUser = getCurrentUser();
+    if (!$currentUser) {
+        echo json_encode(['success' => false, 'message' => 'User information not available']);
+        exit;
+    }
+    
+    try {
+        $awsService = getAwsService();
+        if (!$awsService) {
+            throw new Exception('AWS service not available');
+        }
+        
+        $yamlKey = $trackingNumber . '.yaml';
+        
+        // Check if item exists
+        if (!$awsService->objectExists($yamlKey)) {
+            echo json_encode(['success' => false, 'message' => 'Item not found']);
+            exit;
+        }
+        
+        // Get current YAML data
+        $objectData = $awsService->getObject($yamlKey);
+        $yamlContent = $objectData['content'];
+        $data = parseSimpleYaml($yamlContent);
+        
+        // Check if user is trying to claim their own item
+        if (isset($data['user_id']) && $data['user_id'] === $currentUser['id']) {
+            echo json_encode(['success' => false, 'message' => 'You cannot claim your own item']);
+            exit;
+        }
+        
+        if ($action === 'claim') {
+            // Check if item is already claimed
+            if (isset($data['claimed_by'])) {
+                if ($data['claimed_by'] === $currentUser['id']) {
+                    echo json_encode(['success' => false, 'message' => 'You have already claimed this item']);
+                } else {
+                    echo json_encode(['success' => false, 'message' => 'This item has already been claimed by someone else']);
+                }
+                exit;
+            }
+            
+            // Add claim information
+            $data['claimed_by'] = $currentUser['id'];
+            $data['claimed_by_name'] = $currentUser['name'];
+            $data['claimed_by_email'] = $currentUser['email'];
+            $data['claimed_at'] = date('Y-m-d H:i:s');
+            
+            $message = 'Item claimed successfully!';
+            
+        } else { // unclaim
+            // Check if user has claimed this item
+            if (!isset($data['claimed_by']) || $data['claimed_by'] !== $currentUser['id']) {
+                echo json_encode(['success' => false, 'message' => 'You have not claimed this item']);
+                exit;
+            }
+            
+            // Remove claim information
+            unset($data['claimed_by']);
+            unset($data['claimed_by_name']);
+            unset($data['claimed_by_email']);
+            unset($data['claimed_at']);
+            
+            $message = 'Item unclaimed successfully!';
+        }
+        
+        // Regenerate YAML content
+        $newYamlContent = "tracking_number: '" . $data['tracking_number'] . "'\n";
+        $newYamlContent .= "title: '" . str_replace("'", "''", $data['title']) . "'\n";
+        $newYamlContent .= "description: |\n";
+        $newYamlContent .= "  " . str_replace("\n", "\n  ", $data['description']) . "\n";
+        $newYamlContent .= "price: " . $data['price'] . "\n";
+        $newYamlContent .= "contact_email: '" . $data['contact_email'] . "'\n";
+        $newYamlContent .= "image_file: " . (isset($data['image_file']) && $data['image_file'] ? "'" . $data['image_file'] . "'" : "null") . "\n";
+        $newYamlContent .= "user_id: '" . $data['user_id'] . "'\n";
+        $newYamlContent .= "user_name: '" . str_replace("'", "''", $data['user_name']) . "'\n";
+        $newYamlContent .= "user_email: '" . $data['user_email'] . "'\n";
+        $newYamlContent .= "submitted_at: '" . $data['submitted_at'] . "'\n";
+        $newYamlContent .= "submitted_timestamp: " . $data['submitted_timestamp'] . "\n";
+        
+        // Add claim information if item is claimed
+        if (isset($data['claimed_by'])) {
+            $newYamlContent .= "claimed_by: '" . $data['claimed_by'] . "'\n";
+            $newYamlContent .= "claimed_by_name: '" . str_replace("'", "''", $data['claimed_by_name']) . "'\n";
+            $newYamlContent .= "claimed_by_email: '" . $data['claimed_by_email'] . "'\n";
+            $newYamlContent .= "claimed_at: '" . $data['claimed_at'] . "'\n";
+        }
+        
+        // Update the YAML file
+        $awsService->putObject($yamlKey, $newYamlContent, 'text/plain');
+        
+        echo json_encode([
+            'success' => true, 
+            'message' => $message,
+            'action' => $action,
+            'claimed' => isset($data['claimed_by']),
+            'claimed_by_current_user' => isset($data['claimed_by']) && $data['claimed_by'] === $currentUser['id']
+        ]);
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Failed to ' . $action . ' item: ' . $e->getMessage()]);
+    }
+    
+    exit;
+}
+
 // Handle authentication routes before any HTML output
 if (isset($_GET['page']) && $_GET['page'] === 'auth' && isset($_GET['action'])) {
     $action = $_GET['action'];
@@ -171,7 +295,7 @@ $page = $_GET['page'] ?? 'home';
 $page = preg_replace('/[^a-zA-Z0-9\-]/', '', $page);
 
 // Define available pages
-$availablePages = ['home', 'about', 'contact', 'claim', 'items', 'item', 'login', 'dashboard'];
+$availablePages = ['home', 'about', 'contact', 'claim', 'items', 'item', 'login', 'dashboard', 'user-listings'];
 
 if (!in_array($page, $availablePages)) {
     $page = 'home';

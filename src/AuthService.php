@@ -228,7 +228,7 @@ class AuthService
                     
                     $items[] = [
                         'tracking_number' => $trackingNumber,
-                        'title' => $data['title'] ?? $data['description'] ?? 'Untitled',
+                        'title' => $data['title'],
                         'description' => $data['description'] ?? '',
                         'price' => (float)($data['price'] ?? 0),
                         'contact_email' => $data['contact_email'] ?? '',

@@ -1,0 +1,350 @@
+<?php
+// Get user ID from query parameter
+$userId = $_GET['id'] ?? '';
+
+if (empty($userId)) {
+    redirect('items');
+    exit;
+}
+
+$items = [];
+$error = null;
+$userName = '';
+$userEmail = '';
+
+try {
+    $awsService = getAwsService();
+    if (!$awsService) {
+        throw new Exception('AWS service not available');
+    }
+    
+    $result = $awsService->listObjects();
+    $objects = $result['objects'] ?? [];
+    
+    if (!empty($objects)) {
+        foreach ($objects as $object) {
+            // Only process YAML files
+            if (!str_ends_with($object['key'], '.yaml')) {
+                continue;
+            }
+            
+            try {
+                $trackingNumber = basename($object['key'], '.yaml');
+                
+                // Get YAML content
+                $yamlObject = $awsService->getObject($object['key']);
+                $yamlContent = $yamlObject['content'];
+                
+                // Parse YAML content
+                $data = parseSimpleYaml($yamlContent);
+                if ($data && isset($data['description']) && isset($data['price']) && isset($data['contact_email'])) {
+                    // Only include items by this user
+                    $itemUserId = $data['user_id'] ?? 'legacy_user';
+                    if ($itemUserId !== $userId) {
+                        continue;
+                    }
+                    
+                    // Store user info from first item
+                    if (empty($userName)) {
+                        $userName = $data['user_name'] ?? 'Legacy User';
+                        $userEmail = $data['user_email'] ?? $data['contact_email'] ?? '';
+                    }
+                    
+                    // Check if corresponding image exists
+                    $imageKey = null;
+                    $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
+                    foreach ($imageExtensions as $ext) {
+                        $possibleImageKey = $trackingNumber . '.' . $ext;
+                        foreach ($objects as $imgObj) {
+                            if ($imgObj['key'] === $possibleImageKey) {
+                                $imageKey = $possibleImageKey;
+                                break 2;
+                            }
+                        }
+                    }
+                    
+                    $title = $data['title'] ?? $data['description'] ?? 'Untitled';
+                    $description = $data['description'];
+                    
+                    $items[] = [
+                        'tracking_number' => $trackingNumber,
+                        'title' => $title,
+                        'description' => $description,
+                        'price' => $data['price'],
+                        'contact_email' => $data['contact_email'],
+                        'image_key' => $imageKey,
+                        'posted_date' => $data['submitted_at'] ?? 'Unknown',
+                        'yaml_key' => $object['key'],
+                        'claimed_by' => $data['claimed_by'] ?? null,
+                        'claimed_by_name' => $data['claimed_by_name'] ?? null,
+                        'claimed_at' => $data['claimed_at'] ?? null,
+                        'user_id' => $itemUserId,
+                        'user_name' => $data['user_name'] ?? 'Legacy User',
+                        'user_email' => $data['user_email'] ?? $data['contact_email'] ?? ''
+                    ];
+                }
+            } catch (Exception $e) {
+                // Skip invalid YAML files
+                continue;
+            }
+        }
+        
+        // Sort items by tracking number (newest first)
+        usort($items, function($a, $b) {
+            return strcmp($b['tracking_number'], $a['tracking_number']);
+        });
+    }
+} catch (Exception $e) {
+    $error = $e->getMessage();
+}
+
+$flashMessage = showFlashMessage();
+?>
+
+<div class="page-header">
+    <div class="container">
+        <h1>Items by <?php echo escape($userName ?: 'User'); ?></h1>
+        <p class="page-subtitle">
+            <?php if (count($items) > 0): ?>
+                Showing <?php echo count($items); ?> item<?php echo count($items) !== 1 ? 's' : ''; ?>
+            <?php else: ?>
+                No active listings found
+            <?php endif; ?>
+        </p>
+        <div style="margin-top: 1rem;">
+            <a href="?page=items" class="btn btn-secondary">← Back to All Items</a>
+        </div>
+    </div>
+</div>
+
+<div class="content-section">
+    <div class="container">
+        <?php if ($flashMessage): ?>
+            <div class="alert alert-<?php echo escape($flashMessage['type']); ?>">
+                <?php echo escape($flashMessage['text']); ?>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($error): ?>
+            <div class="alert alert-error">
+                Error loading items: <?php echo escape($error); ?>
+            </div>
+        <?php elseif (empty($items)): ?>
+            <div class="empty-state">
+                <div class="empty-state-content">
+                    <div class="empty-state-icon">📦</div>
+                    <h3>No Active Listings</h3>
+                    <p><?php echo escape($userName ?: 'This user'); ?> doesn't have any active items posted.</p>
+                    <a href="?page=items" class="btn btn-primary">Browse All Items</a>
+                </div>
+            </div>
+        <?php else: ?>
+            <!-- User Info Section -->
+            <div class="user-profile-section" style="background: var(--gray-50); padding: 2rem; border-radius: var(--radius-lg); margin-bottom: 2rem;">
+                <h2 style="margin: 0 0 1rem 0; color: var(--gray-900);">About <?php echo escape($userName); ?></h2>
+                <div class="user-profile-info">
+                    <div class="profile-stats">
+                        <div class="stat-item">
+                            <strong><?php echo count($items); ?></strong>
+                            <span>Active Item<?php echo count($items) !== 1 ? 's' : ''; ?></span>
+                        </div>
+                        <?php if ($userEmail): ?>
+                        <div class="stat-item">
+                            <a href="mailto:<?php echo escape($userEmail); ?>" class="btn btn-primary">
+                                📧 Contact <?php echo escape(explode(' ', $userName)[0]); ?>
+                            </a>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Items Grid -->
+            <div class="items-grid">
+                <?php foreach ($items as $item): ?>
+                    <div class="item-card">
+                        <a href="?page=item&id=<?php echo escape($item['tracking_number']); ?>" class="item-link">
+                            <div class="item-image">
+                                <?php if ($item['image_key']): ?>
+                                    <?php
+                                    try {
+                                        $imageUrl = $awsService->getPresignedUrl($item['image_key'], 3600);
+                                        echo '<img src="' . escape($imageUrl) . '" alt="' . escape($item['title']) . '" loading="lazy">';
+                                    } catch (Exception $e) {
+                                        echo '<div class="no-image-placeholder"><span>📷</span><p>Image Unavailable</p></div>';
+                                    }
+                                    ?>
+                                <?php else: ?>
+                                    <div class="no-image-placeholder">
+                                        <span>📷</span>
+                                        <p>No Image Available</p>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                            
+                            <div class="item-details">
+                                <div class="item-header">
+                                    <h4 class="item-title"><?php echo escape($item['title']); ?></h4>
+                                    <div class="item-price">
+                                        <?php if ($item['price'] == 0): ?>
+                                            <span class="price-free">FREE</span>
+                                        <?php else: ?>
+                                            <span class="price-amount">$<?php echo escape(number_format($item['price'], 2)); ?></span>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                                <p class="item-description"><?php echo escape(strlen($item['description']) > 100 ? substr($item['description'], 0, 100) . '...' : $item['description']); ?></p>
+                                
+                                <div class="item-meta">
+                                    <div class="item-posted">
+                                        <strong>Posted:</strong> <?php echo escape($item['posted_date']); ?>
+                                    </div>
+                                    <?php if ($item['claimed_by']): ?>
+                                        <div class="item-claimed">
+                                            <strong>Claimed by:</strong> <?php echo escape($item['claimed_by_name']); ?>
+                                            <?php if ($item['claimed_at']): ?>
+                                                <span class="claim-date">(<?php echo escape(date('M j, Y', strtotime($item['claimed_at']))); ?>)</span>
+                                            <?php endif; ?>
+                                        </div>
+                                    <?php endif; ?>
+                                    <div class="item-tracking">
+                                        <strong>ID:</strong> #<?php echo escape($item['tracking_number']); ?>
+                                    </div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+    </div>
+</div>
+
+<style>
+/* Items Grid Layout */
+.items-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 2rem;
+    margin-top: 2rem;
+}
+
+.item-card {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border: 1px solid #e9ecef;
+}
+
+.item-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.item-link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+
+/* User Profile Styles */
+.user-profile-section {
+    text-align: center;
+}
+
+.profile-stats {
+    display: flex;
+    gap: 2rem;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.stat-item strong {
+    font-size: 1.5rem;
+    color: var(--primary-600);
+}
+
+.stat-item span {
+    color: var(--gray-600);
+    font-size: 0.875rem;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+}
+
+.empty-state-content {
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.empty-state-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+}
+
+.empty-state h3 {
+    margin-bottom: 1rem;
+    color: var(--gray-700);
+}
+
+.empty-state p {
+    color: var(--gray-500);
+    margin-bottom: 2rem;
+}
+
+/* Item Image Scaling */
+.item-image {
+    width: 100%;
+    height: 250px;
+    position: relative;
+    overflow: hidden;
+    background: #f8f9fa;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.item-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.item-card:hover .item-image img {
+    transform: scale(1.05);
+}
+
+.no-image-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #6c757d;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+.no-image-placeholder span {
+    font-size: 3rem;
+    margin-bottom: 0.5rem;
+    opacity: 0.6;
+}
+
+@media (max-width: 768px) {
+    .profile-stats {
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+}
+</style> 

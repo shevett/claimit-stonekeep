@@ -130,7 +130,7 @@ try {
                         }
                         
                         // Handle backward compatibility - use description as title if title is missing
-                        $title = $data['title'] ?? $data['description'];
+                        $title = $data['title'];
                         $description = $data['description'];
                         
                         $items[] = [
@@ -141,7 +141,13 @@ try {
                             'contact_email' => $data['contact_email'],
                             'image_key' => $imageKey,
                             'posted_date' => $data['submitted_at'] ?? 'Unknown',
-                            'yaml_key' => $object['key']
+                            'yaml_key' => $object['key'],
+                            'claimed_by' => $data['claimed_by'] ?? null,
+                            'claimed_by_name' => $data['claimed_by_name'] ?? null,
+                            'claimed_at' => $data['claimed_at'] ?? null,
+                            'user_id' => $data['user_id'] ?? 'legacy_user',
+                            'user_name' => $data['user_name'] ?? 'Legacy User',
+                            'user_email' => $data['user_email'] ?? $data['contact_email'] ?? ''
                         ];
                     }
                 } catch (Exception $e) {
@@ -247,14 +253,22 @@ if ($presignedUrl) {
                                     
                                     <div class="item-meta">
                                         <div class="item-contact">
-                                            <strong>Contact:</strong> 
-                                            <a href="mailto:<?php echo escape($item['contact_email']); ?>">
-                                                <?php echo escape($item['contact_email']); ?>
+                                            <strong>Listed by:</strong> 
+                                            <a href="?page=user-listings&id=<?php echo escape($item['user_id']); ?>">
+                                                <?php echo escape($item['user_name']); ?>
                                             </a>
                                         </div>
                                         <div class="item-posted">
                                             <strong>Posted:</strong> <?php echo escape($item['posted_date']); ?>
                                         </div>
+                                        <?php if ($item['claimed_by']): ?>
+                                            <div class="item-claimed">
+                                                <strong>Claimed by:</strong> <?php echo escape($item['claimed_by_name']); ?>
+                                                <?php if ($item['claimed_at']): ?>
+                                                    <span class="claim-date">(<?php echo escape(date('M j, Y', strtotime($item['claimed_at']))); ?>)</span>
+                                                <?php endif; ?>
+                                            </div>
+                                        <?php endif; ?>
                                         <div class="item-tracking">
                                             <strong>ID:</strong> #<?php echo escape($item['tracking_number']); ?>
                                         </div>
@@ -266,12 +280,37 @@ if ($presignedUrl) {
                                            class="btn btn-primary">
                                             📧 Contact Seller
                                         </a>
-                                        <button onclick="claimItem('<?php echo escape($item['tracking_number']); ?>')" 
-                                                class="btn btn-primary claim-btn" 
-                                                title="Claim this item">
-                                            🏆 Claim this!
-                                        </button>
-                                        <?php if (currentUserOwnsItem($item['tracking_number'])): ?>
+                                        
+                                        <?php 
+                                        $currentUser = getCurrentUser();
+                                        $isClaimed = !empty($item['claimed_by']);
+                                        $isClaimedByCurrentUser = $isClaimed && $currentUser && $item['claimed_by'] === $currentUser['id'];
+                                        $isOwnItem = currentUserOwnsItem($item['tracking_number']);
+                                        ?>
+                                        
+                                        <?php if (!$isOwnItem): ?>
+                                            <?php if ($isClaimedByCurrentUser): ?>
+                                                <button onclick="claimItem('<?php echo escape($item['tracking_number']); ?>')" 
+                                                        class="btn btn-warning claim-btn" 
+                                                        title="Unclaim this item"
+                                                        data-action="unclaim">
+                                                    ✅ You have claimed this!
+                                                </button>
+                                            <?php elseif (!$isClaimed): ?>
+                                                <button onclick="claimItem('<?php echo escape($item['tracking_number']); ?>')" 
+                                                        class="btn btn-primary claim-btn" 
+                                                        title="Claim this item"
+                                                        data-action="claim">
+                                                    🏆 Claim this!
+                                                </button>
+                                            <?php else: ?>
+                                                <button class="btn btn-secondary" disabled title="Already claimed by someone else">
+                                                    ✅ Claimed
+                                                </button>
+                                            <?php endif; ?>
+                                        <?php endif; ?>
+                                        
+                                        <?php if ($isOwnItem): ?>
                                             <button onclick="deleteItem('<?php echo escape($item['tracking_number']); ?>')" 
                                                     class="btn btn-danger delete-btn" 
                                                     title="Delete this item">
@@ -342,7 +381,72 @@ function deleteItem(trackingNumber) {
 }
 
 function claimItem(trackingNumber) {
-    alert('Not implemented yet!\n\nThis feature will allow users to claim items in the future.\n\nTracking Number: ' + trackingNumber);
+    // Get the button that was clicked to determine action
+    const button = document.querySelector(`button[onclick="claimItem('${trackingNumber}')"]`);
+    const action = button ? button.getAttribute('data-action') : 'claim';
+    
+    // Show loading state
+    const originalText = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = action === 'claim' ? '⏳ Claiming...' : '⏳ Unclaiming...';
+    
+    // Send AJAX request
+    fetch('', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `action=${action}&tracking_number=${encodeURIComponent(trackingNumber)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message
+            showMessage(data.message, 'success');
+            
+            // Reload the page to update the display
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            // Show error message
+            showMessage(data.message, 'error');
+            
+            // Restore button
+            button.disabled = false;
+            button.innerHTML = originalText;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showMessage('An error occurred. Please try again.', 'error');
+        
+        // Restore button
+        button.disabled = false;
+        button.innerHTML = originalText;
+    });
+}
+
+function showMessage(message, type) {
+    // Create a temporary alert div
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type}`;
+    alertDiv.textContent = message;
+    alertDiv.style.position = 'fixed';
+    alertDiv.style.top = '20px';
+    alertDiv.style.right = '20px';
+    alertDiv.style.zIndex = '9999';
+    alertDiv.style.maxWidth = '400px';
+    alertDiv.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+    
+    document.body.appendChild(alertDiv);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.parentNode.removeChild(alertDiv);
+        }
+    }, 3000);
 }
 
 function showDeleteModal() {
