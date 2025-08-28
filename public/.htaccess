@@ -1,6 +1,11 @@
 RewriteEngine On
 
 
+# Auth routes
+RewriteRule ^auth/google/callback$ index.php?page=auth&action=callback [L,QSA]
+RewriteRule ^auth/google$ index.php?page=auth&action=google [L]
+RewriteRule ^auth/logout$ index.php?page=auth&action=logout [L]
+
 # Clean URL routing (optional)
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d

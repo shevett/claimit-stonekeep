@@ -26,6 +26,11 @@ if (preg_match('/\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/', $pat
     // For static files, check if they exist and serve them directly
     $filePath = __DIR__ . $path;
     
+    // If not found at root, try public/ directory (for assets moved to public/assets/)
+    if (!file_exists($filePath)) {
+        $filePath = __DIR__ . '/public' . $path;
+    }
+    
     if (file_exists($filePath)) {
         // Set correct content type
         $mimeTypes = [
