@@ -703,6 +703,17 @@ footer {
     font-size: 0.95rem;
 }
 
+.footer-link {
+    color: var(--gray-300);
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.footer-link:hover {
+    color: var(--primary-400);
+    text-decoration: underline;
+}
+
 /* S3 Specific Styles */
 .s3-info {
     background: var(--gray-50);

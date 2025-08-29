@@ -351,7 +351,6 @@ $isLoggedIn = isLoggedIn();
                     <?php else: ?>
                         <li><a href="?page=login" class="nav-link <?php echo $page === 'login' ? 'active' : ''; ?>">Login</a></li>
                     <?php endif; ?>
-                    <li><a href="?page=contact" class="nav-link <?php echo $page === 'contact' ? 'active' : ''; ?>">Contact</a></li>
                 </ul>
             </div>
         </nav>
@@ -371,7 +370,7 @@ $isLoggedIn = isLoggedIn();
 
     <footer>
         <div class="footer-content">
-            <p>&copy; <?php echo date('Y'); ?> ClaimIt by Stonekeep.com. All rights reserved.</p>
+            <p>&copy; <?php echo date('Y'); ?> ClaimIt by Stonekeep.com. All rights reserved. | <a href="?page=contact" class="footer-link">Contact</a></p>
         </div>
     </footer>
 
