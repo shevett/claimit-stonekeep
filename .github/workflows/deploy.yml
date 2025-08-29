@@ -29,15 +29,4 @@ jobs:
           # Install/update Composer dependencies
           composer install --no-dev --optimize-autoloader
           
-          # Set proper permissions
-          sudo chown -R www-data:www-data /var/www/claimit.stonekeep.com
-          sudo chmod -R 755 /var/www/claimit.stonekeep.com
-          sudo chmod -R 644 /var/www/claimit.stonekeep.com/public/assets/
-          
-          # Clear any caches if needed
-          # php artisan cache:clear  # Uncomment if using Laravel
-          
-          # Restart Apache (optional - uncomment if needed)
-          # sudo systemctl restart apache2
-          
           echo "Deployment completed successfully!"
