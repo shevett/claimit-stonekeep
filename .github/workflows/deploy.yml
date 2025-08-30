@@ -24,7 +24,7 @@ jobs:
           cd /var/www/claimit.stonekeep.com
           
           # Pull the latest changes
-          git pull origin main
+          GIT_SSH_COMMAND="ssh -i /var/www/.ssh/github" git pull origin main
           
           # Install/update Composer dependencies
           composer install --no-dev --optimize-autoloader
