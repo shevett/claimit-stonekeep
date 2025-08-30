@@ -14,7 +14,10 @@ function escape($string) {
  * Redirect to a specific page
  */
 function redirect($page = 'home') {
-    header("Location: ?page=" . urlencode($page));
+    // Use absolute URL to avoid path issues
+    $baseUrl = 'http://localhost:8000/';
+    echo "<script>window.location.href = '" . $baseUrl . "?page=" . urlencode($page) . "';</script>";
+    echo "<p>Redirecting to " . htmlspecialchars($page) . "... <a href='" . $baseUrl . "?page=" . urlencode($page) . "'>Click here if not redirected automatically</a></p>";
     exit;
 }
 

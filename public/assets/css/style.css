@@ -185,7 +185,11 @@ p {
     position: relative;
 }
 
-.nav-user-info {
+.nav-user-dropdown {
+    position: relative;
+}
+
+.nav-user-trigger {
     display: flex;
     align-items: center;
     gap: var(--space-2);
@@ -195,8 +199,84 @@ p {
     background: var(--gray-100);
     border-radius: var(--radius-lg);
     border: 1px solid var(--gray-200);
-    min-height: 36px; /* Match nav-link height */
+    min-height: 36px;
     box-sizing: border-box;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: inherit;
+    font-size: inherit;
+}
+
+.nav-user-trigger:hover {
+    background: var(--gray-200);
+    border-color: var(--gray-300);
+}
+
+.nav-user-trigger:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--primary-200);
+}
+
+.nav-user-name {
+    font-weight: 500;
+}
+
+.nav-user-arrow {
+    font-size: 0.75rem;
+    transition: transform 0.2s ease;
+}
+
+.nav-user-dropdown.active .nav-user-arrow {
+    transform: rotate(180deg);
+}
+
+.nav-user-dropdown-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: var(--space-1);
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    min-width: 180px;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.2s ease;
+}
+
+.nav-user-dropdown.active .nav-user-dropdown-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.nav-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    color: var(--gray-700);
+    text-decoration: none;
+    transition: background-color 0.2s ease;
+    border-bottom: 1px solid var(--gray-100);
+}
+
+.nav-dropdown-item:last-child {
+    border-bottom: none;
+}
+
+.nav-dropdown-item:hover {
+    background: var(--gray-50);
+    color: var(--gray-900);
+}
+
+.nav-dropdown-icon {
+    font-size: 1rem;
+    width: 1rem;
+    text-align: center;
 }
 
 .nav-user-avatar {
@@ -253,10 +333,25 @@ p {
         align-items: center;
     }
     
-    .nav-user-info {
-        justify-content: center;
+    .nav-user-dropdown {
         width: 100%;
         max-width: 300px;
+    }
+    
+    .nav-user-trigger {
+        justify-content: center;
+        width: 100%;
+    }
+    
+    .nav-user-dropdown-menu {
+        position: static;
+        margin-top: var(--space-2);
+        width: 100%;
+        opacity: 1;
+        visibility: visible;
+        transform: none;
+        box-shadow: none;
+        border: 1px solid var(--gray-200);
     }
     
     .nav-link {

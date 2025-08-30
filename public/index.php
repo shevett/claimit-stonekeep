@@ -29,6 +29,8 @@ require_once __DIR__ . '/../config/config.php';
 // Start session (after session settings are configured)
 session_start();
 
+
+
 // Load includes
 require_once __DIR__ . '/../includes/functions.php';
 
@@ -257,7 +259,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'auth' && isset($_GET['action'])) 
                 if ($authService) {
                     $user = $authService->handleCallback($_GET['code']);
                     setFlashMessage('Welcome, ' . $user['name'] . '!', 'success');
-                    redirect('dashboard');
+                    redirect('home');
                 } else {
                     throw new Exception('Authentication service unavailable');
                 }
@@ -329,24 +331,36 @@ $isLoggedIn = isLoggedIn();
                         <li><a href="?page=claim" class="nav-link <?php echo $page === 'claim' ? 'active' : ''; ?>">Make a new posting</a></li>
                         <li><a href="?page=dashboard" class="nav-link <?php echo $page === 'dashboard' ? 'active' : ''; ?>">My Listings</a></li>
                         <li class="nav-user-menu">
-                            <span class="nav-user-info">
-                                <?php if (!empty($currentUser['picture'])): ?>
-                                    <img src="<?php echo escape($currentUser['picture']); ?>" 
-                                         alt="Profile" 
-                                         class="nav-user-avatar"
-                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';"
-                                         referrerpolicy="no-referrer">
-                                    <div class="nav-user-avatar-fallback" style="display:none;">
-                                        <?php echo strtoupper(substr($currentUser['name'], 0, 1)); ?>
-                                    </div>
-                                <?php else: ?>
-                                    <div class="nav-user-avatar-fallback">
-                                        <?php echo strtoupper(substr($currentUser['name'], 0, 1)); ?>
-                                    </div>
-                                <?php endif; ?>
-                                <?php echo escape($currentUser['name']); ?>
-                            </span>
-                            <a href="?page=auth&action=logout" class="nav-link">Logout</a>
+                            <div class="nav-user-dropdown">
+                                <button class="nav-user-trigger" onclick="toggleUserDropdown()">
+                                    <?php if (!empty($currentUser['picture'])): ?>
+                                        <img src="<?php echo escape($currentUser['picture']); ?>" 
+                                             alt="Profile" 
+                                             class="nav-user-avatar"
+                                             onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';"
+                                             referrerpolicy="no-referrer">
+                                        <div class="nav-user-avatar-fallback" style="display:none;">
+                                            <?php echo strtoupper(substr($currentUser['name'], 0, 1)); ?>
+                                        </div>
+                                    <?php else: ?>
+                                        <div class="nav-user-avatar-fallback">
+                                            <?php echo strtoupper(substr($currentUser['name'], 0, 1)); ?>
+                                        </div>
+                                    <?php endif; ?>
+                                    <span class="nav-user-name"><?php echo escape($currentUser['name']); ?></span>
+                                    <span class="nav-user-arrow">▼</span>
+                                </button>
+                                <div class="nav-user-dropdown-menu" id="userDropdown">
+                                    <a href="#" class="nav-dropdown-item">
+                                        <span class="nav-dropdown-icon">⚙️</span>
+                                        Settings...
+                                    </a>
+                                    <a href="?page=auth&action=logout" class="nav-dropdown-item">
+                                        <span class="nav-dropdown-icon">🚪</span>
+                                        Log out
+                                    </a>
+                                </div>
+                            </div>
                         </li>
                     <?php else: ?>
                         <li><a href="?page=login" class="nav-link <?php echo $page === 'login' ? 'active' : ''; ?>">Login</a></li>

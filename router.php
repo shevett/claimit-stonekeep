@@ -21,6 +21,26 @@ set_error_handler(function($errno, $errstr, $errfile, $errline) {
 $requestUri = $_SERVER['REQUEST_URI'];
 $path = parse_url($requestUri, PHP_URL_PATH);
 
+
+
+// Handle auth routes for local development (production uses .htaccess)
+if (preg_match('/^\/auth\/google\/callback/', $path)) {
+    $_GET['page'] = 'auth';
+    $_GET['action'] = 'callback';
+    require_once __DIR__ . '/public/index.php';
+    exit;
+} elseif (preg_match('/^\/auth\/google/', $path)) {
+    $_GET['page'] = 'auth';
+    $_GET['action'] = 'google';
+    require_once __DIR__ . '/public/index.php';
+    exit;
+} elseif (preg_match('/^\/auth\/logout/', $path)) {
+    $_GET['page'] = 'auth';
+    $_GET['action'] = 'logout';
+    require_once __DIR__ . '/public/index.php';
+    exit;
+}
+
 // Handle static files
 if (preg_match('/\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/', $path)) {
     // For static files, check if they exist and serve them directly
