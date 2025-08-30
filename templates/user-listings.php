@@ -99,21 +99,42 @@ try {
 }
 
 $flashMessage = showFlashMessage();
+
+// Check if current user is viewing their own listings
+$currentUser = getCurrentUser();
+$isOwnListings = $currentUser && $currentUser['id'] === $userId;
 ?>
 
 <div class="page-header">
     <div class="container">
-        <h1>Items by <?php echo escape($userName ?: 'User'); ?></h1>
-        <p class="page-subtitle">
-            <?php if (count($items) > 0): ?>
-                Showing <?php echo count($items); ?> item<?php echo count($items) !== 1 ? 's' : ''; ?>
-            <?php else: ?>
-                No active listings found
-            <?php endif; ?>
-        </p>
-        <div style="margin-top: 1rem;">
-            <a href="?page=items" class="btn btn-secondary">← Back to All Items</a>
-        </div>
+        <?php if ($isOwnListings): ?>
+            <div class="dashboard-header">
+                <div class="user-welcome">
+                    <?php if (!empty($currentUser['picture'])): ?>
+                        <img src="<?php echo escape($currentUser['picture']); ?>" alt="Profile" class="user-avatar">
+                    <?php endif; ?>
+                    <div>
+                        <h1>Welcome back, <?php echo escape($currentUser['name']); ?>!</h1>
+                        <p class="page-subtitle">Manage your posted items</p>
+                    </div>
+                </div>
+                <div class="dashboard-actions">
+                    <a href="?page=claim" class="btn btn-primary">Post New Item</a>
+                </div>
+            </div>
+        <?php else: ?>
+            <h1>Items by <?php echo escape($userName ?: 'User'); ?></h1>
+            <p class="page-subtitle">
+                <?php if (count($items) > 0): ?>
+                    Showing <?php echo count($items); ?> item<?php echo count($items) !== 1 ? 's' : ''; ?>
+                <?php else: ?>
+                    No active listings found
+                <?php endif; ?>
+            </p>
+            <div style="margin-top: 1rem;">
+                <a href="?page=items" class="btn btn-secondary">← Back to All Items</a>
+            </div>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -122,6 +143,23 @@ $flashMessage = showFlashMessage();
         <?php if ($flashMessage): ?>
             <div class="alert alert-<?php echo escape($flashMessage['type']); ?>">
                 <?php echo escape($flashMessage['text']); ?>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($isOwnListings): ?>
+            <div class="dashboard-stats">
+                <div class="stat-card">
+                    <h3><?php echo count($items); ?></h3>
+                    <p>Items Posted</p>
+                </div>
+                <div class="stat-card">
+                    <h3><?php echo count(array_filter($items, function($item) { return $item['price'] == 0; })); ?></h3>
+                    <p>Free Items</p>
+                </div>
+                <div class="stat-card">
+                    <h3><?php echo count(array_filter($items, function($item) { return $item['price'] > 0; })); ?></h3>
+                    <p>For Sale</p>
+                </div>
             </div>
         <?php endif; ?>
 
@@ -139,6 +177,7 @@ $flashMessage = showFlashMessage();
                 </div>
             </div>
         <?php else: ?>
+            <?php if (!$isOwnListings): ?>
             <!-- User Info Section -->
             <div class="user-profile-section" style="background: var(--gray-50); padding: 2rem; border-radius: var(--radius-lg); margin-bottom: 2rem;">
                 <h2 style="margin: 0 0 1rem 0; color: var(--gray-900);">About <?php echo escape($userName); ?></h2>
@@ -158,6 +197,18 @@ $flashMessage = showFlashMessage();
                     </div>
                 </div>
             </div>
+            <?php endif; ?>
+
+            <?php if ($isOwnListings): ?>
+            <div class="dashboard-content">
+                <div class="section-header">
+                    <h2>Your Posted Items</h2>
+                    <?php if (empty($items)): ?>
+                        <p class="text-muted">You haven't posted any items yet.</p>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <?php endif; ?>
 
             <!-- Items Grid -->
             <div class="items-grid">

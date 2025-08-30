@@ -329,7 +329,7 @@ $isLoggedIn = isLoggedIn();
                     <li><a href="?page=items" class="nav-link <?php echo $page === 'items' ? 'active' : ''; ?>">View available items</a></li>
                     <?php if ($isLoggedIn): ?>
                         <li><a href="?page=claim" class="nav-link <?php echo $page === 'claim' ? 'active' : ''; ?>">Make a new posting</a></li>
-                        <li><a href="?page=dashboard" class="nav-link <?php echo $page === 'dashboard' ? 'active' : ''; ?>">My Listings</a></li>
+                        <li><a href="?page=user-listings&id=<?php echo escape($currentUser['id']); ?>" class="nav-link <?php echo $page === 'user-listings' ? 'active' : ''; ?>">My Listings</a></li>
                         <li class="nav-user-menu">
                             <div class="nav-user-dropdown">
                                 <button class="nav-user-trigger" onclick="toggleUserDropdown()">

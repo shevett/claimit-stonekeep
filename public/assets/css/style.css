@@ -1030,4 +1030,80 @@ footer {
     padding: var(--space-3) var(--space-4);
     border-radius: var(--radius-lg);
     margin-bottom: var(--space-4);
+}
+
+/* Dashboard Styles */
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.user-welcome {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.user-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: 3px solid #fff;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.dashboard-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: white;
+    padding: 1rem 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    border: 1px solid var(--gray-200);
+}
+
+.stat-card h3 {
+    color: var(--primary-600);
+    font-size: 1.75rem;
+    margin: 0 0 0.25rem 0;
+    font-weight: 700;
+}
+
+.stat-card p {
+    color: var(--gray-600);
+    margin: 0;
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.dashboard-content {
+    margin-top: 2rem;
+}
+
+.section-header {
+    margin-bottom: 2rem;
+}
+
+.section-header h2 {
+    color: var(--gray-900);
+    margin-bottom: 0.5rem;
+}
+
+.text-muted {
+    color: var(--gray-500);
 } 
