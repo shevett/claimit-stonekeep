@@ -307,6 +307,77 @@ if (!in_array($page, $availablePages)) {
 $currentUser = getCurrentUser();
 $isLoggedIn = isLoggedIn();
 
+// Prepare data for Open Graph meta tags
+$ogData = [];
+
+// Get page-specific data for meta tags
+if ($page === 'item' && isset($_GET['id'])) {
+    $trackingNumber = $_GET['id'];
+    $awsService = getAwsService();
+    if ($awsService) {
+        try {
+            $yamlKey = $trackingNumber . '.yaml';
+            $yamlObject = $awsService->getObject($yamlKey);
+            $yamlContent = $yamlObject['content'];
+            $data = parseSimpleYaml($yamlContent);
+            
+            if ($data) {
+                // Check for image
+                $imageKey = null;
+                $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
+                foreach ($imageExtensions as $ext) {
+                    $possibleImageKey = $trackingNumber . '.' . $ext;
+                    if ($awsService->objectExists($possibleImageKey)) {
+                        $imageKey = $possibleImageKey;
+                        break;
+                    }
+                }
+                
+                $ogData['item'] = [
+                    'tracking_number' => $trackingNumber,
+                    'title' => $data['title'] ?? $data['description'] ?? 'Untitled',
+                    'description' => $data['description'] ?? '',
+                    'image_key' => $imageKey
+                ];
+            }
+        } catch (Exception $e) {
+            // Item not found, continue without meta data
+        }
+    }
+} elseif ($page === 'user-listings' && isset($_GET['id'])) {
+    $userId = $_GET['id'];
+    $awsService = getAwsService();
+    if ($awsService) {
+        try {
+            $result = $awsService->listObjects();
+            $objects = $result['objects'] ?? [];
+            $items = [];
+            $userName = '';
+            
+            foreach ($objects as $object) {
+                if (str_ends_with($object['key'], '.yaml')) {
+                    $yamlObject = $awsService->getObject($object['key']);
+                    $yamlContent = $yamlObject['content'];
+                    $data = parseSimpleYaml($yamlContent);
+                    
+                    if ($data && isset($data['user_id']) && $data['user_id'] === $userId) {
+                        if (empty($userName)) {
+                            $userName = $data['user_name'] ?? 'Legacy User';
+                        }
+                        $items[] = $data;
+                    }
+                }
+            }
+            
+            $ogData['userName'] = $userName;
+            $ogData['items'] = $items;
+            $ogData['userId'] = $userId;
+        } catch (Exception $e) {
+            // Error loading user data, continue without meta data
+        }
+    }
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -314,6 +385,10 @@ $isLoggedIn = isLoggedIn();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ClaimIt</title>
+    
+    <!-- Open Graph Meta Tags for Social Media Previews -->
+    <?php echo generateOpenGraphTags($page, $ogData); ?>
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">

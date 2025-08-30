@@ -295,4 +295,111 @@ function parseSimpleYaml($yamlContent) {
     return $data;
 }
 
+/**
+ * Generate Open Graph meta tags for social media previews
+ * 
+ * @param string $page Current page
+ * @param array $data Page-specific data (item, user, etc.)
+ * @return string HTML meta tags
+ */
+function generateOpenGraphTags($page, $data = []) {
+    // Detect environment and set appropriate base URL
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+    
+    if ($host === 'claimit.stonekeep.com') {
+        $baseUrl = 'https://claimit.stonekeep.com/';
+    } else {
+        $baseUrl = $protocol . '://' . $host . '/';
+    }
+    
+    $siteName = 'ClaimIt';
+    $defaultDescription = 'Find and share items in your community';
+    
+    $metaTags = [];
+    
+    switch ($page) {
+        case 'item':
+            if (isset($data['item'])) {
+                $item = $data['item'];
+                $metaTags['title'] = $item['title'] ?? 'Item on ClaimIt';
+                $metaTags['description'] = $item['description'] ?? $defaultDescription;
+                $metaTags['type'] = 'website';
+                $metaTags['url'] = $baseUrl . '?page=item&id=' . urlencode($item['tracking_number']);
+                
+                // Add image if available
+                if (isset($item['image_key']) && $item['image_key']) {
+                    $awsService = getAwsService();
+                    if ($awsService) {
+                        try {
+                            $imageUrl = $awsService->getPresignedUrl($item['image_key'], 3600);
+                            $metaTags['image'] = $imageUrl;
+                            $metaTags['image_width'] = '1200';
+                            $metaTags['image_height'] = '630';
+                        } catch (Exception $e) {
+                            // Image not available, skip
+                        }
+                    }
+                }
+            }
+            break;
+            
+        case 'user-listings':
+            if (isset($data['userName']) && isset($data['items'])) {
+                $userName = $data['userName'];
+                $itemCount = count($data['items']);
+                $metaTags['title'] = $userName . "'s Items on ClaimIt";
+                $metaTags['description'] = "View " . $userName . "'s " . $itemCount . " item" . ($itemCount !== 1 ? 's' : '') . " on ClaimIt";
+                $metaTags['type'] = 'website';
+                $metaTags['url'] = $baseUrl . '?page=user-listings&id=' . urlencode($data['userId'] ?? '');
+            }
+            break;
+            
+        case 'items':
+            $metaTags['title'] = 'Browse Items on ClaimIt';
+            $metaTags['description'] = 'Find free items and great deals in your community';
+            $metaTags['type'] = 'website';
+            $metaTags['url'] = $baseUrl . '?page=items';
+            break;
+            
+        default:
+            $metaTags['title'] = $siteName;
+            $metaTags['description'] = $defaultDescription;
+            $metaTags['type'] = 'website';
+            $metaTags['url'] = $baseUrl;
+            break;
+    }
+    
+    // Generate HTML meta tags
+    $html = '';
+    
+    // Basic meta tags
+    $html .= '<meta property="og:title" content="' . htmlspecialchars($metaTags['title']) . '">' . "\n";
+    $html .= '<meta property="og:description" content="' . htmlspecialchars($metaTags['description']) . '">' . "\n";
+    $html .= '<meta property="og:type" content="' . htmlspecialchars($metaTags['type']) . '">' . "\n";
+    $html .= '<meta property="og:url" content="' . htmlspecialchars($metaTags['url']) . '">' . "\n";
+    $html .= '<meta property="og:site_name" content="' . htmlspecialchars($siteName) . '">' . "\n";
+    
+    // Image meta tags
+    if (isset($metaTags['image'])) {
+        $html .= '<meta property="og:image" content="' . htmlspecialchars($metaTags['image']) . '">' . "\n";
+        if (isset($metaTags['image_width'])) {
+            $html .= '<meta property="og:image:width" content="' . htmlspecialchars($metaTags['image_width']) . '">' . "\n";
+        }
+        if (isset($metaTags['image_height'])) {
+            $html .= '<meta property="og:image:height" content="' . htmlspecialchars($metaTags['image_height']) . '">' . "\n";
+        }
+    }
+    
+    // Twitter Card meta tags
+    $html .= '<meta name="twitter:card" content="' . (isset($metaTags['image']) ? 'summary_large_image' : 'summary') . '">' . "\n";
+    $html .= '<meta name="twitter:title" content="' . htmlspecialchars($metaTags['title']) . '">' . "\n";
+    $html .= '<meta name="twitter:description" content="' . htmlspecialchars($metaTags['description']) . '">' . "\n";
+    if (isset($metaTags['image'])) {
+        $html .= '<meta name="twitter:image" content="' . htmlspecialchars($metaTags['image']) . '">' . "\n";
+    }
+    
+    return $html;
+}
+
 ?> 
