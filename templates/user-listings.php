@@ -252,7 +252,15 @@ $isOwnListings = $currentUser && $currentUser['id'] === $userId;
                                     </div>
                                     <?php if ($item['claimed_by']): ?>
                                         <div class="item-claimed">
-                                            <strong>Claimed by:</strong> <?php echo escape($item['claimed_by_name']); ?>
+                                            <strong>Claimed by:</strong> 
+                                            <?php 
+                                            $currentUser = getCurrentUser();
+                                            if ($currentUser && $item['claimed_by'] === $currentUser['id']) {
+                                                echo 'You! (' . escape($item['claimed_by_name']) . ')';
+                                            } else {
+                                                echo escape($item['claimed_by_name']);
+                                            }
+                                            ?>
                                             <?php if ($item['claimed_at']): ?>
                                                 <span class="claim-date">(<?php echo escape(date('M j, Y', strtotime($item['claimed_at']))); ?>)</span>
                                             <?php endif; ?>

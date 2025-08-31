@@ -133,6 +133,10 @@ try {
                         $title = $data['title'];
                         $description = $data['description'];
                         
+                        // Get active claims for this item
+                        $activeClaims = getActiveClaims($trackingNumber);
+                        $primaryClaim = getPrimaryClaim($trackingNumber);
+                        
                         $items[] = [
                             'tracking_number' => $trackingNumber,
                             'title' => $title,
@@ -142,9 +146,10 @@ try {
                             'image_key' => $imageKey,
                             'posted_date' => $data['submitted_at'] ?? 'Unknown',
                             'yaml_key' => $object['key'],
-                            'claimed_by' => $data['claimed_by'] ?? null,
-                            'claimed_by_name' => $data['claimed_by_name'] ?? null,
-                            'claimed_at' => $data['claimed_at'] ?? null,
+                            // For backward compatibility, keep old fields but populate from new system
+                            'claimed_by' => $primaryClaim ? $primaryClaim['user_id'] : null,
+                            'claimed_by_name' => $primaryClaim ? $primaryClaim['user_name'] : null,
+                            'claimed_at' => $primaryClaim ? $primaryClaim['claimed_at'] : null,
                             'user_id' => $data['user_id'] ?? 'legacy_user',
                             'user_name' => $data['user_name'] ?? 'Legacy User',
                             'user_email' => $data['user_email'] ?? $data['contact_email'] ?? ''
@@ -255,7 +260,14 @@ if ($presignedUrl) {
                                         <div class="item-contact">
                                             <strong>Listed by:</strong> 
                                             <a href="?page=user-listings&id=<?php echo escape($item['user_id']); ?>">
-                                                <?php echo escape($item['user_name']); ?>
+                                                <?php 
+                                                $currentUser = getCurrentUser();
+                                                if ($currentUser && $item['user_id'] === $currentUser['id']) {
+                                                    echo 'You! (' . escape($item['user_name']) . ')';
+                                                } else {
+                                                    echo escape($item['user_name']);
+                                                }
+                                                ?>
                                             </a>
                                         </div>
                                         <div class="item-posted">
@@ -263,7 +275,15 @@ if ($presignedUrl) {
                                         </div>
                                         <?php if ($item['claimed_by']): ?>
                                             <div class="item-claimed">
-                                                <strong>Claimed by:</strong> <?php echo escape($item['claimed_by_name']); ?>
+                                                <strong>Claimed by:</strong> 
+                                                <?php 
+                                                $currentUser = getCurrentUser();
+                                                if ($currentUser && $item['claimed_by'] === $currentUser['id']) {
+                                                    echo 'You! (' . escape($item['claimed_by_name']) . ')';
+                                                } else {
+                                                    echo escape($item['claimed_by_name']);
+                                                }
+                                                ?>
                                                 <?php if ($item['claimed_at']): ?>
                                                     <span class="claim-date">(<?php echo escape(date('M j, Y', strtotime($item['claimed_at']))); ?>)</span>
                                                 <?php endif; ?>
@@ -283,21 +303,27 @@ if ($presignedUrl) {
                                         
                                         <?php 
                                         $currentUser = getCurrentUser();
-                                        $isClaimed = !empty($item['claimed_by']);
-                                        $isClaimedByCurrentUser = $isClaimed && $currentUser && $item['claimed_by'] === $currentUser['id'];
+                                        $isClaimed = isUserClaimed($item['tracking_number'], $currentUser ? $currentUser['id'] : null);
+                                        $canClaim = $currentUser ? canUserClaim($item['tracking_number'], $currentUser['id']) : false;
                                         $isOwnItem = currentUserOwnsItem($item['tracking_number']);
+                                        
+                                        // Debug output
+                                        echo "<!-- DEBUG: Current user ID: " . ($currentUser ? $currentUser['id'] : 'null') . " -->";
+                                        echo "<!-- DEBUG: Is claimed: " . ($isClaimed ? 'true' : 'false') . " -->";
+                                        echo "<!-- DEBUG: Can claim: " . ($canClaim ? 'true' : 'false') . " -->";
+                                        echo "<!-- DEBUG: Is own item: " . ($isOwnItem ? 'true' : 'false') . " -->";
                                         ?>
                                         
                                         <?php if (!$isOwnItem): ?>
-                                            <?php if ($isClaimedByCurrentUser): ?>
-                                                <button onclick="claimItem('<?php echo escape($item['tracking_number']); ?>')" 
+                                            <?php if ($isClaimed): ?>
+                                                <button onclick="removeMyClaim('<?php echo escape($item['tracking_number']); ?>')" 
                                                         class="btn btn-warning claim-btn" 
-                                                        title="Unclaim this item"
+                                                        title="Remove your claim"
                                                         data-action="unclaim">
                                                     ✅ You have claimed this!
                                                 </button>
-                                            <?php elseif (!$isClaimed): ?>
-                                                <button onclick="claimItem('<?php echo escape($item['tracking_number']); ?>')" 
+                                            <?php elseif ($canClaim): ?>
+                                                <button onclick="addClaimToItem('<?php echo escape($item['tracking_number']); ?>')" 
                                                         class="btn btn-primary claim-btn" 
                                                         title="Claim this item"
                                                         data-action="claim">
@@ -380,15 +406,14 @@ function deleteItem(trackingNumber) {
     showDeleteModal();
 }
 
-function claimItem(trackingNumber) {
-    // Get the button that was clicked to determine action
-    const button = document.querySelector(`button[onclick="claimItem('${trackingNumber}')"]`);
-    const action = button ? button.getAttribute('data-action') : 'claim';
+function addClaimToItem(trackingNumber) {
+    // Get the button that was clicked
+    const button = document.querySelector(`button[onclick="addClaimToItem('${trackingNumber}')"]`);
     
     // Show loading state
     const originalText = button.innerHTML;
     button.disabled = true;
-    button.innerHTML = action === 'claim' ? '⏳ Claiming...' : '⏳ Unclaiming...';
+    button.innerHTML = '⏳ Claiming...';
     
     // Send AJAX request
     fetch('', {
@@ -396,7 +421,53 @@ function claimItem(trackingNumber) {
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: `action=${action}&tracking_number=${encodeURIComponent(trackingNumber)}`
+        body: `action=add_claim&tracking_number=${encodeURIComponent(trackingNumber)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message
+            showMessage(data.message, 'success');
+            
+            // Reload the page to update the display
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            // Show error message
+            showMessage(data.message, 'error');
+            
+            // Restore button
+            button.disabled = false;
+            button.innerHTML = originalText;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showMessage('An error occurred. Please try again.', 'error');
+        
+        // Restore button
+        button.disabled = false;
+        button.innerHTML = originalText;
+    });
+}
+
+function removeMyClaim(trackingNumber) {
+    // Get the button that was clicked
+    const button = document.querySelector(`button[onclick="removeMyClaim('${trackingNumber}')"]`);
+    
+    // Show loading state
+    const originalText = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '⏳ Removing...';
+    
+    // Send AJAX request
+    fetch('', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `action=remove_claim&tracking_number=${encodeURIComponent(trackingNumber)}`
     })
     .then(response => response.json())
     .then(data => {

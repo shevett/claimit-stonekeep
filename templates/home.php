@@ -71,6 +71,10 @@ try {
                         $title = $data['title'];
                         $description = $data['description'];
                         
+                        // Get active claims for this item
+                        $activeClaims = getActiveClaims($trackingNumber);
+                        $primaryClaim = getPrimaryClaim($trackingNumber);
+                        
                         $items[] = [
                             'tracking_number' => $trackingNumber,
                             'title' => $title,
@@ -80,9 +84,10 @@ try {
                             'image_key' => $imageKey,
                             'posted_date' => $data['submitted_at'] ?? 'Unknown',
                             'yaml_key' => $object['key'],
-                            'claimed_by' => $data['claimed_by'] ?? null,
-                            'claimed_by_name' => $data['claimed_by_name'] ?? null,
-                            'claimed_at' => $data['claimed_at'] ?? null,
+                            // For backward compatibility, keep old fields but populate from new system
+                            'claimed_by' => $primaryClaim ? $primaryClaim['user_id'] : null,
+                            'claimed_by_name' => $primaryClaim ? $primaryClaim['user_name'] : null,
+                            'claimed_at' => $primaryClaim ? $primaryClaim['claimed_at'] : null,
                             'user_id' => $data['user_id'] ?? 'legacy_user',
                             'user_name' => $data['user_name'] ?? 'Legacy User',
                             'user_email' => $data['user_email'] ?? $data['contact_email'] ?? ''
@@ -176,12 +181,33 @@ $flashMessage = showFlashMessage();
                                 <p class="item-description"><?php echo escape(strlen($item['description']) > 100 ? substr($item['description'], 0, 100) . '...' : $item['description']); ?></p>
                                 
                                 <div class="item-meta">
+                                    <div class="item-listed">
+                                        <strong>Listed by:</strong> 
+                                        <a href="?page=user-listings&id=<?php echo escape($item['user_id']); ?>">
+                                            <?php 
+                                            $currentUser = getCurrentUser();
+                                            if ($currentUser && $item['user_id'] === $currentUser['id']) {
+                                                echo 'You! (' . escape($item['user_name']) . ')';
+                                            } else {
+                                                echo escape($item['user_name']);
+                                            }
+                                            ?>
+                                        </a>
+                                    </div>
                                     <div class="item-posted">
                                         <strong>Posted:</strong> <?php echo escape($item['posted_date']); ?>
                                     </div>
                                     <?php if ($item['claimed_by']): ?>
                                         <div class="item-claimed">
-                                            <strong>Claimed by:</strong> <?php echo escape($item['claimed_by_name']); ?>
+                                            <strong>Claimed by:</strong> 
+                                            <?php 
+                                            $currentUser = getCurrentUser();
+                                            if ($currentUser && $item['claimed_by'] === $currentUser['id']) {
+                                                echo 'You! (' . escape($item['claimed_by_name']) . ')';
+                                            } else {
+                                                echo escape($item['claimed_by_name']);
+                                            }
+                                            ?>
                                             <?php if ($item['claimed_at']): ?>
                                                 <span class="claim-date">(<?php echo escape(date('M j, Y', strtotime($item['claimed_at']))); ?>)</span>
                                             <?php endif; ?>

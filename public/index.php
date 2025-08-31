@@ -107,8 +107,8 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['tr
     exit;
 }
 
-// Handle AJAX claim/unclaim requests before any HTML output
-if (isset($_POST['action']) && ($_POST['action'] === 'claim' || $_POST['action'] === 'unclaim') && isset($_POST['tracking_number'])) {
+// Handle AJAX claim requests before any HTML output
+if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_claim', 'remove_claim_by_owner']) && isset($_POST['tracking_number'])) {
     header('Content-Type: application/json');
     
     $trackingNumber = $_POST['tracking_number'];
@@ -132,100 +132,35 @@ if (isset($_POST['action']) && ($_POST['action'] === 'claim' || $_POST['action']
     }
     
     try {
-        $awsService = getAwsService();
-        if (!$awsService) {
-            throw new Exception('AWS service not available');
-        }
-        
-        $yamlKey = $trackingNumber . '.yaml';
-        
-        // Check if item exists
-        if (!$awsService->objectExists($yamlKey)) {
-            echo json_encode(['success' => false, 'message' => 'Item not found']);
-            exit;
-        }
-        
-        // Get current YAML data
-        $objectData = $awsService->getObject($yamlKey);
-        $yamlContent = $objectData['content'];
-        $data = parseSimpleYaml($yamlContent);
-        
-        // Check if user is trying to claim their own item
-        if (isset($data['user_id']) && $data['user_id'] === $currentUser['id']) {
-            echo json_encode(['success' => false, 'message' => 'You cannot claim your own item']);
-            exit;
-        }
-        
-        if ($action === 'claim') {
-            // Check if item is already claimed
-            if (isset($data['claimed_by'])) {
-                if ($data['claimed_by'] === $currentUser['id']) {
-                    echo json_encode(['success' => false, 'message' => 'You have already claimed this item']);
-                } else {
-                    echo json_encode(['success' => false, 'message' => 'This item has already been claimed by someone else']);
+        switch ($action) {
+            case 'add_claim':
+                $claim = addClaimToItem($trackingNumber);
+                $position = getUserClaimPosition($trackingNumber, $claim['user_id']);
+                echo json_encode([
+                    'success' => true, 
+                    'message' => 'You\'re now ' . $position . getOrdinalSuffix($position) . ' in line!',
+                    'position' => $position
+                ]);
+                break;
+                
+            case 'remove_claim':
+                removeMyClaim($trackingNumber);
+                echo json_encode(['success' => true, 'message' => 'You\'ve been removed from the waitlist']);
+                break;
+                
+            case 'remove_claim_by_owner':
+                if (!isset($_POST['claim_user_id'])) {
+                    echo json_encode(['success' => false, 'message' => 'Claim user ID required']);
+                    exit;
                 }
-                exit;
-            }
-            
-            // Add claim information
-            $data['claimed_by'] = $currentUser['id'];
-            $data['claimed_by_name'] = $currentUser['name'];
-            $data['claimed_by_email'] = $currentUser['email'];
-            $data['claimed_at'] = date('Y-m-d H:i:s');
-            
-            $message = 'Item claimed successfully!';
-            
-        } else { // unclaim
-            // Check if user has claimed this item
-            if (!isset($data['claimed_by']) || $data['claimed_by'] !== $currentUser['id']) {
-                echo json_encode(['success' => false, 'message' => 'You have not claimed this item']);
-                exit;
-            }
-            
-            // Remove claim information
-            unset($data['claimed_by']);
-            unset($data['claimed_by_name']);
-            unset($data['claimed_by_email']);
-            unset($data['claimed_at']);
-            
-            $message = 'Item unclaimed successfully!';
+                $claimUserId = $_POST['claim_user_id'];
+                removeClaimFromItem($trackingNumber, $claimUserId);
+                echo json_encode(['success' => true, 'message' => 'Claim removed successfully']);
+                break;
         }
-        
-        // Regenerate YAML content
-        $newYamlContent = "tracking_number: '" . $data['tracking_number'] . "'\n";
-        $newYamlContent .= "title: '" . str_replace("'", "''", $data['title']) . "'\n";
-        $newYamlContent .= "description: |\n";
-        $newYamlContent .= "  " . str_replace("\n", "\n  ", $data['description']) . "\n";
-        $newYamlContent .= "price: " . $data['price'] . "\n";
-        $newYamlContent .= "contact_email: '" . $data['contact_email'] . "'\n";
-        $newYamlContent .= "image_file: " . (isset($data['image_file']) && $data['image_file'] ? "'" . $data['image_file'] . "'" : "null") . "\n";
-        $newYamlContent .= "user_id: '" . $data['user_id'] . "'\n";
-        $newYamlContent .= "user_name: '" . str_replace("'", "''", $data['user_name']) . "'\n";
-        $newYamlContent .= "user_email: '" . $data['user_email'] . "'\n";
-        $newYamlContent .= "submitted_at: '" . $data['submitted_at'] . "'\n";
-        $newYamlContent .= "submitted_timestamp: " . $data['submitted_timestamp'] . "\n";
-        
-        // Add claim information if item is claimed
-        if (isset($data['claimed_by'])) {
-            $newYamlContent .= "claimed_by: '" . $data['claimed_by'] . "'\n";
-            $newYamlContent .= "claimed_by_name: '" . str_replace("'", "''", $data['claimed_by_name']) . "'\n";
-            $newYamlContent .= "claimed_by_email: '" . $data['claimed_by_email'] . "'\n";
-            $newYamlContent .= "claimed_at: '" . $data['claimed_at'] . "'\n";
-        }
-        
-        // Update the YAML file
-        $awsService->putObject($yamlKey, $newYamlContent, 'text/plain');
-        
-        echo json_encode([
-            'success' => true, 
-            'message' => $message,
-            'action' => $action,
-            'claimed' => isset($data['claimed_by']),
-            'claimed_by_current_user' => isset($data['claimed_by']) && $data['claimed_by'] === $currentUser['id']
-        ]);
         
     } catch (Exception $e) {
-        echo json_encode(['success' => false, 'message' => 'Failed to ' . $action . ' item: ' . $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
     
     exit;
@@ -400,7 +335,6 @@ if ($page === 'item' && isset($_GET['id'])) {
             <div class="nav-container">
                 <a href="?page=home" class="nav-logo">ClaimIt</a>
                 <ul class="nav-menu">
-                    <li><a href="?page=about" class="nav-link <?php echo $page === 'about' ? 'active' : ''; ?>">About</a></li>
                     <li><a href="?page=items" class="nav-link <?php echo $page === 'items' ? 'active' : ''; ?>">View available items</a></li>
                     <?php if ($isLoggedIn): ?>
                         <li><a href="?page=claim" class="nav-link <?php echo $page === 'claim' ? 'active' : ''; ?>">Make a new posting</a></li>
@@ -459,7 +393,7 @@ if ($page === 'item' && isset($_GET['id'])) {
 
     <footer>
         <div class="footer-content">
-            <p>&copy; <?php echo date('Y'); ?> ClaimIt by Stonekeep.com. All rights reserved. | <a href="?page=contact" class="footer-link">Contact</a></p>
+            <p>&copy; <?php echo date('Y'); ?> ClaimIt by Stonekeep.com. All rights reserved. | <a href="?page=about" class="footer-link">About</a> | <a href="?page=contact" class="footer-link">Contact</a></p>
         </div>
     </footer>
 

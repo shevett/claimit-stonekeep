@@ -232,6 +232,8 @@ function isValidS3Key($key) {
     return true;
 }
 
+
+
 /**
  * Simple YAML parser for our specific format
  */
@@ -246,6 +248,130 @@ function parseSimpleYaml($yamlContent) {
         // Skip comments and empty lines
         if (empty($line) || $line[0] === '#') {
             $i++;
+            continue;
+        }
+        
+        // Handle claims array
+        if ($line === 'claims:') {
+            $data['claims'] = [];
+            $i++; // Move to next line
+            
+            // Read claims array
+            while ($i < count($lines)) {
+                $nextLine = trim($lines[$i]);
+                
+                // End of claims array - check for non-claim lines
+                if (empty($nextLine) || (!preg_match('/^- /', $nextLine) && !preg_match('/^  - /', $nextLine))) {
+                    break;
+                }
+                
+                // Start of a new claim (with or without proper indentation)
+                if (preg_match('/^- /', $nextLine) || preg_match('/^  - /', $nextLine)) {
+                    $claim = [];
+                    
+                    // Check if the first property is on the same line as the dash
+                    if (preg_match('/^- (\w+): (.+)$/', $nextLine, $matches)) {
+                        $propKey = $matches[1];
+                        $propValue = trim($matches[2]);
+                        
+                        // Handle multi-line values (starts with |)
+                        if ($propValue === '|') {
+                            $multilineValue = '';
+                            $i++; // Move to next line
+                            
+                            // Read subsequent indented lines
+                            while ($i < count($lines)) {
+                                $nextLine = $lines[$i];
+                                if (empty(trim($nextLine))) {
+                                    $i++;
+                                    break; // End of multiline block
+                                }
+                                if (preg_match('/^  (.*)$/', $nextLine, $matches)) {
+                                    if ($multilineValue !== '') {
+                                        $multilineValue .= ' ';
+                                    }
+                                    $multilineValue .= $matches[1];
+                                    $i++;
+                                } else {
+                                    break; // End of multiline block
+                                }
+                            }
+                            $claim[$propKey] = $multilineValue;
+                        } else {
+                            // Remove quotes if present
+                            if (strlen($propValue) >= 2 && (($propValue[0] === '"' && $propValue[-1] === '"') || ($propValue[0] === "'" && $propValue[-1] === "'"))) {
+                                $propValue = substr($propValue, 1, -1);
+                            }
+                            $claim[$propKey] = $propValue;
+                        }
+                    }
+                    
+                    $i++; // Move to next line
+                    
+                    // Read remaining claim properties
+                    while ($i < count($lines)) {
+                        $claimLine = trim($lines[$i]);
+                        
+                        // End of this claim - check for next claim or end of array
+                        if (empty($claimLine) || preg_match('/^- /', $claimLine) || preg_match('/^  - /', $claimLine)) {
+                            break;
+                        }
+                        
+                        // Skip lines that don't have proper indentation (not part of this claim)
+                        if (!preg_match('/^  /', $lines[$i])) {
+                            break;
+                        }
+                        
+                        // Parse claim property
+                        if (strpos($claimLine, ':') !== false) {
+                            list($propKey, $propValue) = explode(':', $claimLine, 2);
+                            $propKey = trim($propKey);
+                            $propValue = trim($propValue);
+                            
+                            // Handle multi-line values (starts with |)
+                            if ($propValue === '|') {
+                                $multilineValue = '';
+                                $i++; // Move to next line
+                                
+                                // Read subsequent indented lines
+                                while ($i < count($lines)) {
+                                    $nextLine = $lines[$i];
+                                    if (empty(trim($nextLine))) {
+                                        $i++;
+                                        break; // End of multiline block
+                                    }
+                                    if (preg_match('/^  (.*)$/', $nextLine, $matches)) {
+                                        if ($multilineValue !== '') {
+                                            $multilineValue .= ' ';
+                                        }
+                                        $multilineValue .= $matches[1];
+                                        $i++;
+                                    } else {
+                                        break; // End of multiline block
+                                    }
+                                }
+                                $claim[$propKey] = $multilineValue;
+                                continue;
+                            }
+                            
+                            // Remove quotes if present
+                            if (strlen($propValue) >= 2 && (($propValue[0] === '"' && $propValue[-1] === '"') || ($propValue[0] === "'" && $propValue[-1] === "'"))) {
+                                $propValue = substr($propValue, 1, -1);
+                            }
+                            
+                            // Handle empty values - set to empty string instead of skipping
+                            $claim[$propKey] = $propValue;
+                        }
+                        $i++;
+                    }
+                    
+                    if (!empty($claim)) {
+                        $data['claims'][] = $claim;
+                    }
+                    continue;
+                }
+                $i++;
+            }
             continue;
         }
         
@@ -290,6 +416,11 @@ function parseSimpleYaml($yamlContent) {
             $data[$key] = $value;
         }
         $i++;
+    }
+    
+    // Initialize claims array if not present (for backward compatibility)
+    if (!isset($data['claims'])) {
+        $data['claims'] = [];
     }
     
     return $data;
@@ -400,6 +531,337 @@ function generateOpenGraphTags($page, $data = []) {
     }
     
     return $html;
+}
+
+/**
+ * Add current user to item's claims list
+ */
+function addClaimToItem($trackingNumber) {
+    $currentUser = getCurrentUser();
+    if (!$currentUser) {
+        throw new Exception('User must be logged in to claim items');
+    }
+    
+    // Check if user can claim this item
+    if (!canUserClaim($trackingNumber, $currentUser['id'])) {
+        throw new Exception('You cannot claim this item');
+    }
+    
+    $awsService = getAwsService();
+    if (!$awsService) {
+        throw new Exception('AWS service not available');
+    }
+    
+    // Get current item data
+    $yamlKey = $trackingNumber . '.yaml';
+    $yamlObject = $awsService->getObject($yamlKey);
+    $yamlContent = $yamlObject['content'];
+    $data = parseSimpleYaml($yamlContent);
+    
+    // Initialize claims array if not present
+    if (!isset($data['claims'])) {
+        $data['claims'] = [];
+    }
+    
+    // Create new claim
+    $newClaim = [
+        'user_id' => $currentUser['id'],
+        'user_name' => $currentUser['name'],
+        'user_email' => $currentUser['email'],
+        'claimed_at' => date('Y-m-d H:i:s'),
+        'status' => 'active'
+    ];
+    
+    // Add to claims array
+    $data['claims'][] = $newClaim;
+    
+    // Convert back to YAML and save
+    $newYamlContent = convertToYaml($data);
+    $awsService->putObject($yamlKey, $newYamlContent, 'text/yaml');
+    
+    return $newClaim;
+}
+
+/**
+ * Remove a specific claim from an item (owner only)
+ */
+function removeClaimFromItem($trackingNumber, $claimUserId) {
+    $currentUser = getCurrentUser();
+    if (!$currentUser) {
+        throw new Exception('User must be logged in');
+    }
+    
+    // Check if current user owns the item
+    if (!currentUserOwnsItem($trackingNumber)) {
+        throw new Exception('Only the item owner can remove claims');
+    }
+    
+    $awsService = getAwsService();
+    if (!$awsService) {
+        throw new Exception('AWS service not available');
+    }
+    
+    // Get current item data
+    $yamlKey = $trackingNumber . '.yaml';
+    $yamlObject = $awsService->getObject($yamlKey);
+    $yamlContent = $yamlObject['content'];
+    $data = parseSimpleYaml($yamlContent);
+    
+    // Find and remove the claim
+    $claims = $data['claims'] ?? [];
+    $updatedClaims = [];
+    $found = false;
+    
+    foreach ($claims as $claim) {
+        $status = $claim['status'] ?? 'active'; // Default to active for legacy claims
+        if ($claim['user_id'] === $claimUserId && $status === 'active') {
+            $found = true;
+            // Mark as removed instead of deleting
+            $claim['status'] = 'removed';
+            $claim['removed_at'] = date('Y-m-d H:i:s');
+            $claim['removed_by'] = $currentUser['id'];
+        }
+        $updatedClaims[] = $claim;
+    }
+    
+    if (!$found) {
+        throw new Exception('Claim not found or already removed');
+    }
+    
+    $data['claims'] = $updatedClaims;
+    
+    // Convert back to YAML and save
+    $newYamlContent = convertToYaml($data);
+    $awsService->putObject($yamlKey, $newYamlContent, 'text/yaml');
+    
+    return true;
+}
+
+/**
+ * Remove current user's own claim from an item
+ */
+function removeMyClaim($trackingNumber) {
+    $currentUser = getCurrentUser();
+    if (!$currentUser) {
+        throw new Exception('User must be logged in');
+    }
+    
+    $awsService = getAwsService();
+    if (!$awsService) {
+        throw new Exception('AWS service not available');
+    }
+    
+    // Get current item data
+    $yamlKey = $trackingNumber . '.yaml';
+    $yamlObject = $awsService->getObject($yamlKey);
+    $yamlContent = $yamlObject['content'];
+    $data = parseSimpleYaml($yamlContent);
+    
+    // Find and remove the user's claim
+    $claims = $data['claims'] ?? [];
+    $updatedClaims = [];
+    $found = false;
+    
+    foreach ($claims as $claim) {
+        $status = $claim['status'] ?? 'active'; // Default to active for legacy claims
+        if ($claim['user_id'] === $currentUser['id'] && $status === 'active') {
+            $found = true;
+            // Mark as removed
+            $claim['status'] = 'removed';
+            $claim['removed_at'] = date('Y-m-d H:i:s');
+            $claim['removed_by'] = $currentUser['id'];
+        }
+        $updatedClaims[] = $claim;
+    }
+    
+    if (!$found) {
+        throw new Exception('You do not have an active claim on this item');
+    }
+    
+    $data['claims'] = $updatedClaims;
+    
+    // Convert back to YAML and save
+    $newYamlContent = convertToYaml($data);
+    $awsService->putObject($yamlKey, $newYamlContent, 'text/yaml');
+    
+    return true;
+}
+
+/**
+ * Get all active claims for an item in chronological order
+ */
+function getActiveClaims($trackingNumber) {
+    $awsService = getAwsService();
+    if (!$awsService) {
+        return [];
+    }
+    
+    try {
+        $yamlKey = $trackingNumber . '.yaml';
+        $yamlObject = $awsService->getObject($yamlKey);
+        $yamlContent = $yamlObject['content'];
+        $data = parseSimpleYaml($yamlContent);
+        
+        // Debug output
+        error_log("DEBUG: getActiveClaims - trackingNumber: $trackingNumber");
+        error_log("DEBUG: getActiveClaims - raw YAML: " . substr($yamlContent, 0, 1000));
+        error_log("DEBUG: getActiveClaims - parsed data: " . print_r($data, true));
+        
+        $claims = $data['claims'] ?? [];
+        error_log("DEBUG: getActiveClaims - claims array: " . print_r($claims, true));
+        
+        $activeClaims = [];
+        
+        foreach ($claims as $claim) {
+            // Consider claims active if they have no status field (legacy) or status is 'active'
+            // Exclude claims with status 'removed'
+            $status = $claim['status'] ?? 'active'; // Default to active for legacy claims
+            error_log("DEBUG: getActiveClaims - claim status: " . $status);
+            if ($status === 'active') {
+                $activeClaims[] = $claim;
+            }
+        }
+        
+        error_log("DEBUG: getActiveClaims - final activeClaims: " . print_r($activeClaims, true));
+        
+        // Sort by claim date (oldest first)
+        usort($activeClaims, function($a, $b) {
+            $aDate = $a['claimed_at'] ?? '';
+            $bDate = $b['claimed_at'] ?? '';
+            return strcmp($aDate, $bDate);
+        });
+        
+        return $activeClaims;
+    } catch (Exception $e) {
+        error_log("Error in getActiveClaims for $trackingNumber: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get the primary (first) active claim for an item
+ */
+function getPrimaryClaim($trackingNumber) {
+    $activeClaims = getActiveClaims($trackingNumber);
+    return !empty($activeClaims) ? $activeClaims[0] : null;
+}
+
+/**
+ * Check if a user has an active claim on an item
+ */
+function isUserClaimed($trackingNumber, $userId) {
+    $activeClaims = getActiveClaims($trackingNumber);
+    
+    // Debug output
+    error_log("DEBUG: isUserClaimed - trackingNumber: $trackingNumber, userId: $userId");
+    error_log("DEBUG: isUserClaimed - activeClaims: " . print_r($activeClaims, true));
+    
+    foreach ($activeClaims as $claim) {
+        error_log("DEBUG: isUserClaimed - comparing claim user_id: " . $claim['user_id'] . " with userId: $userId");
+        if ($claim['user_id'] === $userId) {
+            error_log("DEBUG: isUserClaimed - MATCH FOUND!");
+            return true;
+        }
+    }
+    
+    error_log("DEBUG: isUserClaimed - NO MATCH FOUND");
+    return false;
+}
+
+/**
+ * Check if a user can claim an item
+ */
+function canUserClaim($trackingNumber, $userId) {
+    // User must be logged in
+    if (!$userId) {
+        return false;
+    }
+    
+    // Check if user already has an active claim
+    if (isUserClaimed($trackingNumber, $userId)) {
+        return false;
+    }
+    
+    // Check if user owns the item
+    if (currentUserOwnsItem($trackingNumber)) {
+        return false;
+    }
+    
+    return true;
+}
+
+/**
+ * Get user's position in the waitlist for an item
+ */
+function getUserClaimPosition($trackingNumber, $userId) {
+    $activeClaims = getActiveClaims($trackingNumber);
+    
+    foreach ($activeClaims as $index => $claim) {
+        if ($claim['user_id'] === $userId) {
+            return $index + 1; // Position is 1-based
+        }
+    }
+    
+    return null; // User not in waitlist
+}
+
+/**
+ * Convert data array back to YAML format
+ */
+function convertToYaml($data) {
+    $yaml = '';
+    
+    foreach ($data as $key => $value) {
+        if ($key === 'claims') {
+            // Handle claims array specially
+            $yaml .= "claims:\n";
+            if (is_array($value)) {
+                foreach ($value as $claim) {
+                    $yaml .= "  - user_id: " . $claim['user_id'] . "\n";
+                    $yaml .= "    user_name: " . $claim['user_name'] . "\n";
+                    $yaml .= "    user_email: " . $claim['user_email'] . "\n";
+                    $yaml .= "    claimed_at: " . $claim['claimed_at'] . "\n";
+                    $yaml .= "    status: " . $claim['status'] . "\n";
+                    if (isset($claim['removed_at'])) {
+                        $yaml .= "    removed_at: " . $claim['removed_at'] . "\n";
+                    }
+                    if (isset($claim['removed_by'])) {
+                        $yaml .= "    removed_by: " . $claim['removed_by'] . "\n";
+                    }
+                }
+            }
+        } else {
+            // Handle regular key-value pairs
+            if (is_string($value) && (strpos($value, "\n") !== false || strpos($value, ':') !== false)) {
+                // Multi-line or complex value
+                $yaml .= $key . ": |\n";
+                $lines = explode("\n", $value);
+                foreach ($lines as $line) {
+                    $yaml .= "  " . $line . "\n";
+                }
+            } else {
+                $yaml .= $key . ": " . $value . "\n";
+            }
+        }
+    }
+    
+    return $yaml;
+}
+
+/**
+ * Get ordinal suffix for numbers (1st, 2nd, 3rd, etc.)
+ */
+function getOrdinalSuffix($number) {
+    if ($number >= 11 && $number <= 13) {
+        return 'th';
+    }
+    
+    switch ($number % 10) {
+        case 1: return 'st';
+        case 2: return 'nd';
+        case 3: return 'rd';
+        default: return 'th';
+    }
 }
 
 ?> 

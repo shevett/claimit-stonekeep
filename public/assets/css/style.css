@@ -1106,4 +1106,86 @@ footer {
 
 .text-muted {
     color: var(--gray-500);
+}
+
+/* Waitlist Section Styles */
+.waitlist-section {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--gray-200);
+}
+
+.waitlist-section h3 {
+    margin-bottom: 1rem;
+    color: var(--gray-900);
+    font-size: 1.25rem;
+}
+
+.waitlist-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.waitlist-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--gray-50);
+    border-radius: 8px;
+    border: 1px solid var(--gray-200);
+}
+
+.waitlist-item.primary-claim {
+    background: var(--primary-50);
+    border-color: var(--primary-200);
+}
+
+.waitlist-position {
+    flex-shrink: 0;
+}
+
+.position-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    background: var(--gray-300);
+    color: var(--gray-700);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.position-badge.primary {
+    background: var(--primary-500);
+    color: white;
+}
+
+.waitlist-info {
+    flex: 1;
+}
+
+.claimant-name {
+    font-weight: 600;
+    color: var(--gray-900);
+    margin-bottom: 0.25rem;
+}
+
+.claim-date {
+    font-size: 0.875rem;
+    color: var(--gray-600);
+}
+
+.waitlist-actions {
+    flex-shrink: 0;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    border-radius: 4px;
 } 

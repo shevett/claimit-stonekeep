@@ -58,9 +58,10 @@ try {
                     'posted_date' => $data['submitted_at'] ?? 'Unknown',
                     'submitted_timestamp' => $data['submitted_timestamp'] ?? null,
                     'yaml_key' => $yamlKey,
-                    'claimed_by' => $data['claimed_by'] ?? null,
-                    'claimed_by_name' => $data['claimed_by_name'] ?? null,
-                    'claimed_at' => $data['claimed_at'] ?? null,
+                    // For backward compatibility, keep old fields but populate from new system
+                    'claimed_by' => null,
+                    'claimed_by_name' => null,
+                    'claimed_at' => null,
                     'user_id' => $data['user_id'] ?? 'legacy_user',
                     'user_name' => $data['user_name'] ?? 'Legacy User',
                     'user_email' => $data['user_email'] ?? $data['contact_email'] ?? ''
@@ -152,16 +153,43 @@ $flashMessage = showFlashMessage();
                         <div class="detail-item">
                             <strong>Listed by:</strong>
                             <a href="?page=user-listings&id=<?php echo escape($item['user_id']); ?>">
-                                <?php echo escape($item['user_name']); ?>
+                                <?php 
+                                $currentUser = getCurrentUser();
+                                if ($currentUser && $item['user_id'] === $currentUser['id']) {
+                                    echo 'You! (' . escape($item['user_name']) . ')';
+                                } else {
+                                    echo escape($item['user_name']);
+                                }
+                                ?>
                             </a>
                         </div>
-                        <?php if ($item['claimed_by']): ?>
+                        <?php 
+                        // Get active claims for this item
+                        $activeClaims = getActiveClaims($item['tracking_number']);
+                        $primaryClaim = getPrimaryClaim($item['tracking_number']);
+                        ?>
+                        
+                        <?php if ($primaryClaim): ?>
                             <div class="detail-item">
-                                <strong>Claimed by:</strong>
-                                <span><?php echo escape($item['claimed_by_name']); ?></span>
-                                <?php if ($item['claimed_at']): ?>
-                                    <span class="claim-date">(<?php echo escape(date('M j, Y', strtotime($item['claimed_at']))); ?>)</span>
-                                <?php endif; ?>
+                                <strong>Primary Claim:</strong>
+                                <span>
+                                    <?php 
+                                    $currentUser = getCurrentUser();
+                                    if ($currentUser && $primaryClaim['user_id'] === $currentUser['id']) {
+                                        echo 'You! (' . escape($primaryClaim['user_name']) . ')';
+                                    } else {
+                                        echo escape($primaryClaim['user_name']);
+                                    }
+                                    ?>
+                                </span>
+                                <span class="claim-date">(<?php echo escape(date('M j, Y', strtotime($primaryClaim['claimed_at']))); ?>)</span>
+                            </div>
+                        <?php endif; ?>
+                        
+                        <?php if (count($activeClaims) > 1): ?>
+                            <div class="detail-item">
+                                <strong>Waitlist:</strong>
+                                <span><?php echo count($activeClaims) - 1; ?> person<?php echo (count($activeClaims) - 1) !== 1 ? 's' : ''; ?> waiting</span>
                             </div>
                         <?php endif; ?>
                     </div>
@@ -176,29 +204,31 @@ $flashMessage = showFlashMessage();
                         
                         <?php 
                         $currentUser = getCurrentUser();
-                        $isClaimed = !empty($item['claimed_by']);
-                        $isClaimedByCurrentUser = $isClaimed && $currentUser && $item['claimed_by'] === $currentUser['id'];
                         $isOwnItem = currentUserOwnsItem($item['tracking_number']);
+                        $isUserClaimed = $currentUser ? isUserClaimed($item['tracking_number'], $currentUser['id']) : false;
+                        $canUserClaim = $currentUser ? canUserClaim($item['tracking_number'], $currentUser['id']) : false;
+                        $userClaimPosition = $currentUser ? getUserClaimPosition($item['tracking_number'], $currentUser['id']) : null;
+                        
+                        // Debug output
+                        
                         ?>
                         
-                        <?php if (!$isOwnItem): ?>
-                            <?php if ($isClaimedByCurrentUser): ?>
-                                <button onclick="claimItem('<?php echo escape($item['tracking_number']); ?>')" 
+                        <?php if (!$isOwnItem && $currentUser): ?>
+                            <?php if ($isUserClaimed): ?>
+                                <button onclick="removeMyClaim('<?php echo escape($item['tracking_number']); ?>')" 
                                         class="btn btn-warning btn-large claim-btn" 
-                                        title="Unclaim this item"
-                                        data-action="unclaim">
-                                    ✅ You have claimed this!
+                                        title="Remove yourself from the waitlist">
+                                    🚫 Remove me from list (<?php echo $userClaimPosition . getOrdinalSuffix($userClaimPosition); ?> in line)
                                 </button>
-                            <?php elseif (!$isClaimed): ?>
-                                <button onclick="claimItem('<?php echo escape($item['tracking_number']); ?>')" 
+                            <?php elseif ($canUserClaim): ?>
+                                <button onclick="addClaimToItem('<?php echo escape($item['tracking_number']); ?>')" 
                                         class="btn btn-primary btn-large claim-btn" 
-                                        title="Claim this item"
-                                        data-action="claim">
+                                        title="Claim this item">
                                     🏆 Claim this!
                                 </button>
                             <?php else: ?>
-                                <button class="btn btn-secondary btn-large" disabled title="Already claimed by someone else">
-                                    ✅ Claimed
+                                <button class="btn btn-secondary btn-large" disabled title="You cannot claim this item">
+                                    ❌ Cannot claim
                                 </button>
                             <?php endif; ?>
                         <?php endif; ?>
@@ -212,6 +242,54 @@ $flashMessage = showFlashMessage();
                         <?php endif; ?>
                     </div>
                 </div>
+                
+                <?php if (!empty($activeClaims)): ?>
+                <div class="waitlist-section">
+                    <h3>Waitlist</h3>
+                    <div class="waitlist-container">
+                        <?php foreach ($activeClaims as $index => $claim): ?>
+                            <div class="waitlist-item <?php echo $index === 0 ? 'primary-claim' : ''; ?>">
+                                <div class="waitlist-position">
+                                    <?php if ($index === 0): ?>
+                                        <span class="position-badge primary">1st</span>
+                                    <?php else: ?>
+                                        <span class="position-badge"><?php echo ($index + 1) . getOrdinalSuffix($index + 1); ?></span>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="waitlist-info">
+                                    <div class="claimant-name">
+                                        <?php 
+                                        $currentUser = getCurrentUser();
+                                        if ($currentUser && $claim['user_id'] === $currentUser['id']) {
+                                            echo 'You! (' . escape($claim['user_name']) . ')';
+                                        } else {
+                                            echo escape($claim['user_name']);
+                                        }
+                                        ?>
+                                    </div>
+                                    <div class="claim-date">Claimed <?php echo escape(date('M j, Y g:i A', strtotime($claim['claimed_at']))); ?></div>
+                                </div>
+                                <?php if ($isOwnItem): ?>
+                                    <div class="waitlist-actions">
+                                        <button onclick="removeClaimByOwner('<?php echo escape($item['tracking_number']); ?>', '<?php echo escape($claim['user_id']); ?>')" 
+                                                class="btn btn-sm btn-danger" 
+                                                title="Remove <?php 
+                                                $currentUser = getCurrentUser();
+                                                if ($currentUser && $claim['user_id'] === $currentUser['id']) {
+                                                    echo 'You! (' . escape($claim['user_name']) . ')';
+                                                } else {
+                                                    echo escape($claim['user_name']);
+                                                }
+                                                ?> from waitlist">
+                                            🗑️
+                                        </button>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -517,18 +595,99 @@ $flashMessage = showFlashMessage();
     cursor: not-allowed !important;
     transform: none !important;
 }
+
+/* Waitlist Styles */
+.waitlist-section {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: var(--gray-50);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--gray-200);
+}
+
+.waitlist-section h3 {
+    margin-bottom: 1rem;
+    color: var(--gray-900);
+}
+
+.waitlist-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.waitlist-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: white;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--gray-200);
+    transition: all 0.2s ease;
+}
+
+.waitlist-item.primary-claim {
+    border-color: var(--primary-500);
+    background: var(--primary-50);
+}
+
+.waitlist-position {
+    flex-shrink: 0;
+}
+
+.position-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: var(--gray-200);
+    color: var(--gray-700);
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.position-badge.primary {
+    background: var(--primary-500);
+    color: white;
+}
+
+.waitlist-info {
+    flex: 1;
+}
+
+.claimant-name {
+    font-weight: 600;
+    color: var(--gray-900);
+    margin-bottom: 0.25rem;
+}
+
+.claim-date {
+    font-size: 0.875rem;
+    color: var(--gray-600);
+}
+
+.waitlist-actions {
+    flex-shrink: 0;
+}
+
+.btn-sm {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+    border-radius: var(--radius-sm);
+}
 </style>
 
 <script>
-function claimItem(trackingNumber) {
-    // Get the button that was clicked to determine action
-    const button = document.querySelector(`button[onclick="claimItem('${trackingNumber}')"]`);
-    const action = button ? button.getAttribute('data-action') : 'claim';
+function addClaimToItem(trackingNumber) {
+    const button = document.querySelector(`button[onclick="addClaimToItem('${trackingNumber}')"]`);
     
     // Show loading state
     const originalText = button.innerHTML;
     button.disabled = true;
-    button.innerHTML = action === 'claim' ? '⏳ Claiming...' : '⏳ Unclaiming...';
+    button.innerHTML = '⏳ Adding to list...';
     
     // Send AJAX request
     fetch('', {
@@ -536,7 +695,7 @@ function claimItem(trackingNumber) {
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: `action=${action}&tracking_number=${encodeURIComponent(trackingNumber)}`
+        body: `action=add_claim&tracking_number=${encodeURIComponent(trackingNumber)}`
     })
     .then(response => response.json())
     .then(data => {
@@ -564,6 +723,85 @@ function claimItem(trackingNumber) {
         // Restore button
         button.disabled = false;
         button.innerHTML = originalText;
+    });
+}
+
+function removeMyClaim(trackingNumber) {
+    const button = document.querySelector(`button[onclick="removeMyClaim('${trackingNumber}')"]`);
+    
+    // Show loading state
+    const originalText = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '⏳ Removing...';
+    
+    // Send AJAX request
+    fetch('', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `action=remove_claim&tracking_number=${encodeURIComponent(trackingNumber)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message
+            showMessage(data.message, 'success');
+            
+            // Reload the page to update the display
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            // Show error message
+            showMessage(data.message, 'error');
+            
+            // Restore button
+            button.disabled = false;
+            button.innerHTML = originalText;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showMessage('An error occurred. Please try again.', 'error');
+        
+        // Restore button
+        button.disabled = false;
+        button.innerHTML = originalText;
+    });
+}
+
+function removeClaimByOwner(trackingNumber, claimUserId) {
+    if (!confirm('Are you sure you want to remove this person from the waitlist?')) {
+        return;
+    }
+    
+    // Send AJAX request
+    fetch('', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `action=remove_claim_by_owner&tracking_number=${encodeURIComponent(trackingNumber)}&claim_user_id=${encodeURIComponent(claimUserId)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message
+            showMessage(data.message, 'success');
+            
+            // Reload the page to update the display
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            // Show error message
+            showMessage(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showMessage('An error occurred. Please try again.', 'error');
     });
 }
 
