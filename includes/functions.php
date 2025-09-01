@@ -14,8 +14,16 @@ function escape($string) {
  * Redirect to a specific page
  */
 function redirect($page = 'home') {
-    // Use absolute URL to avoid path issues
-    $baseUrl = 'http://localhost:8000/';
+    // Determine the correct base URL based on the environment
+    $isLocalhost = isset($_SERVER['HTTP_HOST']) && (
+        $_SERVER['HTTP_HOST'] === 'localhost:8000' || 
+        $_SERVER['HTTP_HOST'] === '127.0.0.1:8000'
+    );
+    
+    $baseUrl = $isLocalhost 
+        ? 'http://localhost:8000/'
+        : 'https://claimit.stonekeep.com/';
+    
     echo "<script>window.location.href = '" . $baseUrl . "?page=" . urlencode($page) . "';</script>";
     echo "<p>Redirecting to " . htmlspecialchars($page) . "... <a href='" . $baseUrl . "?page=" . urlencode($page) . "'>Click here if not redirected automatically</a></p>";
     exit;
