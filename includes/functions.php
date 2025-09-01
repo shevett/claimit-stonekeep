@@ -849,6 +849,109 @@ function convertToYaml($data) {
 }
 
 /**
+ * Get all items that a user has claimed or is on the waiting list for
+ */
+function getItemsClaimedByUser($userId) {
+    $awsService = getAwsService();
+    if (!$awsService) {
+        return [];
+    }
+    
+    $claimedItems = [];
+    
+    try {
+        $result = $awsService->listObjects();
+        $objects = $result['objects'] ?? [];
+        
+        foreach ($objects as $object) {
+            // Only process YAML files
+            if (!str_ends_with($object['key'], '.yaml')) {
+                continue;
+            }
+            
+            try {
+                $trackingNumber = basename($object['key'], '.yaml');
+                
+                // Get YAML content
+                $yamlObject = $awsService->getObject($object['key']);
+                $yamlContent = $yamlObject['content'];
+                
+                // Parse YAML content
+                $data = parseSimpleYaml($yamlContent);
+                if (!$data || !isset($data['description']) || !isset($data['price']) || !isset($data['contact_email'])) {
+                    continue;
+                }
+                
+                // Check if user has claimed this item
+                $activeClaims = getActiveClaims($trackingNumber);
+                $userClaim = null;
+                $claimPosition = null;
+                
+                foreach ($activeClaims as $index => $claim) {
+                    if ($claim['user_id'] === $userId) {
+                        $userClaim = $claim;
+                        $claimPosition = $index + 1; // 1-based position
+                        break;
+                    }
+                }
+                
+                if ($userClaim) {
+                    // Check if corresponding image exists
+                    $imageKey = null;
+                    $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
+                    foreach ($imageExtensions as $ext) {
+                        $possibleImageKey = $trackingNumber . '.' . $ext;
+                        foreach ($objects as $imgObj) {
+                            if ($imgObj['key'] === $possibleImageKey) {
+                                $imageKey = $possibleImageKey;
+                                break 2;
+                            }
+                        }
+                    }
+                    
+                    $title = $data['title'] ?? $data['description'] ?? 'Untitled';
+                    $description = $data['description'];
+                    
+                    $claimedItems[] = [
+                        'tracking_number' => $trackingNumber,
+                        'title' => $title,
+                        'description' => $description,
+                        'price' => $data['price'],
+                        'contact_email' => $data['contact_email'],
+                        'image_key' => $imageKey,
+                        'posted_date' => $data['submitted_at'] ?? 'Unknown',
+                        'yaml_key' => $object['key'],
+                        'user_id' => $data['user_id'] ?? 'legacy_user',
+                        'user_name' => $data['user_name'] ?? 'Legacy User',
+                        'user_email' => $data['user_email'] ?? $data['contact_email'] ?? '',
+                        'claim' => $userClaim,
+                        'claim_position' => $claimPosition,
+                        'is_primary_claim' => $claimPosition === 1,
+                        'total_claims' => count($activeClaims)
+                    ];
+                }
+            } catch (Exception $e) {
+                // Skip invalid YAML files
+                continue;
+            }
+        }
+        
+        // Sort items by claim date (newest first)
+        usort($claimedItems, function($a, $b) {
+            $dateA = strtotime($a['claim']['claimed_at']);
+            $dateB = strtotime($b['claim']['claimed_at']);
+            return $dateB - $dateA;
+        });
+        
+    } catch (Exception $e) {
+        // Return empty array on error
+        return [];
+    }
+    
+    return $claimedItems;
+}
+
+/**
  * Get ordinal suffix for numbers (1st, 2nd, 3rd, etc.)
  */
 function getOrdinalSuffix($number) {

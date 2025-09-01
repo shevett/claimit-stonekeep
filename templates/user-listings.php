@@ -8,6 +8,7 @@ if (empty($userId)) {
 }
 
 $items = [];
+$claimedItems = [];
 $error = null;
 $userName = '';
 $userEmail = '';
@@ -93,6 +94,9 @@ try {
         usort($items, function($a, $b) {
             return strcmp($b['tracking_number'], $a['tracking_number']);
         });
+        
+        // Get items claimed by this user
+        $claimedItems = getItemsClaimedByUser($userId);
     }
 } catch (Exception $e) {
     $error = $e->getMessage();
@@ -160,6 +164,10 @@ $isOwnListings = $currentUser && $currentUser['id'] === $userId;
                     <h3><?php echo count(array_filter($items, function($item) { return $item['price'] > 0; })); ?></h3>
                     <p>For Sale</p>
                 </div>
+                <div class="stat-card">
+                    <h3><?php echo count($claimedItems); ?></h3>
+                    <p>Items Claimed</p>
+                </div>
             </div>
         <?php endif; ?>
 
@@ -167,7 +175,7 @@ $isOwnListings = $currentUser && $currentUser['id'] === $userId;
             <div class="alert alert-error">
                 Error loading items: <?php echo escape($error); ?>
             </div>
-        <?php elseif (empty($items)): ?>
+        <?php elseif (empty($items) && empty($claimedItems)): ?>
             <div class="empty-state">
                 <div class="empty-state-content">
                     <div class="empty-state-icon">📦</div>
@@ -175,6 +183,72 @@ $isOwnListings = $currentUser && $currentUser['id'] === $userId;
                     <p><?php echo escape($userName ?: 'This user'); ?> doesn't have any active items posted.</p>
                     <a href="?page=items" class="btn btn-primary">Browse All Items</a>
                 </div>
+            </div>
+        <?php elseif (empty($items) && !empty($claimedItems) && $isOwnListings): ?>
+            <!-- User has claimed items but no posted items -->
+            <div class="empty-state">
+                <div class="empty-state-content">
+                    <div class="empty-state-icon">📦</div>
+                    <h3>No Items Posted Yet</h3>
+                    <p>You haven't posted any items yet, but you have claimed <?php echo count($claimedItems); ?> item<?php echo count($claimedItems) !== 1 ? 's' : ''; ?>.</p>
+                    <a href="?page=claim" class="btn btn-primary">Post Your First Item</a>
+                </div>
+            </div>
+            
+            <!-- Show claimed items section even when no posted items -->
+            <div class="dashboard-content" style="margin-top: 3rem;">
+                <div class="section-header">
+                    <h2>Items You've Claimed</h2>
+                    <p class="text-muted">Items you've claimed or are on the waiting list for</p>
+                </div>
+            </div>
+            
+            <div class="items-grid">
+                <?php foreach ($claimedItems as $item): ?>
+                    <div class="item-card">
+                        <a href="?page=item&id=<?php echo escape($item['tracking_number']); ?>" class="item-link">
+                            <div class="item-image">
+                                <?php if ($item['image_key']): ?>
+                                    <?php
+                                    try {
+                                        $awsService = getAwsService();
+                                        $imageUrl = $awsService->getPresignedUrl($item['image_key'], 3600);
+                                    } catch (Exception $e) {
+                                        $imageUrl = null;
+                                    }
+                                    ?>
+                                    <?php if ($imageUrl): ?>
+                                        <img src="<?php echo escape($imageUrl); ?>" alt="<?php echo escape($item['title']); ?>" loading="lazy">
+                                    <?php else: ?>
+                                        <div class="no-image-placeholder">
+                                            <span>📷</span>
+                                            <p>Image unavailable</p>
+                                        </div>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    <div class="no-image-placeholder">
+                                        <span>📷</span>
+                                        <p>No image</p>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                            <div class="item-info">
+                                <h3><?php echo escape($item['title']); ?></h3>
+                                <p class="item-description"><?php echo escape($item['description']); ?></p>
+                                <div class="item-meta">
+                                    <span class="price"><?php echo $item['price'] == 0 ? 'Free' : '$' . number_format($item['price'], 2); ?></span>
+                                    <span class="claim-status <?php echo $item['claim_position'] === 1 ? 'primary' : 'waitlist'; ?>">
+                                        <?php echo $item['claim_position'] === 1 ? 'Primary Claim' : $item['claim_position'] . getOrdinalSuffix($item['claim_position']) . ' in Line'; ?>
+                                    </span>
+                                </div>
+                                <div class="item-details">
+                                    <span class="claim-date">Claimed <?php echo formatDate($item['claim']['claimed_at']); ?></span>
+                                    <span class="item-waitlist"><?php echo $item['total_claims']; ?> total claim<?php echo $item['total_claims'] !== 1 ? 's' : ''; ?></span>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                <?php endforeach; ?>
             </div>
         <?php else: ?>
             <?php if (!$isOwnListings): ?>
@@ -210,7 +284,7 @@ $isOwnListings = $currentUser && $currentUser['id'] === $userId;
             </div>
             <?php endif; ?>
 
-            <!-- Items Grid -->
+            <!-- Posted Items Grid -->
             <div class="items-grid">
                 <?php foreach ($items as $item): ?>
                     <div class="item-card">
@@ -275,6 +349,79 @@ $isOwnListings = $currentUser && $currentUser['id'] === $userId;
                     </div>
                 <?php endforeach; ?>
             </div>
+            
+            <?php if ($isOwnListings && !empty($claimedItems)): ?>
+            <!-- Claimed Items Section -->
+            <div class="dashboard-content" style="margin-top: <?php echo empty($items) ? '0' : '3rem'; ?>;">
+                <div class="section-header">
+                    <h2>Items You've Claimed</h2>
+                    <p class="text-muted">Items you've claimed or are on the waiting list for</p>
+                </div>
+            </div>
+            
+            <div class="items-grid">
+                <?php foreach ($claimedItems as $item): ?>
+                    <div class="item-card">
+                        <a href="?page=item&id=<?php echo escape($item['tracking_number']); ?>" class="item-link">
+                            <div class="item-image">
+                                <?php if ($item['image_key']): ?>
+                                    <?php
+                                    try {
+                                        $imageUrl = $awsService->getPresignedUrl($item['image_key'], 3600);
+                                        echo '<img src="' . escape($imageUrl) . '" alt="' . escape($item['title']) . '" loading="lazy">';
+                                    } catch (Exception $e) {
+                                        echo '<div class="no-image-placeholder"><span>📷</span><p>Image Unavailable</p></div>';
+                                    }
+                                    ?>
+                                <?php else: ?>
+                                    <div class="no-image-placeholder">
+                                        <span>📷</span>
+                                        <p>No Image Available</p>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                            
+                            <div class="item-details">
+                                <div class="item-header">
+                                    <h4 class="item-title"><?php echo escape($item['title']); ?></h4>
+                                    <div class="item-price">
+                                        <?php if ($item['price'] == 0): ?>
+                                            <span class="price-free">FREE</span>
+                                        <?php else: ?>
+                                            <span class="price-amount">$<?php echo escape(number_format($item['price'], 2)); ?></span>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                                <p class="item-description"><?php echo escape(strlen($item['description']) > 100 ? substr($item['description'], 0, 100) . '...' : $item['description']); ?></p>
+                                
+                                <div class="item-meta">
+                                    <div class="item-posted">
+                                        <strong>Posted by:</strong> <?php echo escape($item['user_name']); ?>
+                                    </div>
+                                    <div class="item-claimed">
+                                        <strong>Your Claim:</strong> 
+                                        <?php if ($item['is_primary_claim']): ?>
+                                            <span class="claim-status primary">🏆 Primary Claim</span>
+                                        <?php else: ?>
+                                            <span class="claim-status waitlist">⏳ <?php echo escape($item['claim_position'] . getOrdinalSuffix($item['claim_position'])); ?> in line</span>
+                                        <?php endif; ?>
+                                        <span class="claim-date">(<?php echo escape(date('M j, Y', strtotime($item['claim']['claimed_at']))); ?>)</span>
+                                    </div>
+                                    <?php if ($item['total_claims'] > 1): ?>
+                                        <div class="item-waitlist">
+                                            <strong>Waitlist:</strong> <?php echo escape($item['total_claims']); ?> total claim<?php echo $item['total_claims'] !== 1 ? 's' : ''; ?>
+                                        </div>
+                                    <?php endif; ?>
+                                    <div class="item-tracking">
+                                        <strong>ID:</strong> #<?php echo escape($item['tracking_number']); ?>
+                                    </div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>
@@ -398,6 +545,38 @@ $isOwnListings = $currentUser && $currentUser['id'] === $userId;
     font-size: 3rem;
     margin-bottom: 0.5rem;
     opacity: 0.6;
+}
+
+/* Claim Status Styles */
+.claim-status {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.claim-status.primary {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+}
+
+.claim-status.waitlist {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+}
+
+.claim-date {
+    color: var(--gray-500);
+    font-size: 0.875rem;
+    margin-left: 0.5rem;
+}
+
+.item-waitlist {
+    color: var(--gray-600);
+    font-size: 0.875rem;
 }
 
 @media (max-width: 768px) {
