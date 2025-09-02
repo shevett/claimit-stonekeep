@@ -1281,16 +1281,25 @@ footer {
     color: #333;
 }
 
-.form-group input[type="text"] {
+.form-group input[type="text"],
+.form-group textarea {
     width: 100%;
     padding: 0.75rem;
     border: 1px solid #ddd;
     border-radius: 4px;
     font-size: 1rem;
     box-sizing: border-box;
+    font-family: inherit;
 }
 
-.form-group input[type="text"]:focus {
+.form-group textarea {
+    resize: vertical;
+    min-height: 100px;
+    line-height: 1.5;
+}
+
+.form-group input[type="text"]:focus,
+.form-group textarea:focus {
     outline: none;
     border-color: #007bff;
     box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);

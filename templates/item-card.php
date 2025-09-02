@@ -111,6 +111,11 @@ if (!empty($item['image_key'])) {
     <?php elseif ($context === 'dashboard' && $isOwnListings): ?>
         <!-- Action buttons for dashboard context (own listings) -->
         <div class="item-actions">
+            <button onclick="openEditModal('<?php echo escape($item['tracking_number']); ?>', <?php echo json_encode($item['title']); ?>, <?php echo json_encode($item['description']); ?>)"
+                    class="btn btn-primary">
+                ✏️ Edit...
+            </button>
+
             <a href="mailto:<?php echo escape($item['contact_email']); ?>?subject=Interest in item #<?php echo escape($item['tracking_number']); ?>"
                class="btn btn-secondary">
                 📧 Contact Seller
