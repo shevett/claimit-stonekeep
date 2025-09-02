@@ -108,11 +108,114 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['tr
 }
 
 // Handle AJAX claim requests before any HTML output
-if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_claim', 'remove_claim_by_owner']) && isset($_POST['tracking_number'])) {
+if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_claim', 'remove_claim_by_owner', 'delete_item']) && isset($_POST['tracking_number'])) {
     header('Content-Type: application/json');
     
     $trackingNumber = $_POST['tracking_number'];
     $action = $_POST['action'];
+    
+    if (!preg_match('/^\d{14}$/', $trackingNumber)) {
+        echo json_encode(['success' => false, 'message' => 'Invalid tracking number']);
+        exit;
+    }
+    
+    // Check if user is logged in
+    if (!isLoggedIn()) {
+        echo json_encode(['success' => false, 'message' => 'You must be logged in to claim items']);
+        exit;
+    }
+    
+    $currentUser = getCurrentUser();
+    if (!$currentUser) {
+        echo json_encode(['success' => false, 'message' => 'User information not available']);
+        exit;
+    }
+    
+    try {
+        switch ($action) {
+            case 'add_claim':
+                $claim = addClaimToItem($trackingNumber);
+                $position = getUserClaimPosition($trackingNumber, $claim['user_id']);
+                echo json_encode([
+                    'success' => true, 
+                    'message' => 'You\'re now ' . $position . getOrdinalSuffix($position) . ' in line!',
+                    'position' => $position
+                ]);
+                break;
+                
+            case 'remove_claim':
+                error_log("DEBUG: remove_claim action called for tracking number: $trackingNumber");
+                try {
+                    removeMyClaim($trackingNumber);
+                    error_log("DEBUG: removeMyClaim completed successfully");
+                    echo json_encode(['success' => true, 'message' => 'You\'ve been removed from the waitlist']);
+                } catch (Exception $e) {
+                    error_log("DEBUG: removeMyClaim failed with error: " . $e->getMessage());
+                    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+                }
+                break;
+                
+            case 'remove_claim_by_owner':
+                if (!isset($_POST['claim_user_id'])) {
+                    echo json_encode(['success' => false, 'message' => 'Claim user ID required']);
+                    exit;
+                }
+                $claimUserId = $_POST['claim_user_id'];
+                removeClaimFromItem($trackingNumber, $claimUserId);
+                echo json_encode(['success' => true, 'message' => 'Claim removed successfully']);
+                break;
+                
+            case 'delete_item':
+                // Check if the current user owns this item
+                $item = getItem($trackingNumber);
+                if (!$item || $item['user_id'] !== $currentUser['id']) {
+                    echo json_encode(['success' => false, 'message' => 'You can only delete your own items']);
+                    exit;
+                }
+                
+                // Delete the item from S3
+                $awsService = getAwsService();
+                if (!$awsService) {
+                    throw new Exception('AWS service not available');
+                }
+                
+                // Delete the item YAML file
+                $yamlKey = $trackingNumber . '.yaml';
+                $awsService->deleteObject($yamlKey);
+                
+                // Delete the image if it exists
+                if (!empty($item['image_key'])) {
+                    $awsService->deleteObject($item['image_key']);
+                }
+                
+                echo json_encode(['success' => true, 'message' => 'Item deleted successfully']);
+                break;
+        }
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+    
+    exit;
+}
+
+// Handle GET-based AJAX claim requests (for backward compatibility)
+if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) && in_array($_GET['action'], ['add_claim', 'remove_claim', 'remove_claim_by_owner', 'delete_item'])) {
+    header('Content-Type: application/json');
+    
+    // For GET requests, we need to get the tracking number from POST data
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        echo json_encode(['success' => false, 'message' => 'Invalid request method']);
+        exit;
+    }
+    
+    if (!isset($_POST['tracking_number'])) {
+        echo json_encode(['success' => false, 'message' => 'Tracking number required']);
+        exit;
+    }
+    
+    $trackingNumber = $_POST['tracking_number'];
+    $action = $_GET['action'];
     
     if (!preg_match('/^\d{14}$/', $trackingNumber)) {
         echo json_encode(['success' => false, 'message' => 'Invalid tracking number']);
