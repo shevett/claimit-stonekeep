@@ -24,10 +24,10 @@ $isOwnItem = ($item['user_id'] ?? null) === ($currentUser['id'] ?? null);
 
 // Get image URL
 $imageUrl = null;
-if (!empty($item['image_file'])) {
+if (!empty($item['image_key'])) {
     try {
         $awsService = getAwsService();
-        $imageUrl = $awsService->getPresignedUrl($item['image_file'], 3600);
+        $imageUrl = $awsService->getPresignedUrl($item['image_key'], 3600);
     } catch (Exception $e) {
         $imageUrl = null;
     }
