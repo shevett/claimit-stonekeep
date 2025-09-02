@@ -135,91 +135,18 @@ $flashMessage = showFlashMessage();
                 Error loading items: <?php echo escape($error); ?>
             </div>
         <?php elseif (empty($items)): ?>
-            <div class="empty-state">
-                <div class="empty-state-content">
-                    <div class="empty-state-icon">📦</div>
-                    <h3>No Items Available</h3>
-                    <p>There are currently no items posted. Be the first to post something!</p>
-                    <a href="?page=claim" class="btn btn-primary">Post Your First Item</a>
-                </div>
+            <div class="no-items">
+                <p>No items available at the moment.</p>
             </div>
         <?php else: ?>
-            <!-- Items Grid -->
             <div class="items-grid">
                 <?php foreach ($items as $item): ?>
-                    <div class="item-card">
-                        <a href="?page=item&id=<?php echo escape($item['tracking_number']); ?>" class="item-link">
-                            <div class="item-image">
-                                <?php if ($item['image_key']): ?>
-                                    <?php
-                                    try {
-                                        $imageUrl = $awsService->getPresignedUrl($item['image_key'], 3600);
-                                        echo '<img src="' . escape($imageUrl) . '" alt="' . escape($item['title']) . '" loading="lazy">';
-                                    } catch (Exception $e) {
-                                        echo '<div class="no-image-placeholder"><span>📷</span><p>Image Unavailable</p></div>';
-                                    }
-                                    ?>
-                                <?php else: ?>
-                                    <div class="no-image-placeholder">
-                                        <span>📷</span>
-                                        <p>No Image Available</p>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-                            
-                            <div class="item-details">
-                                <div class="item-header">
-                                    <h4 class="item-title"><?php echo escape($item['title']); ?></h4>
-                                    <div class="item-price">
-                                        <?php if ($item['price'] == 0): ?>
-                                            <span class="price-free">FREE</span>
-                                        <?php else: ?>
-                                            <span class="price-amount">$<?php echo escape(number_format($item['price'], 2)); ?></span>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                                <p class="item-description"><?php echo escape(strlen($item['description']) > 100 ? substr($item['description'], 0, 100) . '...' : $item['description']); ?></p>
-                                
-                                <div class="item-meta">
-                                    <div class="item-listed">
-                                        <strong>Listed by:</strong> 
-                                        <a href="?page=user-listings&id=<?php echo escape($item['user_id']); ?>">
-                                            <?php 
-                                            $currentUser = getCurrentUser();
-                                            if ($currentUser && $item['user_id'] === $currentUser['id']) {
-                                                echo 'You! (' . escape($item['user_name']) . ')';
-                                            } else {
-                                                echo escape($item['user_name']);
-                                            }
-                                            ?>
-                                        </a>
-                                    </div>
-                                    <div class="item-posted">
-                                        <strong>Posted:</strong> <?php echo escape($item['posted_date']); ?>
-                                    </div>
-                                    <?php if ($item['claimed_by']): ?>
-                                        <div class="item-claimed">
-                                            <strong>Claimed by:</strong> 
-                                            <?php 
-                                            $currentUser = getCurrentUser();
-                                            if ($currentUser && $item['claimed_by'] === $currentUser['id']) {
-                                                echo 'You! (' . escape($item['claimed_by_name']) . ')';
-                                            } else {
-                                                echo escape($item['claimed_by_name']);
-                                            }
-                                            ?>
-                                            <?php if ($item['claimed_at']): ?>
-                                                <span class="claim-date">(<?php echo escape(date('M j, Y', strtotime($item['claimed_at']))); ?>)</span>
-                                            <?php endif; ?>
-                                        </div>
-                                    <?php endif; ?>
-                                    <div class="item-tracking">
-                                        <strong>ID:</strong> #<?php echo escape($item['tracking_number']); ?>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-                    </div>
+                    <?php
+                    // Set context for the unified template
+                    $context = 'home';
+                    $isOwnListings = false;
+                    ?>
+                    <?php include 'templates/item-card.php'; ?>
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>

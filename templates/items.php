@@ -213,141 +213,18 @@ if ($presignedUrl) {
         <?php if ($awsService): ?>
             <?php if (empty($items)): ?>
                 <div class="no-items">
-                    <div class="no-items-content">
-                        <h3>No items posted yet</h3>
-                        <p>There are currently no items available for sale or for giveaway.</p>
-                        <a href="?page=claim" class="btn btn-primary">Post your first item</a>
-                    </div>
+                    <p>No items available at the moment.</p>
                 </div>
             <?php else: ?>
-                <div class="items-list">
-                    <h3>Available Items (<?php echo count($items); ?>)</h3>
-                    
-                    <div class="items-grid">
-                        <?php foreach ($items as $item): ?>
-                            <div class="item-card">
-                                <a href="?page=item&id=<?php echo escape($item['tracking_number']); ?>" class="item-link">
-                                    <div class="item-image">
-                                    <?php if ($item['image_key']): ?>
-                                        <?php 
-                                        $imageUrl = $awsService->getPresignedUrl($item['image_key'], 3600);
-                                        ?>
-                                        <img src="<?php echo escape($imageUrl); ?>" 
-                                             alt="<?php echo escape($item['description']); ?>" 
-                                             loading="lazy">
-                                    <?php else: ?>
-                                        <div class="no-image-placeholder">
-                                            <span>📷</span>
-                                            <p>No Image Available</p>
-                                        </div>
-                                    <?php endif; ?>
-                                </div>
-                                
-                                <div class="item-details">
-                                    <div class="item-header">
-                                        <h4 class="item-title"><?php echo escape($item['title']); ?></h4>
-                                        <div class="item-price">
-                                            <?php if ($item['price'] == 0): ?>
-                                                <span class="price-free">FREE</span>
-                                            <?php else: ?>
-                                                <span class="price-amount">$<?php echo escape(number_format($item['price'], 2)); ?></span>
-                                            <?php endif; ?>
-                                        </div>
-                                    </div>
-                                    <p class="item-description"><?php echo escape(strlen($item['description']) > 100 ? substr($item['description'], 0, 100) . '...' : $item['description']); ?></p>
-                                    
-                                    <div class="item-meta">
-                                        <div class="item-contact">
-                                            <strong>Listed by:</strong> 
-                                            <a href="?page=user-listings&id=<?php echo escape($item['user_id']); ?>">
-                                                <?php 
-                                                $currentUser = getCurrentUser();
-                                                if ($currentUser && $item['user_id'] === $currentUser['id']) {
-                                                    echo 'You! (' . escape($item['user_name']) . ')';
-                                                } else {
-                                                    echo escape($item['user_name']);
-                                                }
-                                                ?>
-                                            </a>
-                                        </div>
-                                        <div class="item-posted">
-                                            <strong>Posted:</strong> <?php echo escape($item['posted_date']); ?>
-                                        </div>
-                                        <?php if ($item['claimed_by']): ?>
-                                            <div class="item-claimed">
-                                                <strong>Claimed by:</strong> 
-                                                <?php 
-                                                $currentUser = getCurrentUser();
-                                                if ($currentUser && $item['claimed_by'] === $currentUser['id']) {
-                                                    echo 'You! (' . escape($item['claimed_by_name']) . ')';
-                                                } else {
-                                                    echo escape($item['claimed_by_name']);
-                                                }
-                                                ?>
-                                                <?php if ($item['claimed_at']): ?>
-                                                    <span class="claim-date">(<?php echo escape(date('M j, Y', strtotime($item['claimed_at']))); ?>)</span>
-                                                <?php endif; ?>
-                                            </div>
-                                        <?php endif; ?>
-                                        <div class="item-tracking">
-                                            <strong>ID:</strong> #<?php echo escape($item['tracking_number']); ?>
-                                        </div>
-                                    </div>
-                                </a>
-                                    
-                                    <div class="item-actions">
-                                        <a href="mailto:<?php echo escape($item['contact_email']); ?>?subject=Interest in item #<?php echo escape($item['tracking_number']); ?>" 
-                                           class="btn btn-primary">
-                                            📧 Contact Seller
-                                        </a>
-                                        
-                                        <?php 
-                                        $currentUser = getCurrentUser();
-                                        $isClaimed = isUserClaimed($item['tracking_number'], $currentUser ? $currentUser['id'] : null);
-                                        $canClaim = $currentUser ? canUserClaim($item['tracking_number'], $currentUser['id']) : false;
-                                        $isOwnItem = currentUserOwnsItem($item['tracking_number']);
-                                        
-                                        // Debug output
-                                        echo "<!-- DEBUG: Current user ID: " . ($currentUser ? $currentUser['id'] : 'null') . " -->";
-                                        echo "<!-- DEBUG: Is claimed: " . ($isClaimed ? 'true' : 'false') . " -->";
-                                        echo "<!-- DEBUG: Can claim: " . ($canClaim ? 'true' : 'false') . " -->";
-                                        echo "<!-- DEBUG: Is own item: " . ($isOwnItem ? 'true' : 'false') . " -->";
-                                        ?>
-                                        
-                                        <?php if (!$isOwnItem): ?>
-                                            <?php if ($isClaimed): ?>
-                                                <button onclick="removeMyClaim('<?php echo escape($item['tracking_number']); ?>')" 
-                                                        class="btn btn-warning claim-btn" 
-                                                        title="Remove your claim"
-                                                        data-action="unclaim">
-                                                    ✅ You have claimed this!
-                                                </button>
-                                            <?php elseif ($canClaim): ?>
-                                                <button onclick="addClaimToItem('<?php echo escape($item['tracking_number']); ?>')" 
-                                                        class="btn btn-primary claim-btn" 
-                                                        title="Claim this item"
-                                                        data-action="claim">
-                                                    🏆 Claim this!
-                                                </button>
-                                            <?php else: ?>
-                                                <button class="btn btn-secondary" disabled title="Already claimed by someone else">
-                                                    ✅ Claimed
-                                                </button>
-                                            <?php endif; ?>
-                                        <?php endif; ?>
-                                        
-                                        <?php if ($isOwnItem): ?>
-                                            <button onclick="deleteItem('<?php echo escape($item['tracking_number']); ?>')" 
-                                                    class="btn btn-danger delete-btn" 
-                                                    title="Delete this item">
-                                                🗑️ Delete
-                                            </button>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
+                <div class="items-grid">
+                    <?php foreach ($items as $item): ?>
+                        <?php
+                        // Set context for the unified template
+                        $context = 'listing';
+                        $isOwnListings = false;
+                        ?>
+                        <?php include 'templates/item-card.php'; ?>
+                    <?php endforeach; ?>
                 </div>
             <?php endif; ?>
         <?php endif; ?>

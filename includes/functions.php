@@ -975,4 +975,19 @@ function getOrdinalSuffix($number) {
     }
 }
 
+/**
+ * Truncate text to a specified length with ellipsis
+ *
+ * @param string $text The text to truncate
+ * @param int $length The maximum length
+ * @return string The truncated text
+ */
+function truncateText($text, $length = 100) {
+    if (strlen($text) <= $length) {
+        return $text;
+    }
+    
+    return substr($text, 0, $length) . '...';
+}
+
 ?> 
