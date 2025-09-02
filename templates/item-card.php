@@ -111,7 +111,7 @@ if (!empty($item['image_key'])) {
     <?php elseif ($context === 'dashboard' && $isOwnListings): ?>
         <!-- Action buttons for dashboard context (own listings) -->
         <div class="item-actions">
-            <button onclick="openEditModal('<?php echo escape($item['tracking_number']); ?>', <?php echo json_encode($item['title']); ?>, <?php echo json_encode($item['description']); ?>)"
+            <button onclick="openEditModal('<?php echo escape($item['tracking_number']); ?>', '<?php echo addslashes(htmlspecialchars($item['title'], ENT_QUOTES, 'UTF-8')); ?>', '<?php echo addslashes(htmlspecialchars($item['description'], ENT_QUOTES, 'UTF-8')); ?>')"
                     class="btn btn-primary">
                 ✏️ Edit...
             </button>

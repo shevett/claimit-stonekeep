@@ -912,10 +912,8 @@ if ($page === 'item' && isset($_GET['id'])) {
 
     // Edit Modal Functions
     function openEditModal(trackingNumber, title, description) {
-        alert('openEditModal called!'); // Simple test
         console.log('openEditModal called with:', { trackingNumber, title, description });
         const modal = document.getElementById('editModal');
-        console.log('Modal element found:', modal);
         if (modal) {
             // Populate the form fields
             document.getElementById('editTrackingNumber').value = trackingNumber;
