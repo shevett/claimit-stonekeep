@@ -321,6 +321,9 @@ if ($page === 'item' && isset($_GET['id'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ClaimIt</title>
     
+    <!-- Favicon -->
+    <link rel="icon" type="image/jpeg" href="/assets/images/claimit-logo.jpg">
+    
     <!-- Open Graph Meta Tags for Social Media Previews -->
     <?php echo generateOpenGraphTags($page, $ogData); ?>
     
@@ -333,7 +336,10 @@ if ($page === 'item' && isset($_GET['id'])) {
     <header>
         <nav class="navbar">
             <div class="nav-container">
-                <a href="?page=home" class="nav-logo">ClaimIt</a>
+                <a href="?page=home" class="nav-logo">
+                    <img src="/assets/images/claimit-logo.jpg" alt="ClaimIt Logo" class="nav-logo-image">
+                    <span>ClaimIt</span>
+                </a>
                 <ul class="nav-menu">
                     <li><a href="?page=items" class="nav-link <?php echo $page === 'items' ? 'active' : ''; ?>">View available items</a></li>
                     <?php if ($isLoggedIn): ?>

@@ -1191,6 +1191,28 @@ footer {
 } 
 
 /* ========================================
+   NAVIGATION LOGO STYLES
+   ======================================== */
+
+.nav-logo {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+    color: inherit;
+    font-weight: 700;
+    font-size: 1.5rem;
+}
+
+.nav-logo-image {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    object-fit: cover;
+    border: 2px solid #e9ecef;
+}
+
+/* ========================================
    UNIFIED ITEM CARD STYLES
    ======================================== */
 
