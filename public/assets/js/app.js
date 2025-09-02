@@ -389,4 +389,83 @@ function toggleUserDropdown() {
             }
         });
     }
+}
+
+// Settings modal functionality
+function openSettingsModal() {
+    const modal = document.getElementById('settingsModal');
+    modal.style.display = 'block';
+    // Close dropdown when opening modal
+    const dropdown = document.getElementById('userDropdown');
+    if (dropdown) {
+        dropdown.classList.remove('show');
+    }
+}
+
+function closeSettingsModal() {
+    const modal = document.getElementById('settingsModal');
+    modal.style.display = 'none';
+}
+
+// Close modal when clicking outside of it
+window.onclick = function(event) {
+    const modal = document.getElementById('settingsModal');
+    if (event.target === modal) {
+        closeSettingsModal();
+    }
+}
+
+// Handle settings form submission
+document.addEventListener('DOMContentLoaded', function() {
+    const settingsForm = document.getElementById('settingsForm');
+    if (settingsForm) {
+        settingsForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            saveUserSettings();
+        });
+    }
+});
+
+function saveUserSettings() {
+    const displayName = document.getElementById('displayName').value.trim();
+    
+    if (!displayName) {
+        alert('Display name is required');
+        return;
+    }
+    
+    // Show loading state
+    const submitBtn = document.querySelector('#settingsForm button[type="submit"]');
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = 'Saving...';
+    submitBtn.disabled = true;
+    
+    // Send AJAX request to save settings
+    fetch('/?page=settings&action=save', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'display_name=' + encodeURIComponent(displayName)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Settings saved successfully!');
+            closeSettingsModal();
+            // Optionally refresh the page to show updated name
+            location.reload();
+        } else {
+            alert('Error saving settings: ' + (data.message || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error saving settings. Please try again.');
+    })
+    .finally(() => {
+        // Restore button state
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+    });
 } 

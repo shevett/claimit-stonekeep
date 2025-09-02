@@ -990,4 +990,44 @@ function truncateText($text, $length = 100) {
     return substr($text, 0, $length) . '...';
 }
 
+/**
+ * Get user display name from S3 user settings file
+ *
+ * @param string $userId The Google user ID
+ * @param string $defaultName The default name to use if no custom name is set
+ * @return string The display name to use
+ */
+function getUserDisplayName($userId, $defaultName = '') {
+    try {
+        $awsService = getAwsService();
+        if (!$awsService) {
+            return $defaultName;
+        }
+        
+        $yamlKey = 'users/' . $userId . '.yaml';
+        
+        // Check if user settings file exists
+        if (!$awsService->objectExists($yamlKey)) {
+            return $defaultName;
+        }
+        
+        // Get user settings
+        $yamlObject = $awsService->getObject($yamlKey);
+        $yamlContent = $yamlObject['content'];
+        $userSettings = parseSimpleYaml($yamlContent);
+        
+        // Return custom display name if set, otherwise default
+        if (isset($userSettings['display_name']) && !empty($userSettings['display_name'])) {
+            return $userSettings['display_name'];
+        }
+        
+        return $defaultName;
+        
+    } catch (Exception $e) {
+        // Log error but don't break the application
+        error_log("Error getting user display name for user $userId: " . $e->getMessage());
+        return $defaultName;
+    }
+}
+
 ?> 

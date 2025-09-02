@@ -166,6 +166,72 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
     exit;
 }
 
+// Handle settings AJAX requests before any HTML output
+if (isset($_GET['page']) && $_GET['page'] === 'settings' && isset($_GET['action'])) {
+    header('Content-Type: application/json');
+    
+    if (!isLoggedIn()) {
+        echo json_encode(['success' => false, 'message' => 'Authentication required']);
+        exit;
+    }
+    
+    $currentUser = getCurrentUser();
+    if (!$currentUser) {
+        echo json_encode(['success' => false, 'message' => 'User information not available']);
+        exit;
+    }
+    
+    $action = $_GET['action'];
+    
+    if ($action === 'save') {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Invalid request method']);
+            exit;
+        }
+        
+        $displayName = trim($_POST['display_name'] ?? '');
+        
+        if (empty($displayName)) {
+            echo json_encode(['success' => false, 'message' => 'Display name is required']);
+            exit;
+        }
+        
+        try {
+            $awsService = getAwsService();
+            if (!$awsService) {
+                throw new Exception('AWS service not available');
+            }
+            
+            // Create user settings data
+            $userSettings = [
+                'user_id' => $currentUser['id'],
+                'google_name' => $currentUser['name'],
+                'display_name' => $displayName,
+                'email' => $currentUser['email'],
+                'updated_at' => date('Y-m-d H:i:s'),
+                'updated_timestamp' => time()
+            ];
+            
+            // Convert to YAML
+            $yamlContent = convertToYaml($userSettings);
+            
+            // Save to S3 in users/ directory
+            $yamlKey = 'users/' . $currentUser['id'] . '.yaml';
+            $awsService->putObject($yamlKey, $yamlContent);
+            
+            echo json_encode(['success' => true, 'message' => 'Settings saved successfully']);
+            
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Failed to save settings: ' . $e->getMessage()]);
+        }
+        
+        exit;
+    }
+    
+    echo json_encode(['success' => false, 'message' => 'Invalid action']);
+    exit;
+}
+
 // Handle authentication routes before any HTML output
 if (isset($_GET['page']) && $_GET['page'] === 'auth' && isset($_GET['action'])) {
     $action = $_GET['action'];
@@ -232,7 +298,7 @@ $page = $_GET['page'] ?? 'home';
 $page = preg_replace('/[^a-zA-Z0-9\-]/', '', $page);
 
 // Define available pages
-$availablePages = ['home', 'about', 'contact', 'claim', 'items', 'item', 'login', 'dashboard', 'user-listings'];
+$availablePages = ['home', 'about', 'contact', 'claim', 'items', 'item', 'login', 'dashboard', 'user-listings', 'settings'];
 
 if (!in_array($page, $availablePages)) {
     $page = 'home';
@@ -366,7 +432,7 @@ if ($page === 'item' && isset($_GET['id'])) {
                                     <span class="nav-user-arrow">▼</span>
                                 </button>
                                 <div class="nav-user-dropdown-menu" id="userDropdown">
-                                    <a href="#" class="nav-dropdown-item">
+                                    <a href="#" class="nav-dropdown-item" onclick="openSettingsModal(); return false;">
                                         <span class="nav-dropdown-icon">⚙️</span>
                                         Settings...
                                     </a>
@@ -402,6 +468,35 @@ if ($page === 'item' && isset($_GET['id'])) {
             <p>&copy; <?php echo date('Y'); ?> ClaimIt by Stonekeep.com. All rights reserved. | <a href="?page=about" class="footer-link">About</a> | <a href="?page=contact" class="footer-link">Contact</a></p>
         </div>
     </footer>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>User Settings</h2>
+                <span class="close" onclick="closeSettingsModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="settingsForm">
+                    <div class="form-group">
+                        <label for="displayName">Display Name:</label>
+                        <input type="text" id="displayName" name="displayName" value="<?php 
+                            if ($isLoggedIn && $currentUser) {
+                                echo escape(getUserDisplayName($currentUser['id'], $currentUser['name']));
+                            } else {
+                                echo escape($currentUser['name'] ?? '');
+                            }
+                        ?>" required>
+                        <small>This name will be displayed on your listings and claims</small>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                        <button type="button" class="btn btn-secondary" onclick="closeSettingsModal()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
     <script src="/assets/js/app.js"></script>
 </body>

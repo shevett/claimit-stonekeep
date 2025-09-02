@@ -53,26 +53,30 @@ if (!empty($item['image_key'])) {
 
             <div class="item-meta">
                 <span class="item-price"><?php echo $item['price'] > 0 ? '$' . escape(number_format($item['price'], 2)) : 'Free'; ?></span>
-                <span class="item-posted-by">Listed by:
-                    <?php if ($isOwnItem): ?>
-                        You! (<?php echo escape($item['user_name']); ?>)
-                    <?php else: ?>
-                        <?php echo escape($item['user_name']); ?>
-                    <?php endif; ?>
-                </span>
+                                       <span class="item-posted-by">Listed by:
+                           <?php 
+                           $displayName = getUserDisplayName($item['user_id'], $item['user_name']);
+                           if ($isOwnItem): ?>
+                               You! (<?php echo escape($displayName); ?>)
+                           <?php else: ?>
+                               <?php echo escape($displayName); ?>
+                           <?php endif; ?>
+                       </span>
             </div>
 
             <?php if (!empty($activeClaims)): ?>
                 <div class="item-claim-info">
-                    <?php if ($primaryClaim): ?>
-                        <span class="claim-status primary">Primary Claim:
-                            <?php if (($primaryClaim['user_id'] ?? null) === ($currentUser['id'] ?? null)): ?>
-                                You! (<?php echo escape($primaryClaim['user_name']); ?>)
-                            <?php else: ?>
-                                <?php echo escape($primaryClaim['user_name']); ?>
-                            <?php endif; ?>
-                        </span>
-                    <?php endif; ?>
+                                                   <?php if ($primaryClaim): ?>
+                                   <span class="claim-status primary">Primary Claim:
+                                       <?php 
+                                       $claimDisplayName = getUserDisplayName($primaryClaim['user_id'], $primaryClaim['user_name']);
+                                       if (($primaryClaim['user_id'] ?? null) === ($currentUser['id'] ?? null)): ?>
+                                           You! (<?php echo escape($claimDisplayName); ?>)
+                                       <?php else: ?>
+                                           <?php echo escape($claimDisplayName); ?>
+                                       <?php endif; ?>
+                                   </span>
+                               <?php endif; ?>
 
                     <?php if (count($activeClaims) > 1): ?>
                         <span class="waitlist-count">+<?php echo count($activeClaims) - 1; ?> on waitlist</span>
