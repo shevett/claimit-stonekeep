@@ -144,8 +144,15 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                 break;
                 
             case 'remove_claim':
-                removeMyClaim($trackingNumber);
-                echo json_encode(['success' => true, 'message' => 'You\'ve been removed from the waitlist']);
+                error_log("DEBUG: remove_claim action called for tracking number: $trackingNumber");
+                try {
+                    removeMyClaim($trackingNumber);
+                    error_log("DEBUG: removeMyClaim completed successfully");
+                    echo json_encode(['success' => true, 'message' => 'You\'ve been removed from the waitlist']);
+                } catch (Exception $e) {
+                    error_log("DEBUG: removeMyClaim failed with error: " . $e->getMessage());
+                    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+                }
                 break;
                 
             case 'remove_claim_by_owner':
@@ -566,21 +573,37 @@ if ($page === 'item' && isset($_GET['id'])) {
     }
     
     function removeMyClaim(trackingNumber) {
+        console.log('removeMyClaim called with trackingNumber:', trackingNumber);
+        
         const button = document.querySelector(`button[onclick="removeMyClaim('${trackingNumber}')"]`);
-        if (!button) return;
+        if (!button) {
+            console.error('Button not found for trackingNumber:', trackingNumber);
+            return;
+        }
         
         button.disabled = true;
         button.textContent = 'Removing...';
         
-        fetch('?page=claim&action=remove_claim', {
+        const url = '?page=claim&action=remove_claim';
+        const body = `tracking_number=${encodeURIComponent(trackingNumber)}`;
+        
+        console.log('Making fetch request to:', url);
+        console.log('Request body:', body);
+        
+        fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: `tracking_number=${encodeURIComponent(trackingNumber)}`
+            body: body
         })
-        .then(response => response.json())
+        .then(response => {
+            console.log('Response status:', response.status);
+            console.log('Response headers:', response.headers);
+            return response.json();
+        })
         .then(data => {
+            console.log('Response data:', data);
             if (data.success) {
                 // Show success message
                 showMessage(data.message, 'success');
@@ -595,7 +618,7 @@ if ($page === 'item' && isset($_GET['id'])) {
             }
         })
         .catch(error => {
-            console.error('Error:', error);
+            console.error('Fetch error:', error);
             showMessage('An error occurred while removing your claim', 'error');
             button.disabled = false;
             button.textContent = '🚫 Remove My Claim';
