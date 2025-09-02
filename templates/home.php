@@ -146,7 +146,7 @@ $flashMessage = showFlashMessage();
                     $context = 'home';
                     $isOwnListings = false;
                     ?>
-                    <?php include 'templates/item-card.php'; ?>
+                    <?php include __DIR__ . '/item-card.php'; ?>
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>

@@ -215,7 +215,7 @@ $isOwnListings = $currentUser && $currentUser['id'] === $userId;
                         $context = 'claimed';
                         $isOwnListings = false;
                         ?>
-                        <?php include 'templates/item-card.php'; ?>
+                        <?php include __DIR__ . '/item-card.php'; ?>
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
@@ -266,7 +266,7 @@ $isOwnListings = $currentUser && $currentUser['id'] === $userId;
                         $context = 'dashboard';
                         $isOwnListings = $isOwnListings;
                         ?>
-                        <?php include 'templates/item-card.php'; ?>
+                        <?php include __DIR__ . '/item-card.php'; ?>
                     <?php endforeach; ?>
                 <?php endif; ?>
             </div>
