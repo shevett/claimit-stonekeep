@@ -958,12 +958,12 @@ if ($page === 'item' && isset($_GET['id'])) {
             return;
         }
 
-        fetch('?page=claim&action=edit_item', {
+        fetch('?page=claim', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: `tracking_number=${encodeURIComponent(trackingNumber)}&title=${encodeURIComponent(title)}&description=${encodeURIComponent(description)}`
+            body: `action=edit_item&tracking_number=${encodeURIComponent(trackingNumber)}&title=${encodeURIComponent(title)}&description=${encodeURIComponent(description)}`
         })
         .then(response => response.json())
         .then(data => {
