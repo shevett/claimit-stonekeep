@@ -1030,4 +1030,31 @@ function getUserDisplayName($userId, $defaultName = '') {
     }
 }
 
+/**
+ * Get a single item by tracking number
+ *
+ * @param string $trackingNumber The item tracking number
+ * @return array|null The item data or null if not found
+ */
+function getItem($trackingNumber) {
+    try {
+        $awsService = getAwsService();
+        if (!$awsService) {
+            return null;
+        }
+        
+        $yamlKey = $trackingNumber . '.yaml';
+        $yamlObject = $awsService->getObject($yamlKey);
+        
+        if ($yamlObject && isset($yamlObject['content'])) {
+            return parseSimpleYaml($yamlObject['content']);
+        }
+        
+        return null;
+    } catch (Exception $e) {
+        error_log("Error getting item $trackingNumber: " . $e->getMessage());
+        return null;
+    }
+}
+
 ?> 

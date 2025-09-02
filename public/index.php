@@ -157,6 +157,32 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                 removeClaimFromItem($trackingNumber, $claimUserId);
                 echo json_encode(['success' => true, 'message' => 'Claim removed successfully']);
                 break;
+                
+            case 'delete_item':
+                // Check if the current user owns this item
+                $item = getItem($trackingNumber);
+                if (!$item || $item['user_id'] !== $currentUser['id']) {
+                    echo json_encode(['success' => false, 'message' => 'You can only delete your own items']);
+                    exit;
+                }
+                
+                // Delete the item from S3
+                $awsService = getAwsService();
+                if (!$awsService) {
+                    throw new Exception('AWS service not available');
+                }
+                
+                // Delete the item YAML file
+                $yamlKey = $trackingNumber . '.yaml';
+                $awsService->deleteObject($yamlKey);
+                
+                // Delete the image if it exists
+                if (!empty($item['image_key'])) {
+                    $awsService->deleteObject($item['image_key']);
+                }
+                
+                echo json_encode(['success' => true, 'message' => 'Item deleted successfully']);
+                break;
         }
         
     } catch (Exception $e) {
@@ -499,5 +525,157 @@ if ($page === 'item' && isset($_GET['id'])) {
     </div>
 
     <script src="/assets/js/app.js"></script>
+    
+    <!-- Claim Management JavaScript Functions -->
+    <script>
+    function addClaimToItem(trackingNumber) {
+        const button = document.querySelector(`button[onclick="addClaimToItem('${trackingNumber}')"]`);
+        if (!button) return;
+        
+        button.disabled = true;
+        button.textContent = 'Adding...';
+        
+        fetch('?page=claim&action=add_claim', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `tracking_number=${encodeURIComponent(trackingNumber)}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                showMessage(data.message, 'success');
+                // Reload the page to update the UI
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                showMessage(data.message, 'error');
+                button.disabled = false;
+                button.textContent = '🎯 Claim This!';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showMessage('An error occurred while claiming the item', 'error');
+            button.disabled = false;
+            button.textContent = '🎯 Claim This!';
+        });
+    }
+    
+    function removeMyClaim(trackingNumber) {
+        const button = document.querySelector(`button[onclick="removeMyClaim('${trackingNumber}')"]`);
+        if (!button) return;
+        
+        button.disabled = true;
+        button.textContent = 'Removing...';
+        
+        fetch('?page=claim&action=remove_claim', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `tracking_number=${encodeURIComponent(trackingNumber)}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                showMessage(data.message, 'success');
+                // Reload the page to update the UI
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                showMessage(data.message, 'error');
+                button.disabled = false;
+                button.textContent = '🚫 Remove My Claim';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showMessage('An error occurred while removing your claim', 'error');
+            button.disabled = false;
+            button.textContent = '🚫 Remove My Claim';
+        });
+    }
+    
+    function deleteItem(trackingNumber) {
+        if (!confirm('Are you sure you want to delete this item? This action cannot be undone.')) {
+            return;
+        }
+        
+        const button = document.querySelector(`button[onclick="deleteItem('${trackingNumber}')"]`);
+        if (!button) return;
+        
+        button.disabled = true;
+        button.textContent = 'Deleting...';
+        
+        fetch('?page=claim&action=delete_item', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `tracking_number=${encodeURIComponent(trackingNumber)}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showMessage(data.message, 'success');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                showMessage(data.message, 'error');
+                button.disabled = false;
+                button.textContent = '🗑️ Delete';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showMessage('An error occurred while deleting the item', 'error');
+            button.disabled = false;
+            button.textContent = '🗑️ Delete';
+        });
+    }
+    
+    function showMessage(message, type = 'info') {
+        // Create a simple message display
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message message-${type}`;
+        messageDiv.textContent = message;
+        messageDiv.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            z-index: 10000;
+            max-width: 400px;
+            word-wrap: break-word;
+        `;
+        
+        if (type === 'success') {
+            messageDiv.style.backgroundColor = '#28a745';
+        } else if (type === 'error') {
+            messageDiv.style.backgroundColor = '#dc3545';
+        } else {
+            messageDiv.style.backgroundColor = '#17a2b8';
+        }
+        
+        document.body.appendChild(messageDiv);
+        
+        // Remove the message after 5 seconds
+        setTimeout(() => {
+            if (messageDiv.parentNode) {
+                messageDiv.parentNode.removeChild(messageDiv);
+            }
+        }, 5000);
+    }
+    </script>
 </body>
 </html> 
