@@ -339,7 +339,6 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
                 break;
                 
             case 'edit_item':
-                error_log("DEBUG: edit_item case entered for tracking number: " . $trackingNumber);
                 // Check if the current user owns this item
                 $item = getItem($trackingNumber);
                 if (!$item || $item['user_id'] !== $currentUser['id']) {
@@ -366,18 +365,14 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
                 $item['description'] = $description;
                 
                 // Convert to YAML and save back to S3
-                error_log("DEBUG: edit_item - About to convert item to YAML: " . print_r($item, true));
                 $awsService = getAwsService();
                 if (!$awsService) {
                     throw new Exception('AWS service not available');
                 }
                 
                 $yamlContent = convertToYaml($item);
-                error_log("DEBUG: edit_item - Generated YAML content: " . $yamlContent);
                 $yamlKey = $trackingNumber . '.yaml';
-                error_log("DEBUG: edit_item - Saving to S3 key: " . $yamlKey);
-                $result = $awsService->putObject($yamlKey, $yamlContent);
-                error_log("DEBUG: edit_item - S3 putObject result: " . print_r($result, true));
+                $awsService->putObject($yamlKey, $yamlContent);
                 
                 echo json_encode(['success' => true, 'message' => 'Item updated successfully']);
                 break;
