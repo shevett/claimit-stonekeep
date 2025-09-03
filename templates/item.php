@@ -234,6 +234,12 @@ $flashMessage = showFlashMessage();
                         <?php endif; ?>
                         
                         <?php if ($isOwnItem): ?>
+                            <button onclick="openEditModal('<?php echo escape($item['tracking_number']); ?>', '<?php echo addslashes(htmlspecialchars($item['title'], ENT_QUOTES, 'UTF-8')); ?>', '<?php echo addslashes(htmlspecialchars($item['description'], ENT_QUOTES, 'UTF-8')); ?>')" 
+                                    class="btn btn-primary btn-large edit-btn" 
+                                    title="Edit this item">
+                                ✏️ Edit...
+                            </button>
+                            
                             <button onclick="deleteItem('<?php echo escape($item['tracking_number']); ?>')" 
                                     class="btn btn-danger btn-large delete-btn" 
                                     title="Delete this item">
@@ -309,6 +315,35 @@ $flashMessage = showFlashMessage();
         <div class="modal-footer">
             <button type="button" class="btn btn-secondary" onclick="hideDeleteModal()">Cancel</button>
             <button type="button" class="btn btn-danger" onclick="confirmDelete()">Delete Item</button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Item Modal -->
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Edit Item</h2>
+            <span class="close" onclick="closeEditModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="editForm">
+                <input type="hidden" id="editTrackingNumber" name="trackingNumber">
+                <div class="form-group">
+                    <label for="editTitle">Title:</label>
+                    <input type="text" id="editTitle" name="title" required>
+                    <small>Enter a descriptive title for your item</small>
+                </div>
+                <div class="form-group">
+                    <label for="editDescription">Description:</label>
+                    <textarea id="editDescription" name="description" rows="4" required></textarea>
+                    <small>Provide details about the item's condition, features, etc.</small>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -933,5 +968,79 @@ function showMessage(message, type) {
             alertDiv.parentNode.removeChild(alertDiv);
         }
     }, 3000);
+}
+
+// Edit Modal Functions
+function openEditModal(trackingNumber, title, description) {
+    console.log('openEditModal called with:', { trackingNumber, title, description });
+    const modal = document.getElementById('editModal');
+    if (modal) {
+        // Populate the form fields
+        document.getElementById('editTrackingNumber').value = trackingNumber;
+        document.getElementById('editTitle').value = title;
+        document.getElementById('editDescription').value = description;
+
+        // Show the modal
+        modal.style.display = 'block';
+        console.log('Modal should now be visible');
+    } else {
+        console.error('Modal element not found!');
+    }
+}
+
+function closeEditModal() {
+    const modal = document.getElementById('editModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Handle edit form submission
+document.addEventListener('DOMContentLoaded', function() {
+    const editForm = document.getElementById('editForm');
+    if (editForm) {
+        editForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            saveItemEdit();
+        });
+    }
+});
+
+function saveItemEdit() {
+    const form = document.getElementById('editForm');
+    const formData = new FormData(form);
+    const trackingNumber = formData.get('trackingNumber');
+    const title = formData.get('title');
+    const description = formData.get('description');
+
+    if (!title.trim() || !description.trim()) {
+        showMessage('Title and description are required', 'error');
+        return;
+    }
+
+    fetch('?page=claim&action=edit_item', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `tracking_number=${encodeURIComponent(trackingNumber)}&title=${encodeURIComponent(title)}&description=${encodeURIComponent(description)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showMessage(data.message, 'success');
+            closeEditModal();
+            // Reload the page to show the updated content
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showMessage(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error saving item edit:', error);
+        showMessage('An error occurred while saving changes', 'error');
+    });
 }
 </script> 
