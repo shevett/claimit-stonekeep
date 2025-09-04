@@ -49,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             switch ($uploadedFile['error']) {
                 case UPLOAD_ERR_INI_SIZE:
                 case UPLOAD_ERR_FORM_SIZE:
-                    $errors[] = 'Picture uploads are limited to under 500k';
+                    $errors[] = 'Picture uploads are limited to 5MB';
                     break;
                 case UPLOAD_ERR_PARTIAL:
                     $errors[] = 'File upload was interrupted. Please try again.';
@@ -66,8 +66,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 default:
                     $errors[] = 'Error uploading file. Please try again.';
             }
-        } elseif ($uploadedFile['size'] > 512000) { // 500KB limit (512000 bytes)
-            $errors[] = 'Picture uploads are limited to under 500k';
+        } elseif ($uploadedFile['size'] > 5242880) { // 5MB limit (5242880 bytes)
+            $errors[] = 'Picture uploads are limited to 5MB';
         } elseif (!in_array(strtolower(pathinfo($uploadedFile['name'], PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'gif'])) {
             $errors[] = 'File must be a valid image (JPG, PNG, GIF)';
         }
@@ -90,8 +90,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $imageExtension = strtolower(pathinfo($uploadedFile['name'], PATHINFO_EXTENSION));
                 $imageKey = $trackingNumber . '.' . $imageExtension;
                 
-                $imageContent = file_get_contents($uploadedFile['tmp_name']);
-                $mimeType = mime_content_type($uploadedFile['tmp_name']);
+                // Create a temporary file for the resized image
+                $tempResizedPath = tempnam(sys_get_temp_dir(), 'claimit_resized_');
+                
+                // Resize the image to keep it under 500KB
+                if (resizeImageToFitSize($uploadedFile['tmp_name'], $tempResizedPath, 512000)) {
+                    // Use the resized image
+                    $imageContent = file_get_contents($tempResizedPath);
+                    $mimeType = mime_content_type($tempResizedPath);
+                    
+                    // Clean up temporary file
+                    unlink($tempResizedPath);
+                } else {
+                    // If resizing failed, use original image (fallback)
+                    error_log('Image resizing failed, using original image');
+                    $imageContent = file_get_contents($uploadedFile['tmp_name']);
+                    $mimeType = mime_content_type($uploadedFile['tmp_name']);
+                    
+                    // Clean up temporary file if it exists
+                    if (file_exists($tempResizedPath)) {
+                        unlink($tempResizedPath);
+                    }
+                }
                 
                 $awsService->putObject($imageKey, $imageContent, $mimeType);
             }

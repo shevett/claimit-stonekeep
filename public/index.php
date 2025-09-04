@@ -9,6 +9,11 @@ error_reporting(0); // Suppress all errors for production-like experience
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');
 
+// Set upload limits for file uploads
+ini_set('upload_max_filesize', '5M');
+ini_set('post_max_size', '6M'); // Slightly larger than upload_max_filesize to account for form data
+ini_set('max_file_uploads', '1');
+
 // Custom error handler to filter out AWS SDK warnings from browser but keep in environment logs
 set_error_handler(function($errno, $errstr, $errfile, $errline) {
     // Log AWS SDK compatibility warnings to environment logs but don't display them

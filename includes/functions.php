@@ -1057,4 +1057,145 @@ function getItem($trackingNumber) {
     }
 }
 
+/**
+ * Resize and compress image to keep it under specified size limit
+ *
+ * @param string $sourcePath Path to the source image file
+ * @param string $targetPath Path where the resized image should be saved
+ * @param int $maxSizeBytes Maximum file size in bytes (default: 500KB)
+ * @param int $maxWidth Maximum width in pixels (default: 1200)
+ * @param int $maxHeight Maximum height in pixels (default: 1200)
+ * @param int $quality JPEG quality (default: 85)
+ * @return bool True on success, false on failure
+ */
+function resizeImageToFitSize($sourcePath, $targetPath, $maxSizeBytes = 512000, $maxWidth = 1200, $maxHeight = 1200, $quality = 85) {
+    // Check if GD extension is available
+    if (!extension_loaded('gd')) {
+        error_log('GD extension not available for image resizing');
+        return false;
+    }
+    
+    // Get image info
+    $imageInfo = getimagesize($sourcePath);
+    if (!$imageInfo) {
+        error_log('Invalid image file: ' . $sourcePath);
+        return false;
+    }
+    
+    $originalWidth = $imageInfo[0];
+    $originalHeight = $imageInfo[1];
+    $mimeType = $imageInfo['mime'];
+    
+    // Create image resource based on type
+    switch ($mimeType) {
+        case 'image/jpeg':
+            $sourceImage = imagecreatefromjpeg($sourcePath);
+            break;
+        case 'image/png':
+            $sourceImage = imagecreatefrompng($sourcePath);
+            break;
+        case 'image/gif':
+            $sourceImage = imagecreatefromgif($sourcePath);
+            break;
+        default:
+            error_log('Unsupported image type: ' . $mimeType);
+            return false;
+    }
+    
+    if (!$sourceImage) {
+        error_log('Failed to create image resource from: ' . $sourcePath);
+        return false;
+    }
+    
+    // Calculate new dimensions while maintaining aspect ratio
+    $ratio = min($maxWidth / $originalWidth, $maxHeight / $originalHeight);
+    $newWidth = (int)($originalWidth * $ratio);
+    $newHeight = (int)($originalHeight * $ratio);
+    
+    // Create new image
+    $newImage = imagecreatetruecolor($newWidth, $newHeight);
+    if (!$newImage) {
+        imagedestroy($sourceImage);
+        error_log('Failed to create new image resource');
+        return false;
+    }
+    
+    // Preserve transparency for PNG and GIF
+    if ($mimeType === 'image/png' || $mimeType === 'image/gif') {
+        imagealphablending($newImage, false);
+        imagesavealpha($newImage, true);
+        $transparent = imagecolorallocatealpha($newImage, 255, 255, 255, 127);
+        imagefill($newImage, 0, 0, $transparent);
+    }
+    
+    // Resize the image
+    if (!imagecopyresampled($newImage, $sourceImage, 0, 0, 0, 0, $newWidth, $newHeight, $originalWidth, $originalHeight)) {
+        imagedestroy($sourceImage);
+        imagedestroy($newImage);
+        error_log('Failed to resize image');
+        return false;
+    }
+    
+    // Try different quality levels to get under size limit
+    $currentQuality = $quality;
+    $attempts = 0;
+    $maxAttempts = 10;
+    
+    do {
+        // Save the image
+        $success = false;
+        if ($mimeType === 'image/jpeg') {
+            $success = imagejpeg($newImage, $targetPath, $currentQuality);
+        } elseif ($mimeType === 'image/png') {
+            // For PNG, we can't control quality directly, so we'll use a different approach
+            $success = imagepng($newImage, $targetPath, 9); // PNG compression level 0-9
+        } elseif ($mimeType === 'image/gif') {
+            $success = imagegif($newImage, $targetPath);
+        }
+        
+        if (!$success) {
+            imagedestroy($sourceImage);
+            imagedestroy($newImage);
+            error_log('Failed to save resized image');
+            return false;
+        }
+        
+        // Check file size
+        $fileSize = filesize($targetPath);
+        
+        if ($fileSize <= $maxSizeBytes) {
+            // Success! File is under the size limit
+            imagedestroy($sourceImage);
+            imagedestroy($newImage);
+            return true;
+        }
+        
+        // File is still too large, reduce quality and try again
+        $currentQuality -= 10;
+        $attempts++;
+        
+    } while ($currentQuality > 10 && $attempts < $maxAttempts);
+    
+    // If we still can't get under the size limit, try reducing dimensions
+    if ($fileSize > $maxSizeBytes && $attempts >= $maxAttempts) {
+        imagedestroy($sourceImage);
+        imagedestroy($newImage);
+        
+        // Try with smaller dimensions
+        $newMaxWidth = (int)($maxWidth * 0.8);
+        $newMaxHeight = (int)($maxHeight * 0.8);
+        
+        if ($newMaxWidth > 200 && $newMaxHeight > 200) {
+            return resizeImageToFitSize($sourcePath, $targetPath, $maxSizeBytes, $newMaxWidth, $newMaxHeight, $quality);
+        }
+    }
+    
+    imagedestroy($sourceImage);
+    imagedestroy($newImage);
+    
+    // If we get here, we couldn't get under the size limit
+    error_log('Could not resize image to fit within size limit');
+    return false;
+}
+
 ?> 
