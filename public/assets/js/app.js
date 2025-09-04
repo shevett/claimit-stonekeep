@@ -139,7 +139,7 @@ const ClaimItApp = {
     // File upload validation
     validateFileUpload: function(e) {
         const file = e.target.files[0];
-        const maxSize = 5242880; // 5MB in bytes
+        const maxSize = 10485760; // 10MB in bytes
         
         // Clear previous error
         ClaimItApp.clearFieldError(e.target);
@@ -147,7 +147,7 @@ const ClaimItApp = {
         if (file) {
             // Check file size
             if (file.size > maxSize) {
-                ClaimItApp.showFieldError(e.target, 'File is too large. Maximum upload size is 5MB.');
+                ClaimItApp.showFieldError(e.target, 'File is too large. Maximum upload size is 10MB.');
                 e.target.value = ''; // Clear the selected file
                 return false;
             }

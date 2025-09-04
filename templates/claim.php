@@ -49,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             switch ($uploadedFile['error']) {
                 case UPLOAD_ERR_INI_SIZE:
                 case UPLOAD_ERR_FORM_SIZE:
-                    $errors[] = 'Picture uploads are limited to 5MB';
+                    $errors[] = 'Picture uploads are limited to 10MB';
                     break;
                 case UPLOAD_ERR_PARTIAL:
                     $errors[] = 'File upload was interrupted. Please try again.';
@@ -66,8 +66,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 default:
                     $errors[] = 'Error uploading file. Please try again.';
             }
-        } elseif ($uploadedFile['size'] > 5242880) { // 5MB limit (5242880 bytes)
-            $errors[] = 'Picture uploads are limited to 5MB';
+        } elseif ($uploadedFile['size'] > 10485760) { // 10MB limit (10485760 bytes)
+            $errors[] = 'Picture uploads are limited to 10MB';
         } elseif (!in_array(strtolower(pathinfo($uploadedFile['name'], PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'gif'])) {
             $errors[] = 'File must be a valid image (JPG, PNG, GIF)';
         }
@@ -204,7 +204,7 @@ $flashMessage = showFlashMessage();
             <div class="form-group">
                 <label for="item_photo">Upload a picture of your item</label>
                 <input type="file" name="item_photo" id="item_photo" accept="image/*">
-                <small style="color: var(--gray-500); font-size: 0.875rem;">Accepted formats: JPG, PNG, GIF (max 5MB - will be automatically resized)</small>
+                <small style="color: var(--gray-500); font-size: 0.875rem;">Accepted formats: JPG, PNG, GIF (max 10MB - will be automatically resized)</small>
             </div>
 
             <div class="form-group">
