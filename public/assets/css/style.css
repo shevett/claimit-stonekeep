@@ -344,14 +344,24 @@ p {
     }
     
     .nav-user-dropdown-menu {
-        position: static;
+        position: absolute;
+        top: 100%;
+        right: 0;
         margin-top: var(--space-2);
         width: 100%;
+        max-width: 300px;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(-10px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        border: 1px solid var(--gray-200);
+        transition: all 0.2s ease;
+    }
+    
+    .nav-user-dropdown.active .nav-user-dropdown-menu {
         opacity: 1;
         visibility: visible;
-        transform: none;
-        box-shadow: none;
-        border: 1px solid var(--gray-200);
+        transform: translateY(0);
     }
     
     .nav-link {
