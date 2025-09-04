@@ -147,7 +147,7 @@ const ClaimItApp = {
         if (file) {
             // Check file size
             if (file.size > maxSize) {
-                ClaimItApp.showFieldError(e.target, 'Picture uploads are limited to 5MB');
+                ClaimItApp.showFieldError(e.target, 'File is too large. Maximum upload size is 5MB.');
                 e.target.value = ''; // Clear the selected file
                 return false;
             }
