@@ -44,8 +44,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Validate uploaded file if present
     $uploadedFile = $_FILES['item_photo'] ?? null;
     if ($uploadedFile && $uploadedFile['error'] !== UPLOAD_ERR_NO_FILE) {
+        // DEBUG: Log file upload details
+        error_log("DEBUG: File upload attempt - Name: " . ($uploadedFile['name'] ?? 'none') . 
+                 ", Size: " . ($uploadedFile['size'] ?? 'none') . 
+                 ", Error: " . ($uploadedFile['error'] ?? 'none') . 
+                 ", Tmp: " . ($uploadedFile['tmp_name'] ?? 'none'));
+        
+        // Set upload_tmp_dir to /tmp and preserve file for debugging
+        $debugDir = '/tmp/claimit_debug';
+        if (!is_dir($debugDir)) {
+            mkdir($debugDir, 0755, true);
+        }
+        
         // Check for PHP upload errors first
         if ($uploadedFile['error'] !== UPLOAD_ERR_OK) {
+            // Copy file to debug directory before it gets deleted
+            if ($uploadedFile['tmp_name'] && file_exists($uploadedFile['tmp_name'])) {
+                $debugFile = $debugDir . '/' . date('Y-m-d_H-i-s') . '_error_' . $uploadedFile['error'] . '_' . basename($uploadedFile['name']);
+                copy($uploadedFile['tmp_name'], $debugFile);
+                error_log("DEBUG: Preserved rejected file to: " . $debugFile);
+            }
+            
             switch ($uploadedFile['error']) {
                 case UPLOAD_ERR_INI_SIZE:
                 case UPLOAD_ERR_FORM_SIZE:
@@ -67,6 +86,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $errors[] = 'Error uploading file. Please try again.';
             }
         } elseif ($uploadedFile['size'] > 52428800) { // 50MB limit (52428800 bytes)
+            // Copy file to debug directory for size analysis
+            if ($uploadedFile['tmp_name'] && file_exists($uploadedFile['tmp_name'])) {
+                $debugFile = $debugDir . '/' . date('Y-m-d_H-i-s') . '_size_' . $uploadedFile['size'] . '_' . basename($uploadedFile['name']);
+                copy($uploadedFile['tmp_name'], $debugFile);
+                error_log("DEBUG: Preserved oversized file to: " . $debugFile);
+            }
             $errors[] = 'Picture uploads are limited to 50MB';
         } elseif (!in_array(strtolower(pathinfo($uploadedFile['name'], PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'gif'])) {
             $errors[] = 'File must be a valid image (JPG, PNG, GIF)';
