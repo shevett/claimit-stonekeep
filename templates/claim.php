@@ -49,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             switch ($uploadedFile['error']) {
                 case UPLOAD_ERR_INI_SIZE:
                 case UPLOAD_ERR_FORM_SIZE:
-                    $errors[] = 'Picture uploads are limited to 10MB';
+                    $errors[] = 'Picture uploads are limited to 50MB';
                     break;
                 case UPLOAD_ERR_PARTIAL:
                     $errors[] = 'File upload was interrupted. Please try again.';
