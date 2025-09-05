@@ -102,7 +102,7 @@ if (!empty($item['image_key'])) {
             <?php endif; ?>
 
             <?php if (!$isOwnItem): ?>
-                <a href="mailto:<?php echo escape($item['contact_email']); ?>?subject=<?php echo urlencode('ClaimIt Interest - ' . $item['title']); ?>&body=<?php echo urlencode("Hi! I'm interested in your item: " . $item['title'] . "\n\nView the item here: " . (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . '?page=item&id=' . $item['tracking_number']); ?>"
+                <a href="mailto:<?php echo escape($item['contact_email']); ?>?subject=<?php echo rawurlencode('ClaimIt Interest - ' . $item['title']); ?>&body=<?php echo rawurlencode("Hi! I'm interested in your item: " . $item['title'] . "\n\nView the item here: " . (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . '?page=item&id=' . $item['tracking_number']); ?>"
                    class="btn btn-secondary">
                     📧 Contact Seller
                 </a>
@@ -116,7 +116,7 @@ if (!empty($item['image_key'])) {
                 ✏️ Edit...
             </button>
 
-            <a href="mailto:<?php echo escape($item['contact_email']); ?>?subject=<?php echo urlencode('ClaimIt Interest - ' . $item['title']); ?>&body=<?php echo urlencode("Hi! I'm interested in your item: " . $item['title'] . "\n\nView the item here: " . (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . '?page=item&id=' . $item['tracking_number']); ?>"
+            <a href="mailto:<?php echo escape($item['contact_email']); ?>?subject=<?php echo rawurlencode('ClaimIt Interest - ' . $item['title']); ?>&body=<?php echo rawurlencode("Hi! I'm interested in your item: " . $item['title'] . "\n\nView the item here: " . (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . '?page=item&id=' . $item['tracking_number']); ?>"
                class="btn btn-secondary">
                 📧 Contact Seller
             </a>

@@ -197,7 +197,7 @@ $flashMessage = showFlashMessage();
                 
                 <div class="actions-section">
                     <div class="action-buttons">
-                        <a href="mailto:<?php echo escape($item['contact_email']); ?>?subject=<?php echo urlencode('ClaimIt Interest - ' . $item['title']); ?>&body=<?php echo urlencode("Hi! I'm interested in your item: " . $item['title'] . "\n\nView the item here: " . (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']); ?>" 
+                        <a href="mailto:<?php echo escape($item['contact_email']); ?>?subject=<?php echo rawurlencode('ClaimIt Interest - ' . $item['title']); ?>&body=<?php echo rawurlencode("Hi! I'm interested in your item: " . $item['title'] . "\n\nView the item here: " . (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']); ?>" 
                            class="btn btn-primary btn-large">
                             📧 Contact Seller
                         </a>
