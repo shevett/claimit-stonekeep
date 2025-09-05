@@ -710,13 +710,7 @@ function getActiveClaims($trackingNumber) {
         $yamlContent = $yamlObject['content'];
         $data = parseSimpleYaml($yamlContent);
         
-        // Debug output
-        error_log("DEBUG: getActiveClaims - trackingNumber: $trackingNumber");
-        error_log("DEBUG: getActiveClaims - raw YAML: " . substr($yamlContent, 0, 1000));
-        error_log("DEBUG: getActiveClaims - parsed data: " . print_r($data, true));
-        
         $claims = $data['claims'] ?? [];
-        error_log("DEBUG: getActiveClaims - claims array: " . print_r($claims, true));
         
         $activeClaims = [];
         
@@ -724,13 +718,10 @@ function getActiveClaims($trackingNumber) {
             // Consider claims active if they have no status field (legacy) or status is 'active'
             // Exclude claims with status 'removed'
             $status = $claim['status'] ?? 'active'; // Default to active for legacy claims
-            error_log("DEBUG: getActiveClaims - claim status: " . $status);
             if ($status === 'active') {
                 $activeClaims[] = $claim;
             }
         }
-        
-        error_log("DEBUG: getActiveClaims - final activeClaims: " . print_r($activeClaims, true));
         
         // Sort by claim date (oldest first)
         usort($activeClaims, function($a, $b) {
@@ -760,19 +751,12 @@ function getPrimaryClaim($trackingNumber) {
 function isUserClaimed($trackingNumber, $userId) {
     $activeClaims = getActiveClaims($trackingNumber);
     
-    // Debug output
-    error_log("DEBUG: isUserClaimed - trackingNumber: $trackingNumber, userId: $userId");
-    error_log("DEBUG: isUserClaimed - activeClaims: " . print_r($activeClaims, true));
-    
     foreach ($activeClaims as $claim) {
-        error_log("DEBUG: isUserClaimed - comparing claim user_id: " . $claim['user_id'] . " with userId: $userId");
         if ($claim['user_id'] === $userId) {
-            error_log("DEBUG: isUserClaimed - MATCH FOUND!");
             return true;
         }
     }
     
-    error_log("DEBUG: isUserClaimed - NO MATCH FOUND");
     return false;
 }
 

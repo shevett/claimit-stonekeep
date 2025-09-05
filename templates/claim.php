@@ -46,14 +46,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($uploadedFile && $uploadedFile['error'] !== UPLOAD_ERR_NO_FILE) {
         // Check for PHP upload errors first
         if ($uploadedFile['error'] !== UPLOAD_ERR_OK) {
-            // Debug: Log the actual PHP limits for production debugging
-            error_log('PRODUCTION DEBUG: PHP upload limits - upload_max_filesize: ' . ini_get('upload_max_filesize') . ', post_max_size: ' . ini_get('post_max_size'));
-            error_log('PRODUCTION DEBUG: File upload error code: ' . $uploadedFile['error'] . ', file size: ' . ($uploadedFile['size'] ?? 'unknown'));
-            
             switch ($uploadedFile['error']) {
                 case UPLOAD_ERR_INI_SIZE:
                 case UPLOAD_ERR_FORM_SIZE:
-                    $errors[] = 'Picture uploads are limited to 10MB (Server limit: ' . ini_get('upload_max_filesize') . ')';
+                    $errors[] = 'Picture uploads are limited to 10MB';
                     break;
                 case UPLOAD_ERR_PARTIAL:
                     $errors[] = 'File upload was interrupted. Please try again.';
