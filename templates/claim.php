@@ -214,7 +214,7 @@ $flashMessage = showFlashMessage();
 
         <form method="POST" class="claim-form" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
-            <input type="hidden" name="MAX_FILE_SIZE" value="512000">
+            <input type="hidden" name="MAX_FILE_SIZE" value="52428800">
             
             <div class="form-group">
                 <label for="title">Item Title</label>
