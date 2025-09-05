@@ -10,8 +10,8 @@ ini_set('display_errors', '0');
 ini_set('log_errors', '1');
 
 // Set upload limits for file uploads (try multiple approaches)
-ini_set('upload_max_filesize', '10M');
-ini_set('post_max_size', '11M'); // Slightly larger than upload_max_filesize to account for form data
+ini_set('upload_max_filesize', '50M');
+ini_set('post_max_size', '51M'); // Slightly larger than upload_max_filesize to account for form data
 ini_set('max_file_uploads', '1');
 ini_set('max_execution_time', '300');
 ini_set('max_input_time', '300');
