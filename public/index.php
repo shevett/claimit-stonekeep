@@ -179,10 +179,10 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                 break;
                 
             case 'delete_item':
-                // Check if the current user owns this item
+                // Check if user can edit this item (owner or admin)
                 $item = getItem($trackingNumber);
-                if (!$item || $item['user_id'] !== $currentUser['id']) {
-                    echo json_encode(['success' => false, 'message' => 'You can only delete your own items']);
+                if (!$item || !canUserEditItem($item['user_id'] ?? null)) {
+                    echo json_encode(['success' => false, 'message' => 'You can only delete your own items or be an administrator']);
                     exit;
                 }
                 
@@ -326,10 +326,10 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
                 break;
                 
             case 'delete_item':
-                // Check if the current user owns this item
+                // Check if user can edit this item (owner or admin)
                 $item = getItem($trackingNumber);
-                if (!$item || $item['user_id'] !== $currentUser['id']) {
-                    echo json_encode(['success' => false, 'message' => 'You can only delete your own items']);
+                if (!$item || !canUserEditItem($item['user_id'] ?? null)) {
+                    echo json_encode(['success' => false, 'message' => 'You can only delete your own items or be an administrator']);
                     exit;
                 }
                 

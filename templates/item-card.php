@@ -110,6 +110,13 @@ if (!empty($item['image_key'])) {
                     📧 Contact Seller
                 </a>
             <?php endif; ?>
+
+            <?php if ($canEditItem): ?>
+                <button onclick="deleteItem('<?php echo escape($item['tracking_number']); ?>')"
+                        class="btn btn-danger">
+                    🗑️ Delete
+                </button>
+            <?php endif; ?>
         </div>
     <?php elseif ($context === 'dashboard' && ($isOwnListings || isAdmin())): ?>
         <!-- Action buttons for dashboard context (own listings or admin view) -->

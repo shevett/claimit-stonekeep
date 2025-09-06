@@ -936,9 +936,9 @@ function confirmDelete() {
         hideDeleteModal();
         
         if (data.success) {
-            // Show success message and redirect to items list
+            // Show success message and redirect to home page
             alert('Item deleted successfully!');
-            window.location.href = '?page=items';
+            window.location.href = '?page=home';
         } else {
             alert('Error: ' + data.message);
         }

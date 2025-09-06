@@ -222,6 +222,7 @@ if ($presignedUrl) {
                         // Set context for the unified template
                         $context = 'listing';
                         $isOwnListings = false;
+                        $currentUser = getCurrentUser();
                         ?>
                         <?php include __DIR__ . '/item-card.php'; ?>
                     <?php endforeach; ?>
