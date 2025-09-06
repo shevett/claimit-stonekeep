@@ -205,6 +205,7 @@ $flashMessage = showFlashMessage();
                         <?php 
                         $currentUser = getCurrentUser();
                         $isOwnItem = currentUserOwnsItem($item['tracking_number']);
+                        $canEditItem = canUserEditItem($item['user_id'] ?? null);
                         $isUserClaimed = $currentUser ? isUserClaimed($item['tracking_number'], $currentUser['id']) : false;
                         $canUserClaim = $currentUser ? canUserClaim($item['tracking_number'], $currentUser['id']) : false;
                         $userClaimPosition = $currentUser ? getUserClaimPosition($item['tracking_number'], $currentUser['id']) : null;
@@ -233,7 +234,7 @@ $flashMessage = showFlashMessage();
                             <?php endif; ?>
                         <?php endif; ?>
                         
-                        <?php if ($isOwnItem): ?>
+                        <?php if ($canEditItem): ?>
                             <button onclick="openEditModal('<?php echo escape($item['tracking_number']); ?>', '<?php echo addslashes(htmlspecialchars($item['title'], ENT_QUOTES, 'UTF-8')); ?>', '<?php echo addslashes(htmlspecialchars($item['description'], ENT_QUOTES, 'UTF-8')); ?>')" 
                                     class="btn btn-primary btn-large edit-btn" 
                                     title="Edit this item">

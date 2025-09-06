@@ -66,9 +66,10 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['tr
         exit;
     }
     
-    // Check if user owns this item
-    if (!currentUserOwnsItem($trackingNumber)) {
-        echo json_encode(['success' => false, 'message' => 'You can only delete your own items']);
+    // Check if user can edit this item (owner or admin)
+    $item = getItem($trackingNumber);
+    if (!$item || !canUserEditItem($item['user_id'] ?? null)) {
+        echo json_encode(['success' => false, 'message' => 'You can only delete your own items or be an administrator']);
         exit;
     }
     
@@ -205,10 +206,10 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                 
             case 'edit_item':
                 error_log("DEBUG: edit_item case entered for tracking number: " . $trackingNumber);
-                // Check if the current user owns this item
+                // Check if the current user can edit this item (owner or admin)
                 $item = getItem($trackingNumber);
-                if (!$item || $item['user_id'] !== $currentUser['id']) {
-                    echo json_encode(['success' => false, 'message' => 'You can only edit your own items']);
+                if (!$item || !canUserEditItem($item['user_id'] ?? null)) {
+                    echo json_encode(['success' => false, 'message' => 'You can only edit your own items or be an administrator']);
                     exit;
                 }
                 
@@ -351,10 +352,10 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
                 break;
                 
             case 'edit_item':
-                // Check if the current user owns this item
+                // Check if the current user can edit this item (owner or admin)
                 $item = getItem($trackingNumber);
-                if (!$item || $item['user_id'] !== $currentUser['id']) {
-                    echo json_encode(['success' => false, 'message' => 'You can only edit your own items']);
+                if (!$item || !canUserEditItem($item['user_id'] ?? null)) {
+                    echo json_encode(['success' => false, 'message' => 'You can only edit your own items or be an administrator']);
                     exit;
                 }
                 

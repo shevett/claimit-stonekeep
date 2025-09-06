@@ -22,6 +22,9 @@ $canUserClaim = canUserClaim($item['tracking_number'], $currentUser['id'] ?? nul
 // Determine if this is the current user's item
 $isOwnItem = ($item['user_id'] ?? null) === ($currentUser['id'] ?? null);
 
+// Determine if the current user can edit this item (owner or admin)
+$canEditItem = canUserEditItem($item['user_id'] ?? null);
+
 // Get image URL
 $imageUrl = null;
 if (!empty($item['image_key'])) {
@@ -108,23 +111,25 @@ if (!empty($item['image_key'])) {
                 </a>
             <?php endif; ?>
         </div>
-    <?php elseif ($context === 'dashboard' && $isOwnListings): ?>
-        <!-- Action buttons for dashboard context (own listings) -->
+    <?php elseif ($context === 'dashboard' && ($isOwnListings || isAdmin())): ?>
+        <!-- Action buttons for dashboard context (own listings or admin view) -->
         <div class="item-actions">
-            <button onclick="openEditModal('<?php echo escape($item['tracking_number']); ?>', '<?php echo addslashes(htmlspecialchars($item['title'], ENT_QUOTES, 'UTF-8')); ?>', '<?php echo addslashes(htmlspecialchars($item['description'], ENT_QUOTES, 'UTF-8')); ?>')"
-                    class="btn btn-primary">
-                ✏️ Edit...
-            </button>
+            <?php if ($canEditItem): ?>
+                <button onclick="openEditModal('<?php echo escape($item['tracking_number']); ?>', '<?php echo addslashes(htmlspecialchars($item['title'], ENT_QUOTES, 'UTF-8')); ?>', '<?php echo addslashes(htmlspecialchars($item['description'], ENT_QUOTES, 'UTF-8')); ?>')"
+                        class="btn btn-primary">
+                    ✏️ Edit...
+                </button>
+
+                <button onclick="deleteItem('<?php echo escape($item['tracking_number']); ?>')"
+                        class="btn btn-danger">
+                    🗑️ Delete
+                </button>
+            <?php endif; ?>
 
             <a href="mailto:<?php echo escape($item['contact_email']); ?>?subject=<?php echo rawurlencode('ClaimIt Interest - ' . $item['title']); ?>&body=<?php echo rawurlencode("Hi! I'm interested in your item: " . $item['title'] . "\n\nView the item here: " . (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . '?page=item&id=' . $item['tracking_number']); ?>"
                class="btn btn-secondary">
                 📧 Contact Seller
             </a>
-
-            <button onclick="deleteItem('<?php echo escape($item['tracking_number']); ?>')"
-                    class="btn btn-danger">
-                🗑️ Delete
-            </button>
         </div>
     <?php elseif ($context === 'claimed'): ?>
         <!-- Display claim status for claimed items -->

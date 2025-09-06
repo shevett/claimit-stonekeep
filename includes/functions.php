@@ -1182,4 +1182,29 @@ function resizeImageToFitSize($sourcePath, $targetPath, $maxSizeBytes = 512000, 
     return false;
 }
 
+/**
+ * Check if the current user is an administrator
+ */
+function isAdmin() {
+    $currentUser = getCurrentUser();
+    if (!$currentUser) {
+        return false;
+    }
+    
+    return ($currentUser['id'] ?? null) === ADMIN_USER_ID;
+}
+
+/**
+ * Check if the current user can edit/delete an item (either owner or admin)
+ */
+function canUserEditItem($itemUserId) {
+    $currentUser = getCurrentUser();
+    if (!$currentUser) {
+        return false;
+    }
+    
+    // User can edit if they own the item OR if they are an admin
+    return ($currentUser['id'] === $itemUserId) || isAdmin();
+}
+
 ?> 

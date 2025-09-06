@@ -104,9 +104,9 @@ try {
 
 $flashMessage = showFlashMessage();
 
-// Check if current user is viewing their own listings
+// Check if current user is viewing their own listings or is an admin
 $currentUser = getCurrentUser();
-$isOwnListings = $currentUser && $currentUser['id'] === $userId;
+$isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
 ?>
 
 <div class="page-header">

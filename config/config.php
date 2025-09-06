@@ -31,6 +31,11 @@ if (DEVELOPMENT_MODE) {
 // Timezone
 date_default_timezone_set('America/New_York');
 
+// Administrator configuration
+// Set this to the Google user ID of the administrator
+// You can find this in the Google OAuth response or in the user's YAML file
+define('ADMIN_USER_ID', '112659624466139657672'); // Replace with actual admin user ID
+
 // Session configuration
 ini_set('session.cookie_httponly', 1);
 ini_set('session.use_only_cookies', 1);
