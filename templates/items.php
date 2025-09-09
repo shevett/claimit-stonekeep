@@ -693,39 +693,9 @@ function showMessage(message, type) {
     text-decoration: underline;
 }
 
-.item-actions {
-    display: flex;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-}
+/* Item actions styling is now handled by item-card.php */
 
-.item-actions .btn {
-    flex: 1;
-    min-width: 120px;
-    text-align: center;
-    font-size: 0.875rem;
-    padding: 0.5rem 1rem;
-}
-
-.delete-btn {
-    background-color: #dc3545 !important;
-    border-color: #dc3545 !important;
-    color: white !important;
-    transition: all 0.3s ease !important;
-}
-
-.delete-btn:hover {
-    background-color: #c82333 !important;
-    border-color: #bd2130 !important;
-    transform: translateY(-1px);
-}
-
-.delete-btn:disabled {
-    background-color: #6c757d !important;
-    border-color: #6c757d !important;
-    cursor: not-allowed !important;
-    transform: none !important;
-}
+/* Delete button styling is now handled by item-card.php */
 
 .item-link {
     text-decoration: none;
@@ -754,25 +724,9 @@ function showMessage(message, type) {
     pointer-events: auto;
 }
 
-.item-actions {
-    position: relative;
-    z-index: 3;
-    pointer-events: auto;
-}
+/* Item actions styling is now handled by item-card.php */
 
-.claim-btn {
-    background-color: #28a745 !important;
-    border-color: #28a745 !important;
-    color: white !important;
-    transition: all 0.3s ease !important;
-}
-
-.claim-btn:hover {
-    background-color: #218838 !important;
-    border-color: #1e7e34 !important;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
-}
+/* Claim button styling is now handled by item-card.php */
 
 .no-items {
     text-align: center;
@@ -831,14 +785,7 @@ function showMessage(message, type) {
 }
 
 @media (max-width: 480px) {
-    .item-actions {
-        gap: 0.5rem;
-    }
-    
-    .item-actions .btn {
-        font-size: 0.8rem;
-        padding: 0.4rem 0.8rem;
-    }
+    /* Item actions responsive styling is now handled by item-card.php */
 }
 
 /* Delete Modal Styles */

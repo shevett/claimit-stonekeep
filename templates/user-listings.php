@@ -448,65 +448,12 @@ $isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
     font-size: 0.875rem;
 }
 
-/* Item Actions Styles */
-.item-actions {
-    display: flex;
-    gap: 0.75rem;
-    padding: 1rem;
-    border-top: 1px solid #e9ecef;
-    background: #f8f9fa;
-    justify-content: flex-end;
-}
-
-.item-actions .btn {
-    padding: 0.5rem 1rem;
-    font-size: 0.875rem;
-    border-radius: 6px;
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    transition: all 0.2s ease;
-}
-
-.item-actions .btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-}
-
-.item-actions .btn-secondary {
-    background: #6c757d;
-    color: white;
-    border: none;
-}
-
-.item-actions .btn-secondary:hover {
-    background: #5a6268;
-}
-
-.item-actions .btn-danger {
-    background: #dc3545;
-    color: white;
-    border: none;
-}
-
-.item-actions .btn-danger:hover {
-    background: #c82333;
-}
+/* Item actions styling is now handled by item-card.php */
 
 @media (max-width: 768px) {
     .profile-stats {
         flex-direction: column;
         gap: 1.5rem;
-    }
-    
-    .item-actions {
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-    
-    .item-actions .btn {
-        justify-content: center;
     }
 }
 </style> 

@@ -94,20 +94,20 @@ if (!empty($item['image_key'])) {
         <div class="item-actions">
             <?php if ($isUserClaimed): ?>
                 <button onclick="removeMyClaim('<?php echo escape($item['tracking_number']); ?>')"
-                        class="btn btn-danger">
-                    🚫 Remove My Claim
+                        class="btn btn-warning">
+                    🚫 Remove Claim
                 </button>
             <?php elseif ($canUserClaim): ?>
                 <button onclick="addClaimToItem('<?php echo escape($item['tracking_number']); ?>')"
                         class="btn btn-primary">
-                    🎯 Claim This!
+                    🎯 Claim
                 </button>
             <?php endif; ?>
 
             <?php if (!$isOwnItem): ?>
                 <a href="mailto:<?php echo escape($item['contact_email']); ?>?subject=<?php echo rawurlencode('ClaimIt Interest - ' . $item['title']); ?>&body=<?php echo rawurlencode("Hi! I'm interested in your item: " . $item['title'] . "\n\nView the item here: " . (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . '?page=item&id=' . $item['tracking_number']); ?>"
                    class="btn btn-secondary">
-                    📧 Contact Seller
+                    📧 Contact
                 </a>
             <?php endif; ?>
 
@@ -121,10 +121,14 @@ if (!empty($item['image_key'])) {
     <?php elseif ($context === 'dashboard' && ($isOwnListings || isAdmin())): ?>
         <!-- Action buttons for dashboard context (own listings or admin view) -->
         <div class="item-actions">
+            <a href="?page=item&id=<?php echo escape($item['tracking_number']); ?>" 
+               class="btn btn-secondary">
+                👁️ View
+            </a>
             <?php if ($canEditItem): ?>
                 <button onclick="openEditModal('<?php echo escape($item['tracking_number']); ?>', '<?php echo addslashes(htmlspecialchars($item['title'], ENT_QUOTES, 'UTF-8')); ?>', '<?php echo addslashes(htmlspecialchars($item['description'], ENT_QUOTES, 'UTF-8')); ?>')"
                         class="btn btn-primary">
-                    ✏️ Edit...
+                    ✏️ Edit
                 </button>
 
                 <button onclick="deleteItem('<?php echo escape($item['tracking_number']); ?>')"
@@ -132,11 +136,6 @@ if (!empty($item['image_key'])) {
                     🗑️ Delete
                 </button>
             <?php endif; ?>
-
-            <a href="mailto:<?php echo escape($item['contact_email']); ?>?subject=<?php echo rawurlencode('ClaimIt Interest - ' . $item['title']); ?>&body=<?php echo rawurlencode("Hi! I'm interested in your item: " . $item['title'] . "\n\nView the item here: " . (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . '?page=item&id=' . $item['tracking_number']); ?>"
-               class="btn btn-secondary">
-                📧 Contact Seller
-            </a>
         </div>
     <?php elseif ($context === 'claimed'): ?>
         <!-- Display claim status for claimed items -->
@@ -160,11 +159,119 @@ if (!empty($item['image_key'])) {
                     <span class="claim-status waitlist">Waitlist #<?php echo $claimPosition; ?></span>
                 <?php endif; ?>
 
-                <div class="item-details">
-                    <span class="claim-date">Claimed <?php echo formatDate($userClaim['claimed_at'] ?? ''); ?></span>
-                    <span class="item-waitlist"><?php echo count($activeClaims); ?> total claim<?php echo count($activeClaims) !== 1 ? 's' : ''; ?></span>
-                </div>
+                <button onclick="removeMyClaim('<?php echo escape($item['tracking_number']); ?>')"
+                        class="btn btn-warning">
+                    🚫 Remove
+                </button>
             <?php endif; ?>
         </div>
     <?php endif; ?>
 </div>
+
+<style>
+/* Standardized Item Actions CSS */
+.item-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    padding: 1rem;
+    border-top: 1px solid #e9ecef;
+    background: #f8f9fa;
+}
+
+.item-actions .btn {
+    min-width: 100px;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    border-radius: 6px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    border: none;
+    cursor: pointer;
+}
+
+.item-actions .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.item-actions .btn-primary {
+    background: #007bff;
+    color: white;
+}
+
+.item-actions .btn-primary:hover {
+    background: #0056b3;
+}
+
+.item-actions .btn-secondary {
+    background: #6c757d;
+    color: white;
+}
+
+.item-actions .btn-secondary:hover {
+    background: #545b62;
+}
+
+.item-actions .btn-danger {
+    background: #dc3545;
+    color: white;
+}
+
+.item-actions .btn-danger:hover {
+    background: #c82333;
+}
+
+.item-actions .btn-warning {
+    background: #ffc107;
+    color: #212529;
+}
+
+.item-actions .btn-warning:hover {
+    background: #e0a800;
+}
+
+/* Claim status styling */
+.claim-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    border-radius: 6px;
+    font-weight: 600;
+    margin-right: auto;
+}
+
+.claim-status.primary {
+    background: #28a745;
+    color: white;
+}
+
+.claim-status.waitlist {
+    background: #fd7e14;
+    color: white;
+}
+
+/* Responsive behavior */
+@media (max-width: 768px) {
+    .item-actions {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .item-actions .btn {
+        width: 100%;
+        min-width: auto;
+    }
+    
+    .claim-status {
+        margin-right: 0;
+        justify-content: center;
+    }
+}
+</style>

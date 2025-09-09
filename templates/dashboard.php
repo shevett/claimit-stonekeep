@@ -115,12 +115,12 @@ if ($authService) {
                             
                             <div class="item-actions">
                                 <a href="?page=item&id=<?php echo escape($item['tracking_number']); ?>" 
-                                   class="btn btn-sm btn-outline" 
+                                   class="btn btn-secondary" 
                                    title="View details">
                                     👁️ View
                                 </a>
                                 <button onclick="deleteItem('<?php echo escape($item['tracking_number']); ?>')" 
-                                        class="btn btn-sm btn-danger" 
+                                        class="btn btn-danger" 
                                         title="Delete this item">
                                     🗑️ Delete
                                 </button>
@@ -239,30 +239,13 @@ if ($authService) {
     margin-bottom: 1rem;
 }
 
-.item-actions {
-    padding: 0 1rem 1rem 1rem;
-    display: flex;
-    gap: 0.5rem;
-    position: relative;
-    z-index: 3;
-    pointer-events: auto;
-}
+/* Item actions styling is now handled by item-card.php */
 
-.btn-sm {
-    padding: 0.375rem 0.75rem;
-    font-size: 0.875rem;
-}
+/* Button styling is now handled by item-card.php */
 
-.btn-outline {
-    background: transparent;
-    border: 1px solid #dee2e6;
-    color: #6c757d;
-}
+/* Button styling is now handled by item-card.php */
 
-.btn-outline:hover {
-    background: #f8f9fa;
-    border-color: #adb5bd;
-}
+/* Button styling is now handled by item-card.php */
 
 .empty-state {
     text-align: center;
@@ -363,9 +346,7 @@ if ($authService) {
         gap: 0.5rem;
     }
     
-    .item-actions {
-        flex-direction: column;
-    }
+    /* Item actions responsive styling is now handled by item-card.php */
 }
 </style>
 
