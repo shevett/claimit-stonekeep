@@ -121,7 +121,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['tr
 }
 
 // Handle AJAX claim requests before any HTML output
-if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_claim', 'remove_claim_by_owner', 'delete_item', 'edit_item']) && isset($_POST['tracking_number'])) {
+if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_claim', 'remove_claim_by_owner', 'delete_item', 'edit_item', 'rotate_image']) && isset($_POST['tracking_number'])) {
     header('Content-Type: application/json');
     
     $trackingNumber = $_POST['tracking_number'];
@@ -247,6 +247,64 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                 
                 echo json_encode(['success' => true, 'message' => 'Item updated successfully']);
                 break;
+                
+            case 'rotate_image':
+                // Check if the current user can edit this item (owner or admin)
+                $item = getItem($trackingNumber);
+                if (!$item || !canUserEditItem($item['user_id'] ?? null)) {
+                    echo json_encode(['success' => false, 'message' => 'You can only rotate images for your own items or be an administrator']);
+                    exit;
+                }
+                
+                // Determine the image key by checking for image files with different extensions
+                $awsService = getAwsService();
+                if (!$awsService) {
+                    echo json_encode(['success' => false, 'message' => 'AWS service not available']);
+                    exit;
+                }
+                
+                $imageKey = null;
+                $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
+                foreach ($imageExtensions as $ext) {
+                    $possibleImageKey = $trackingNumber . '.' . $ext;
+                    try {
+                        if ($awsService->objectExists($possibleImageKey)) {
+                            $imageKey = $possibleImageKey;
+                            break;
+                        }
+                    } catch (Exception $e) {
+                        // Continue to next extension
+                    }
+                }
+                
+                // Check if item has an image
+                if (empty($imageKey)) {
+                    echo json_encode(['success' => false, 'message' => 'No image found for this item']);
+                    exit;
+                }
+                
+                try {
+                    // Download the image from S3
+                    $imageObject = $awsService->getObject($imageKey);
+                    $imageContent = $imageObject['content'];
+                    $contentType = $imageObject['content_type'];
+                    
+                    // Rotate the image using GD library
+                    $rotatedImageContent = rotateImage90Degrees($imageContent, $contentType);
+                    
+                    if ($rotatedImageContent === false) {
+                        throw new Exception('Failed to rotate image');
+                    }
+                    
+                    // Upload the rotated image back to S3
+                    $result = $awsService->putObject($imageKey, $rotatedImageContent, $contentType);
+                    
+                    echo json_encode(['success' => true, 'message' => 'Image rotated successfully']);
+                    
+                } catch (Exception $e) {
+                    echo json_encode(['success' => false, 'message' => 'Failed to rotate image: ' . $e->getMessage()]);
+                }
+                break;
         }
         
     } catch (Exception $e) {
@@ -257,7 +315,7 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
 }
 
 // Handle GET-based AJAX claim requests (for backward compatibility)
-if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) && in_array($_GET['action'], ['add_claim', 'remove_claim', 'remove_claim_by_owner', 'delete_item', 'edit_item'])) {
+if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) && in_array($_GET['action'], ['add_claim', 'remove_claim', 'remove_claim_by_owner', 'delete_item', 'edit_item', 'rotate_image'])) {
     header('Content-Type: application/json');
     
     // For GET requests, we need to get the tracking number from POST data
@@ -388,6 +446,64 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
                 $awsService->putObject($yamlKey, $yamlContent);
                 
                 echo json_encode(['success' => true, 'message' => 'Item updated successfully']);
+                break;
+                
+            case 'rotate_image':
+                // Check if the current user can edit this item (owner or admin)
+                $item = getItem($trackingNumber);
+                if (!$item || !canUserEditItem($item['user_id'] ?? null)) {
+                    echo json_encode(['success' => false, 'message' => 'You can only rotate images for your own items or be an administrator']);
+                    exit;
+                }
+                
+                // Determine the image key by checking for image files with different extensions
+                $awsService = getAwsService();
+                if (!$awsService) {
+                    echo json_encode(['success' => false, 'message' => 'AWS service not available']);
+                    exit;
+                }
+                
+                $imageKey = null;
+                $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
+                foreach ($imageExtensions as $ext) {
+                    $possibleImageKey = $trackingNumber . '.' . $ext;
+                    try {
+                        if ($awsService->objectExists($possibleImageKey)) {
+                            $imageKey = $possibleImageKey;
+                            break;
+                        }
+                    } catch (Exception $e) {
+                        // Continue to next extension
+                    }
+                }
+                
+                // Check if item has an image
+                if (empty($imageKey)) {
+                    echo json_encode(['success' => false, 'message' => 'No image found for this item']);
+                    exit;
+                }
+                
+                try {
+                    // Download the image from S3
+                    $imageObject = $awsService->getObject($imageKey);
+                    $imageContent = $imageObject['content'];
+                    $contentType = $imageObject['content_type'];
+                    
+                    // Rotate the image using GD library
+                    $rotatedImageContent = rotateImage90Degrees($imageContent, $contentType);
+                    
+                    if ($rotatedImageContent === false) {
+                        throw new Exception('Failed to rotate image');
+                    }
+                    
+                    // Upload the rotated image back to S3
+                    $result = $awsService->putObject($imageKey, $rotatedImageContent, $contentType);
+                    
+                    echo json_encode(['success' => true, 'message' => 'Image rotated successfully']);
+                    
+                } catch (Exception $e) {
+                    echo json_encode(['success' => false, 'message' => 'Failed to rotate image: ' . $e->getMessage()]);
+                }
                 break;
         }
         

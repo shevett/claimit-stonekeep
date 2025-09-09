@@ -1207,4 +1207,83 @@ function canUserEditItem($itemUserId) {
     return ($currentUser['id'] === $itemUserId) || isAdmin();
 }
 
+/**
+ * Rotate an image 90 degrees clockwise using GD library
+ * 
+ * @param string $imageContent The binary image content
+ * @param string $contentType The MIME type of the image
+ * @return string|false The rotated image content or false on failure
+ */
+function rotateImage90Degrees($imageContent, $contentType) {
+    // Check if GD extension is available
+    if (!extension_loaded('gd')) {
+        error_log('GD extension is not loaded');
+        return false;
+    }
+    
+    // Create image resource from content
+    $sourceImage = imagecreatefromstring($imageContent);
+    if ($sourceImage === false) {
+        error_log('Failed to create image from string');
+        return false;
+    }
+    
+    // Get original dimensions
+    $originalWidth = imagesx($sourceImage);
+    $originalHeight = imagesy($sourceImage);
+    
+    // Rotate the image 90 degrees clockwise
+    $rotatedImage = imagerotate($sourceImage, -90, 0);
+    if ($rotatedImage === false) {
+        error_log('Failed to rotate image');
+        imagedestroy($sourceImage);
+        return false;
+    }
+    
+    // Clean up the original image
+    imagedestroy($sourceImage);
+    
+    // Capture the rotated image as a string
+    ob_start();
+    
+    // Determine output format based on content type
+    $success = false;
+    switch (strtolower($contentType)) {
+        case 'image/jpeg':
+        case 'image/jpg':
+            $success = imagejpeg($rotatedImage, null, 90); // 90% quality
+            break;
+        case 'image/png':
+            $success = imagepng($rotatedImage, null, 6); // Compression level 6
+            break;
+        case 'image/gif':
+            $success = imagegif($rotatedImage);
+            break;
+        case 'image/webp':
+            if (function_exists('imagewebp')) {
+                $success = imagewebp($rotatedImage, null, 90);
+            }
+            break;
+        default:
+            // Default to JPEG if format is unknown
+            $success = imagejpeg($rotatedImage, null, 90);
+            break;
+    }
+    
+    if (!$success) {
+        error_log('Failed to output rotated image');
+        imagedestroy($rotatedImage);
+        ob_end_clean();
+        return false;
+    }
+    
+    $rotatedContent = ob_get_contents();
+    ob_end_clean();
+    
+    // Clean up the rotated image
+    imagedestroy($rotatedImage);
+    
+    return $rotatedContent;
+}
+
 ?> 

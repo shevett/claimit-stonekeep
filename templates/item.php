@@ -112,9 +112,22 @@ $flashMessage = showFlashMessage();
                     <?php 
                         $imageUrl = $awsService->getPresignedUrl($item['image_key'], 3600);
                     ?>
-                    <img src="<?php echo escape($imageUrl); ?>" 
-                         alt="<?php echo escape($item['title']); ?>" 
-                         class="detail-image">
+                    <div class="image-container">
+                        <img src="<?php echo escape($imageUrl); ?>" 
+                             alt="<?php echo escape($item['title']); ?>" 
+                             class="detail-image">
+                        <?php 
+                        // Show rotation button only for item owners
+                        $currentUser = getCurrentUser();
+                        $isOwnItem = currentUserOwnsItem($item['tracking_number']);
+                        if ($isOwnItem): ?>
+                            <button onclick="rotateImage('<?php echo escape($item['tracking_number']); ?>')" 
+                                    class="rotate-btn" 
+                                    title="Rotate image 90 degrees">
+                                ↻
+                            </button>
+                        <?php endif; ?>
+                    </div>
                 <?php else: ?>
                     <div class="no-image-placeholder">
                         <span>📷</span>
@@ -381,6 +394,13 @@ $flashMessage = showFlashMessage();
     height: fit-content;
 }
 
+.image-container {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+    max-width: 500px;
+}
+
 .detail-image {
     width: 100%;
     max-width: 500px;
@@ -390,6 +410,34 @@ $flashMessage = showFlashMessage();
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
     object-fit: contain;
     display: block;
+}
+
+.rotate-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    z-index: 10;
+}
+
+.rotate-btn:hover {
+    background: rgba(0, 0, 0, 0.9);
+    transform: scale(1.1);
+}
+
+.rotate-btn:active {
+    transform: scale(0.95);
 }
 
 .no-image-placeholder {
@@ -1042,6 +1090,52 @@ function saveItemEdit() {
     .catch(error => {
         console.error('Error saving item edit:', error);
         showMessage('An error occurred while saving changes', 'error');
+    });
+}
+
+function rotateImage(trackingNumber) {
+    const button = document.querySelector(`button[onclick="rotateImage('${trackingNumber}')"]`);
+    if (!button) return;
+    
+    // Show loading state
+    const originalText = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '⏳';
+    
+    // Send AJAX request
+    fetch('', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `action=rotate_image&tracking_number=${encodeURIComponent(trackingNumber)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message
+            showMessage(data.message, 'success');
+            
+            // Reload the page to show the rotated image
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            // Show error message
+            showMessage(data.message, 'error');
+            
+            // Restore button
+            button.disabled = false;
+            button.innerHTML = originalText;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showMessage('An error occurred while rotating the image', 'error');
+        
+        // Restore button
+        button.disabled = false;
+        button.innerHTML = originalText;
     });
 }
 </script> 
