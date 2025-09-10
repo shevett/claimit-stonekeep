@@ -172,6 +172,36 @@ $flashMessage = showFlashMessage();
     </div>
 </div>
 
+<!-- Edit Item Modal -->
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Edit Item</h2>
+            <span class="close" onclick="closeEditModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="editForm">
+                <input type="hidden" id="editTrackingNumber" name="trackingNumber">
+                <div class="form-group">
+                    <label for="editTitle">Title:</label>
+                    <input type="text" id="editTitle" name="title" required>
+                    <small>Enter a descriptive title for your item</small>
+                </div>
+                <div class="form-group">
+                    <label for="editDescription">Description:</label>
+                    <textarea id="editDescription" name="description" rows="4" required></textarea>
+                    <small>Provide details about the item's condition, features, etc.</small>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="/assets/js/app.js"></script>
 <script>
 function deleteItem(trackingNumber) {
     // Store the context for the modal
@@ -324,7 +354,133 @@ function showMessage(message, type) {
 </script>
 
 <style>
-/* Modal Styles */
+/* Edit Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 10000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 5% auto;
+    padding: 0;
+    border: none;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+    padding: 1.5rem 2rem 1rem;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 {
+    margin: 0;
+    color: #333;
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.close {
+    color: #aaa;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.close:hover,
+.close:focus {
+    color: #000;
+    text-decoration: none;
+}
+
+.modal-body {
+    padding: 1.5rem 2rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.form-group small {
+    display: block;
+    margin-top: 0.25rem;
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 2rem;
+}
+
+.form-actions .btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.form-actions .btn-primary {
+    background: #007bff;
+    color: white;
+}
+
+.form-actions .btn-primary:hover {
+    background: #0056b3;
+}
+
+.form-actions .btn-secondary {
+    background: #6c757d;
+    color: white;
+}
+
+.form-actions .btn-secondary:hover {
+    background: #545b62;
+}
+
+/* Delete Modal Styles */
 .modal-overlay {
     position: fixed;
     top: 0;

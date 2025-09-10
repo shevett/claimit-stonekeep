@@ -112,6 +112,14 @@ if (!empty($item['image_key'])) {
             <?php endif; ?>
 
             <?php if ($canEditItem): ?>
+                <button onclick="openEditModalFromButton(this)"
+                        class="btn btn-primary"
+                        data-tracking="<?php echo htmlspecialchars($item['tracking_number'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-title="<?php echo htmlspecialchars($item['title'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+                        data-description="<?php echo htmlspecialchars($item['description'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                    ✏️ Edit
+                </button>
+
                 <button onclick="deleteItem('<?php echo escape($item['tracking_number']); ?>')"
                         class="btn btn-danger">
                     🗑️ Delete
@@ -126,8 +134,11 @@ if (!empty($item['image_key'])) {
                 👁️ View
             </a>
             <?php if ($canEditItem): ?>
-                <button onclick="openEditModal('<?php echo escape($item['tracking_number']); ?>', '<?php echo addslashes(htmlspecialchars($item['title'], ENT_QUOTES, 'UTF-8')); ?>', '<?php echo addslashes(htmlspecialchars($item['description'], ENT_QUOTES, 'UTF-8')); ?>')"
-                        class="btn btn-primary">
+                <button onclick="openEditModalFromButton(this)"
+                        class="btn btn-primary"
+                        data-tracking="<?php echo htmlspecialchars($item['tracking_number'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-title="<?php echo htmlspecialchars($item['title'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+                        data-description="<?php echo htmlspecialchars($item['description'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
                     ✏️ Edit
                 </button>
 
