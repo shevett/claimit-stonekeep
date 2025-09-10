@@ -875,7 +875,7 @@ if ($page === 'item' && isset($_GET['id'])) {
         </div>
     </div>
 
-    <script src="/assets/js/app.js"></script>
+    <script src="/assets/js/app.js?v=1757534999"></script>
     
     <!-- Claim Management JavaScript Functions -->
     <script>

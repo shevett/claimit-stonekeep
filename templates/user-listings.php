@@ -613,4 +613,4 @@ $isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
 }
 </style>
 
-<script src="/assets/js/app.js"></script> 
+<script src="/assets/js/app.js?v=1757534999"></script> 

@@ -279,7 +279,7 @@ if ($presignedUrl) {
     </div>
 </div>
 
-<script src="/assets/js/app.js"></script>
+<script src="/assets/js/app.js?v=1757534999"></script>
 <script>
 function copyToClipboard(text) {
     navigator.clipboard.writeText(text).then(function() {
