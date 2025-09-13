@@ -102,6 +102,10 @@ if (!empty($item['image_key'])) {
                         class="btn btn-primary">
                     🎯 Claim
                 </button>
+            <?php elseif (!$currentUser && !$isOwnItem): ?>
+                <a href="?page=login" class="btn btn-primary">
+                    🔐 Log in to claim this!
+                </a>
             <?php endif; ?>
 
             <?php if (!$isOwnItem): ?>
