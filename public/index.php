@@ -121,7 +121,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['tr
 }
 
 // Handle AJAX claim requests before any HTML output
-if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_claim', 'remove_claim_by_owner', 'delete_item', 'edit_item', 'rotate_image']) && isset($_POST['tracking_number'])) {
+if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_claim', 'remove_claim_by_owner', 'delete_item', 'edit_item', 'rotate_image', 'mark_gone', 'relist_item']) && isset($_POST['tracking_number'])) {
     header('Content-Type: application/json');
     
     $trackingNumber = $_POST['tracking_number'];
@@ -305,6 +305,24 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                     echo json_encode(['success' => false, 'message' => 'Failed to rotate image: ' . $e->getMessage()]);
                 }
                 break;
+                
+            case 'mark_gone':
+                try {
+                    markItemAsGone($trackingNumber);
+                    echo json_encode(['success' => true, 'message' => 'Item marked as gone']);
+                } catch (Exception $e) {
+                    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+                }
+                break;
+                
+            case 'relist_item':
+                try {
+                    relistItem($trackingNumber);
+                    echo json_encode(['success' => true, 'message' => 'Item re-listed successfully']);
+                } catch (Exception $e) {
+                    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+                }
+                break;
         }
         
     } catch (Exception $e) {
@@ -315,7 +333,7 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
 }
 
 // Handle GET-based AJAX claim requests (for backward compatibility)
-if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) && in_array($_GET['action'], ['add_claim', 'remove_claim', 'remove_claim_by_owner', 'delete_item', 'edit_item', 'rotate_image'])) {
+if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) && in_array($_GET['action'], ['add_claim', 'remove_claim', 'remove_claim_by_owner', 'delete_item', 'edit_item', 'rotate_image', 'mark_gone', 'relist_item'])) {
     header('Content-Type: application/json');
     
     // For GET requests, we need to get the tracking number from POST data
@@ -505,6 +523,24 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
                     echo json_encode(['success' => false, 'message' => 'Failed to rotate image: ' . $e->getMessage()]);
                 }
                 break;
+                
+            case 'mark_gone':
+                try {
+                    markItemAsGone($trackingNumber);
+                    echo json_encode(['success' => true, 'message' => 'Item marked as gone']);
+                } catch (Exception $e) {
+                    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+                }
+                break;
+                
+            case 'relist_item':
+                try {
+                    relistItem($trackingNumber);
+                    echo json_encode(['success' => true, 'message' => 'Item re-listed successfully']);
+                } catch (Exception $e) {
+                    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+                }
+                break;
         }
         
     } catch (Exception $e) {
@@ -538,6 +574,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'settings' && isset($_GET['action'
         }
         
         $displayName = trim($_POST['display_name'] ?? '');
+        $showGoneItems = isset($_POST['show_gone_items']) && $_POST['show_gone_items'] === 'on';
         
         if (empty($displayName)) {
             echo json_encode(['success' => false, 'message' => 'Display name is required']);
@@ -555,6 +592,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'settings' && isset($_GET['action'
                 'user_id' => $currentUser['id'],
                 'google_name' => $currentUser['name'],
                 'display_name' => $displayName,
+                'show_gone_items' => $showGoneItems ? 'yes' : 'no',
                 'email' => $currentUser['email'],
                 'updated_at' => date('Y-m-d H:i:s'),
                 'updated_timestamp' => time()
@@ -836,6 +874,17 @@ if ($page === 'item' && isset($_GET['id'])) {
                             }
                         ?>" required>
                         <small>This name will be displayed on your listings and claims</small>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="showGoneItems" name="showGoneItems" <?php 
+                                if ($isLoggedIn && $currentUser && getUserShowGoneItems($currentUser['id'])) {
+                                    echo 'checked';
+                                }
+                            ?>>
+                            Show gone items in listings
+                        </label>
+                        <small>When enabled, items marked as "gone" will still appear in item listings</small>
                     </div>
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary">Save Changes</button>

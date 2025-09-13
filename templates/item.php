@@ -64,7 +64,13 @@ try {
                     'claimed_at' => null,
                     'user_id' => $data['user_id'] ?? 'legacy_user',
                     'user_name' => $data['user_name'] ?? 'Legacy User',
-                    'user_email' => $data['user_email'] ?? $data['contact_email'] ?? ''
+                    'user_email' => $data['user_email'] ?? $data['contact_email'] ?? '',
+                    // Include all YAML fields
+                    'gone' => $data['gone'] ?? null,
+                    'gone_at' => $data['gone_at'] ?? null,
+                    'gone_by' => $data['gone_by'] ?? null,
+                    'relisted_at' => $data['relisted_at'] ?? null,
+                    'relisted_by' => $data['relisted_by'] ?? null
                 ];
             }
         } catch (Exception $e) {
@@ -120,6 +126,7 @@ $flashMessage = showFlashMessage();
                         // Show rotation button only for item owners
                         $currentUser = getCurrentUser();
                         $isOwnItem = currentUserOwnsItem($item['tracking_number']);
+                        $isItemGone = isItemGone($item);
                         if ($isOwnItem): ?>
                             <button onclick="rotateImage('<?php echo escape($item['tracking_number']); ?>')" 
                                     class="rotate-btn" 
@@ -256,6 +263,20 @@ $flashMessage = showFlashMessage();
                                     data-description="<?php echo htmlspecialchars($item['description'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
                                 ✏️ Edit...
                             </button>
+                            
+                            <?php if ($isItemGone): ?>
+                                <button onclick="relistItem('<?php echo escape($item['tracking_number']); ?>')" 
+                                        class="btn btn-success btn-large" 
+                                        title="Re-list this item">
+                                    🔄 Re-list
+                                </button>
+                            <?php else: ?>
+                                <button onclick="markItemGone('<?php echo escape($item['tracking_number']); ?>')" 
+                                        class="btn btn-warning btn-large" 
+                                        title="Mark this item as gone">
+                                    ✅ Gone!
+                                </button>
+                            <?php endif; ?>
                             
                             <button onclick="deleteItem('<?php echo escape($item['tracking_number']); ?>')" 
                                     class="btn btn-danger btn-large delete-btn" 
@@ -892,27 +913,6 @@ function removeClaimByOwner(trackingNumber, claimUserId) {
     });
 }
 
-function showMessage(message, type) {
-    // Create a temporary alert div
-    const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type}`;
-    alertDiv.textContent = message;
-    alertDiv.style.position = 'fixed';
-    alertDiv.style.top = '20px';
-    alertDiv.style.right = '20px';
-    alertDiv.style.zIndex = '9999';
-    alertDiv.style.maxWidth = '400px';
-    alertDiv.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
-    
-    document.body.appendChild(alertDiv);
-    
-    // Remove after 3 seconds
-    setTimeout(() => {
-        if (alertDiv.parentNode) {
-            alertDiv.parentNode.removeChild(alertDiv);
-        }
-    }, 3000);
-}
 
 function deleteItem(trackingNumber) {
     // Store the context for the modal
@@ -1001,26 +1001,6 @@ function confirmDelete() {
     });
 }
 
-function showMessage(message, type) {
-    // Create a temporary alert at the top of the page
-    const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type}`;
-    alertDiv.textContent = message;
-    alertDiv.style.position = 'fixed';
-    alertDiv.style.top = '20px';
-    alertDiv.style.right = '20px';
-    alertDiv.style.zIndex = '10000';
-    alertDiv.style.maxWidth = '300px';
-    
-    document.body.appendChild(alertDiv);
-    
-    // Remove after 3 seconds
-    setTimeout(() => {
-        if (alertDiv.parentNode) {
-            alertDiv.parentNode.removeChild(alertDiv);
-        }
-    }, 3000);
-}
 
 
 function rotateImage(trackingNumber) {
@@ -1068,4 +1048,6 @@ function rotateImage(trackingNumber) {
         button.innerHTML = originalText;
     });
 }
-</script> 
+</script>
+
+<script src="/assets/js/app.js?v=1757534999"></script> 

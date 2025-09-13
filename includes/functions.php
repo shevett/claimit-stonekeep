@@ -1286,4 +1286,168 @@ function rotateImage90Degrees($imageContent, $contentType) {
     return $rotatedContent;
 }
 
+/**
+ * Mark an item as gone
+ *
+ * @param string $trackingNumber The item tracking number
+ * @return bool True on success, false on failure
+ */
+function markItemAsGone($trackingNumber) {
+    $currentUser = getCurrentUser();
+    if (!$currentUser) {
+        throw new Exception('User must be logged in');
+    }
+    
+    // Check if user owns this item
+    if (!currentUserOwnsItem($trackingNumber)) {
+        throw new Exception('You can only mark your own items as gone');
+    }
+    
+    $awsService = getAwsService();
+    if (!$awsService) {
+        throw new Exception('AWS service not available');
+    }
+    
+    // Get current item data
+    $yamlKey = $trackingNumber . '.yaml';
+    $yamlObject = $awsService->getObject($yamlKey);
+    $yamlContent = $yamlObject['content'];
+    $data = parseSimpleYaml($yamlContent);
+    
+    // Mark as gone
+    $data['gone'] = 'yes';
+    $data['gone_at'] = date('Y-m-d H:i:s');
+    $data['gone_by'] = $currentUser['id'];
+    
+    // Convert back to YAML and save
+    $newYamlContent = convertToYaml($data);
+    $awsService->putObject($yamlKey, $newYamlContent, 'text/yaml');
+    
+    return true;
+}
+
+/**
+ * Re-list an item (mark as not gone)
+ *
+ * @param string $trackingNumber The item tracking number
+ * @return bool True on success, false on failure
+ */
+function relistItem($trackingNumber) {
+    $currentUser = getCurrentUser();
+    if (!$currentUser) {
+        throw new Exception('User must be logged in');
+    }
+    
+    // Check if user owns this item
+    if (!currentUserOwnsItem($trackingNumber)) {
+        throw new Exception('You can only re-list your own items');
+    }
+    
+    $awsService = getAwsService();
+    if (!$awsService) {
+        throw new Exception('AWS service not available');
+    }
+    
+    // Get current item data
+    $yamlKey = $trackingNumber . '.yaml';
+    $yamlObject = $awsService->getObject($yamlKey);
+    $yamlContent = $yamlObject['content'];
+    $data = parseSimpleYaml($yamlContent);
+    
+    // Mark as not gone
+    $data['gone'] = 'no';
+    $data['relisted_at'] = date('Y-m-d H:i:s');
+    $data['relisted_by'] = $currentUser['id'];
+    
+    // Convert back to YAML and save
+    $newYamlContent = convertToYaml($data);
+    $awsService->putObject($yamlKey, $newYamlContent, 'text/yaml');
+    
+    return true;
+}
+
+/**
+ * Check if an item is marked as gone
+ *
+ * @param array $itemData The item data array
+ * @return bool True if item is gone, false otherwise
+ */
+function isItemGone($itemData) {
+    return isset($itemData['gone']) && $itemData['gone'] === 'yes';
+}
+
+/**
+ * Get user setting for showing gone items
+ *
+ * @param string $userId The user ID
+ * @return bool True if user wants to show gone items, false otherwise
+ */
+function getUserShowGoneItems($userId) {
+    try {
+        $awsService = getAwsService();
+        if (!$awsService) {
+            return false; // Default to not showing gone items
+        }
+        
+        $yamlKey = 'users/' . $userId . '.yaml';
+        
+        // Check if user settings file exists
+        if (!$awsService->objectExists($yamlKey)) {
+            return false; // Default to not showing gone items
+        }
+        
+        // Get user settings
+        $yamlObject = $awsService->getObject($yamlKey);
+        $yamlContent = $yamlObject['content'];
+        $userSettings = parseSimpleYaml($yamlContent);
+        
+        // Return setting if set, otherwise default to false
+        return isset($userSettings['show_gone_items']) && $userSettings['show_gone_items'] === 'yes';
+        
+    } catch (Exception $e) {
+        // Log error but don't break the application
+        error_log("Error getting user show gone items setting for user $userId: " . $e->getMessage());
+        return false; // Default to not showing gone items
+    }
+}
+
+/**
+ * Save user setting for showing gone items
+ *
+ * @param string $userId The user ID
+ * @param bool $showGoneItems Whether to show gone items
+ * @return bool True on success, false on failure
+ */
+function saveUserShowGoneItems($userId, $showGoneItems) {
+    try {
+        $awsService = getAwsService();
+        if (!$awsService) {
+            throw new Exception('AWS service not available');
+        }
+        
+        $yamlKey = 'users/' . $userId . '.yaml';
+        
+        // Get existing user settings or create new
+        $userSettings = [];
+        if ($awsService->objectExists($yamlKey)) {
+            $yamlObject = $awsService->getObject($yamlKey);
+            $yamlContent = $yamlObject['content'];
+            $userSettings = parseSimpleYaml($yamlContent);
+        }
+        
+        // Update the setting
+        $userSettings['show_gone_items'] = $showGoneItems ? 'yes' : 'no';
+        
+        // Convert back to YAML and save
+        $newYamlContent = convertToYaml($userSettings);
+        $awsService->putObject($yamlKey, $newYamlContent, 'text/yaml');
+        
+        return true;
+        
+    } catch (Exception $e) {
+        error_log("Error saving user show gone items setting for user $userId: " . $e->getMessage());
+        return false;
+    }
+}
+
 ?> 

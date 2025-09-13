@@ -67,6 +67,16 @@ try {
                     $title = $data['title'] ?? $data['description'] ?? 'Untitled';
                     $description = $data['description'];
                     
+                    // Check if item should be filtered out based on gone status
+                    $currentUser = getCurrentUser();
+                    $showGoneItems = $currentUser ? getUserShowGoneItems($currentUser['id']) : false;
+                    $isItemGone = isItemGone($data);
+                    
+                    // Skip gone items unless user wants to see them
+                    if ($isItemGone && !$showGoneItems) {
+                        continue;
+                    }
+                    
                     $items[] = [
                         'tracking_number' => $trackingNumber,
                         'title' => $title,
@@ -81,7 +91,13 @@ try {
                         'claimed_at' => $data['claimed_at'] ?? null,
                         'user_id' => $itemUserId,
                         'user_name' => $data['user_name'] ?? 'Legacy User',
-                        'user_email' => $data['user_email'] ?? $data['contact_email'] ?? ''
+                        'user_email' => $data['user_email'] ?? $data['contact_email'] ?? '',
+                        // Include all YAML fields
+                        'gone' => $data['gone'] ?? null,
+                        'gone_at' => $data['gone_at'] ?? null,
+                        'gone_by' => $data['gone_by'] ?? null,
+                        'relisted_at' => $data['relisted_at'] ?? null,
+                        'relisted_by' => $data['relisted_by'] ?? null
                     ];
                 }
             } catch (Exception $e) {

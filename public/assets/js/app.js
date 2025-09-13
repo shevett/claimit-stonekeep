@@ -467,7 +467,7 @@ function saveItemEdit() {
             closeEditModal();
             // Reload the page to show the updated content
             setTimeout(() => {
-                window.location.reload();
+                window.location.reload(true); // Force hard reload
             }, 1000);
         } else {
             showMessage(data.message, 'error');
@@ -515,6 +515,90 @@ function showMessage(message, type = 'info') {
     }, 5000);
 }
 
+// Mark item as gone
+function markItemGone(trackingNumber) {
+    const button = document.querySelector(`button[onclick="markItemGone('${trackingNumber}')"]`);
+    if (!button) return;
+    
+    // Show loading state
+    const originalText = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '⏳';
+    
+    // Send AJAX request
+    fetch('', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `action=mark_gone&tracking_number=${encodeURIComponent(trackingNumber)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showMessage(data.message, 'success');
+            // Reload the page to show updated status
+            setTimeout(() => {
+                window.location.reload(true); // Force hard reload
+            }, 500);
+        } else {
+            showMessage(data.message, 'error');
+            // Restore button
+            button.disabled = false;
+            button.innerHTML = originalText;
+        }
+    })
+    .catch(error => {
+        console.error('Error marking item as gone:', error);
+        showMessage('An error occurred while marking item as gone', 'error');
+        // Restore button
+        button.disabled = false;
+        button.innerHTML = originalText;
+    });
+}
+
+// Re-list item (mark as not gone)
+function relistItem(trackingNumber) {
+    const button = document.querySelector(`button[onclick="relistItem('${trackingNumber}')"]`);
+    if (!button) return;
+    
+    // Show loading state
+    const originalText = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '⏳';
+    
+    // Send AJAX request
+    fetch('', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `action=relist_item&tracking_number=${encodeURIComponent(trackingNumber)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showMessage(data.message, 'success');
+            // Reload the page to show updated status
+            setTimeout(() => {
+                window.location.reload(true); // Force hard reload
+            }, 500);
+        } else {
+            showMessage(data.message, 'error');
+            // Restore button
+            button.disabled = false;
+            button.innerHTML = originalText;
+        }
+    })
+    .catch(error => {
+        console.error('Error re-listing item:', error);
+        showMessage('An error occurred while re-listing item', 'error');
+        // Restore button
+        button.disabled = false;
+        button.innerHTML = originalText;
+    });
+}
+
 // Handle edit form submission
 document.addEventListener('DOMContentLoaded', function() {
     const editForm = document.getElementById('editForm');
@@ -547,6 +631,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function saveUserSettings() {
     const displayName = document.getElementById('displayName').value.trim();
+    const showGoneItems = document.getElementById('showGoneItems').checked;
     
     if (!displayName) {
         alert('Display name is required');
@@ -565,7 +650,8 @@ function saveUserSettings() {
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: 'display_name=' + encodeURIComponent(displayName)
+        body: 'display_name=' + encodeURIComponent(displayName) + 
+              (showGoneItems ? '&show_gone_items=on' : '')
     })
     .then(response => response.json())
     .then(data => {

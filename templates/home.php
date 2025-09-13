@@ -71,6 +71,16 @@ try {
                         $title = $data['title'];
                         $description = $data['description'];
                         
+                        // Check if item should be filtered out based on gone status
+                        $currentUser = getCurrentUser();
+                        $showGoneItems = $currentUser ? getUserShowGoneItems($currentUser['id']) : false;
+                        $isItemGone = isItemGone($data);
+                        
+                        // Skip gone items unless user wants to see them
+                        if ($isItemGone && !$showGoneItems) {
+                            continue;
+                        }
+                        
                         // Get active claims for this item
                         $activeClaims = getActiveClaims($trackingNumber);
                         $primaryClaim = getPrimaryClaim($trackingNumber);
@@ -90,7 +100,13 @@ try {
                             'claimed_at' => $primaryClaim ? $primaryClaim['claimed_at'] : null,
                             'user_id' => $data['user_id'] ?? 'legacy_user',
                             'user_name' => $data['user_name'] ?? 'Legacy User',
-                            'user_email' => $data['user_email'] ?? $data['contact_email'] ?? ''
+                            'user_email' => $data['user_email'] ?? $data['contact_email'] ?? '',
+                            // Include all YAML fields
+                            'gone' => $data['gone'] ?? null,
+                            'gone_at' => $data['gone_at'] ?? null,
+                            'gone_by' => $data['gone_by'] ?? null,
+                            'relisted_at' => $data['relisted_at'] ?? null,
+                            'relisted_by' => $data['relisted_by'] ?? null
                         ];
                     }
                 } catch (Exception $e) {

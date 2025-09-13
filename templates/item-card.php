@@ -25,6 +25,9 @@ $isOwnItem = ($item['user_id'] ?? null) === ($currentUser['id'] ?? null);
 // Determine if the current user can edit this item (owner or admin)
 $canEditItem = canUserEditItem($item['user_id'] ?? null);
 
+// Check if item is marked as gone
+$isItemGone = isItemGone($item);
+
 // Get image URL
 $imageUrl = null;
 if (!empty($item['image_key'])) {
@@ -124,6 +127,18 @@ if (!empty($item['image_key'])) {
                     ✏️ Edit
                 </button>
 
+                <?php if ($isItemGone): ?>
+                    <button onclick="relistItem('<?php echo escape($item['tracking_number']); ?>')"
+                            class="btn btn-success">
+                        🔄 Re-list
+                    </button>
+                <?php else: ?>
+                    <button onclick="markItemGone('<?php echo escape($item['tracking_number']); ?>')"
+                            class="btn btn-warning">
+                        ✅ Gone!
+                    </button>
+                <?php endif; ?>
+
                 <button onclick="deleteItem('<?php echo escape($item['tracking_number']); ?>')"
                         class="btn btn-danger">
                     🗑️ Delete
@@ -145,6 +160,18 @@ if (!empty($item['image_key'])) {
                         data-description="<?php echo htmlspecialchars($item['description'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
                     ✏️ Edit
                 </button>
+
+                <?php if ($isItemGone): ?>
+                    <button onclick="relistItem('<?php echo escape($item['tracking_number']); ?>')"
+                            class="btn btn-success">
+                        🔄 Re-list
+                    </button>
+                <?php else: ?>
+                    <button onclick="markItemGone('<?php echo escape($item['tracking_number']); ?>')"
+                            class="btn btn-warning">
+                        ✅ Gone!
+                    </button>
+                <?php endif; ?>
 
                 <button onclick="deleteItem('<?php echo escape($item['tracking_number']); ?>')"
                         class="btn btn-danger">
