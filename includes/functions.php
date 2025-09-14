@@ -275,16 +275,49 @@ function getAllItemsEfficiently($includeGoneItems = false) {
                 }
             }
             
-            // Process all YAML files
+            error_log("Found " . count($yamlObjects) . " YAML files to process");
             
+            // Load YAML files in batches of 20 for better performance
+            $yamlContents = [];
+            $loadStartTime = microtime(true);
+            $batchSize = 20;
+            $totalBatches = ceil(count($yamlObjects) / $batchSize);
+            
+            for ($batch = 0; $batch < $totalBatches; $batch++) {
+                $batchStart = $batch * $batchSize;
+                $batchEnd = min($batchStart + $batchSize, count($yamlObjects));
+                $batchObjects = array_slice($yamlObjects, $batchStart, $batchEnd - $batchStart);
+                
+                $batchStartTime = microtime(true);
+                foreach ($batchObjects as $object) {
+                    try {
+                        $yamlObject = $awsService->getObject($object['key']);
+                        $yamlContents[$object['key']] = $yamlObject['content'];
+                    } catch (Exception $e) {
+                        error_log("Failed to load YAML file {$object['key']}: " . $e->getMessage());
+                        $yamlContents[$object['key']] = null;
+                    }
+                }
+                $batchEndTime = microtime(true);
+                $batchTime = round(($batchEndTime - $batchStartTime) * 1000, 2);
+                error_log("Batch " . ($batch + 1) . "/{$totalBatches}: Loaded " . count($batchObjects) . " files in {$batchTime}ms");
+            }
+            
+            $loadEndTime = microtime(true);
+            $totalLoadTime = round(($loadEndTime - $loadStartTime) * 1000, 2);
+            error_log("Total: Loaded " . count($yamlContents) . " YAML files in {$totalLoadTime}ms across {$totalBatches} batches");
+            
+            // Process all YAML files
             foreach ($yamlObjects as $object) {
                 try {
                     // Extract tracking number from filename
                     $trackingNumber = basename($object['key'], '.yaml');
                     
-                    // Get YAML content
-                    $yamlObject = $awsService->getObject($object['key']);
-                    $yamlContent = $yamlObject['content'];
+                    // Get YAML content from bulk loaded data
+                    $yamlContent = $yamlContents[$object['key']] ?? null;
+                    if (!$yamlContent) {
+                        continue; // Skip if failed to load
+                    }
                     
                     // Parse YAML content
                     $data = parseSimpleYaml($yamlContent);

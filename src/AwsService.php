@@ -143,6 +143,55 @@ class AwsService
     }
     
     /**
+     * Bulk download multiple objects using optimized sequential approach
+     * 
+     * @param array $keys Array of S3 object keys
+     * @return array Associative array with key => content
+     */
+    public function getObjectsBulk(array $keys): array
+    {
+        if (empty($keys)) {
+            return [];
+        }
+        
+        $startTime = microtime(true);
+        $results = [];
+        
+        // Use optimized sequential approach with connection reuse
+        $client = new \GuzzleHttp\Client([
+            'timeout' => 5,
+            'connect_timeout' => 2,
+            'http_errors' => false
+        ]);
+        
+        foreach ($keys as $key) {
+            try {
+                // Generate presigned URL for this specific key
+                $url = $this->getPresignedUrl($key, 300);
+                
+                // Download with optimized settings
+                $response = $client->get($url);
+                
+                if ($response->getStatusCode() === 200) {
+                    $results[$key] = $response->getBody()->getContents();
+                } else {
+                    error_log("Failed to download $key: HTTP " . $response->getStatusCode());
+                    $results[$key] = null;
+                }
+            } catch (Exception $e) {
+                error_log("Failed to download $key: " . $e->getMessage());
+                $results[$key] = null;
+            }
+        }
+        
+        $endTime = microtime(true);
+        $totalTime = round(($endTime - $startTime) * 1000, 2);
+        error_log("Optimized Bulk Download: " . count($keys) . " objects in {$totalTime}ms");
+        
+        return $results;
+    }
+
+    /**
      * Generate a presigned URL for downloading an object
      * 
      * @param string $key S3 object key
