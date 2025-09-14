@@ -1467,6 +1467,9 @@ footer {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     transition: all 0.3s ease;
     margin-bottom: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
 }
 
 .item-card:hover {
@@ -1516,6 +1519,9 @@ footer {
 
 .item-content {
     padding: 1.25rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 .item-title {
@@ -1538,6 +1544,7 @@ footer {
     flex-direction: column;
     gap: 0.5rem;
     margin-bottom: 1rem;
+    flex: 1;
 }
 
 .item-price {
@@ -1584,10 +1591,95 @@ footer {
     background: #f8f9fa;
     justify-content: flex-end;
     flex-wrap: wrap;
+    margin-top: auto;
 }
 
 .item-actions .btn {
     flex-shrink: 0;
+    min-width: 100px;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    border-radius: 6px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    border: none;
+    cursor: pointer;
+}
+
+.item-actions .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.item-actions .btn-primary {
+    background: #007bff;
+    color: white;
+}
+
+.item-actions .btn-primary:hover {
+    background: #0056b3;
+}
+
+.item-actions .btn-secondary {
+    background: #6c757d;
+    color: white;
+}
+
+.item-actions .btn-secondary:hover {
+    background: #545b62;
+}
+
+.item-actions .btn-success {
+    background: #28a745;
+    color: white;
+}
+
+.item-actions .btn-success:hover {
+    background: #1e7e34;
+}
+
+.item-actions .btn-warning {
+    background: #ffc107;
+    color: #212529;
+}
+
+.item-actions .btn-warning:hover {
+    background: #e0a800;
+}
+
+.item-actions .btn-danger {
+    background: #dc3545;
+    color: white;
+}
+
+.item-actions .btn-danger:hover {
+    background: #c82333;
+}
+
+/* Claim status styling */
+.claim-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    border-radius: 6px;
+    font-weight: 600;
+    margin-right: auto;
+}
+
+.claim-status.primary {
+    background: #28a745;
+    color: white;
+}
+
+.claim-status.waitlist {
+    background: #fd7e14;
+    color: white;
 }
 
 .item-details {
