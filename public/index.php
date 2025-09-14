@@ -201,6 +201,9 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                     $awsService->deleteObject($item['image_key']);
                 }
                 
+                // Clear items cache since we deleted an item
+                clearItemsCache();
+                
                 echo json_encode(['success' => true, 'message' => 'Item deleted successfully']);
                 break;
                 
@@ -244,6 +247,9 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                 error_log("DEBUG: edit_item - Saving to S3 key: " . $yamlKey);
                 $result = $awsService->putObject($yamlKey, $yamlContent);
                 error_log("DEBUG: edit_item - S3 putObject result: " . print_r($result, true));
+                
+                // Clear items cache since we updated an item
+                clearItemsCache();
                 
                 echo json_encode(['success' => true, 'message' => 'Item updated successfully']);
                 break;
@@ -299,6 +305,9 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                     // Upload the rotated image back to S3
                     $result = $awsService->putObject($imageKey, $rotatedImageContent, $contentType);
                     
+                    // Clear image URL cache since the image was modified
+                    clearImageUrlCache();
+                    
                     echo json_encode(['success' => true, 'message' => 'Image rotated successfully']);
                     
                 } catch (Exception $e) {
@@ -309,6 +318,7 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
             case 'mark_gone':
                 try {
                     markItemAsGone($trackingNumber);
+                    clearItemsCache(); // Clear cache since item status changed
                     echo json_encode(['success' => true, 'message' => 'Item marked as gone']);
                 } catch (Exception $e) {
                     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
@@ -318,6 +328,7 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
             case 'relist_item':
                 try {
                     relistItem($trackingNumber);
+                    clearItemsCache(); // Clear cache since item status changed
                     echo json_encode(['success' => true, 'message' => 'Item re-listed successfully']);
                 } catch (Exception $e) {
                     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
@@ -424,6 +435,9 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
                     $awsService->deleteObject($item['image_key']);
                 }
                 
+                // Clear items cache since we deleted an item
+                clearItemsCache();
+                
                 echo json_encode(['success' => true, 'message' => 'Item deleted successfully']);
                 break;
                 
@@ -462,6 +476,9 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
                 $yamlContent = convertToYaml($item);
                 $yamlKey = $trackingNumber . '.yaml';
                 $awsService->putObject($yamlKey, $yamlContent);
+                
+                // Clear items cache since we updated an item
+                clearItemsCache();
                 
                 echo json_encode(['success' => true, 'message' => 'Item updated successfully']);
                 break;
@@ -517,6 +534,9 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
                     // Upload the rotated image back to S3
                     $result = $awsService->putObject($imageKey, $rotatedImageContent, $contentType);
                     
+                    // Clear image URL cache since the image was modified
+                    clearImageUrlCache();
+                    
                     echo json_encode(['success' => true, 'message' => 'Image rotated successfully']);
                     
                 } catch (Exception $e) {
@@ -527,6 +547,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
             case 'mark_gone':
                 try {
                     markItemAsGone($trackingNumber);
+                    clearItemsCache(); // Clear cache since item status changed
                     echo json_encode(['success' => true, 'message' => 'Item marked as gone']);
                 } catch (Exception $e) {
                     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
@@ -536,6 +557,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
             case 'relist_item':
                 try {
                     relistItem($trackingNumber);
+                    clearItemsCache(); // Clear cache since item status changed
                     echo json_encode(['success' => true, 'message' => 'Item re-listed successfully']);
                 } catch (Exception $e) {
                     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
@@ -697,72 +719,22 @@ $isLoggedIn = isLoggedIn();
 // Prepare data for Open Graph meta tags
 $ogData = [];
 
-// Get page-specific data for meta tags
+// Get page-specific data for meta tags (simplified for performance)
+// Note: Removed expensive AWS calls that were causing 2-3 second delays
+// Meta tags will use basic page info instead of full item data
 if ($page === 'item' && isset($_GET['id'])) {
     $trackingNumber = $_GET['id'];
-    $awsService = getAwsService();
-    if ($awsService) {
-        try {
-            $yamlKey = $trackingNumber . '.yaml';
-            $yamlObject = $awsService->getObject($yamlKey);
-            $yamlContent = $yamlObject['content'];
-            $data = parseSimpleYaml($yamlContent);
-            
-            if ($data) {
-                // Check for image
-                $imageKey = null;
-                $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
-                foreach ($imageExtensions as $ext) {
-                    $possibleImageKey = $trackingNumber . '.' . $ext;
-                    if ($awsService->objectExists($possibleImageKey)) {
-                        $imageKey = $possibleImageKey;
-                        break;
-                    }
-                }
-                
-                $ogData['item'] = [
-                    'tracking_number' => $trackingNumber,
-                    'title' => $data['title'] ?? $data['description'] ?? 'Untitled',
-                    'description' => $data['description'] ?? '',
-                    'image_key' => $imageKey
-                ];
-            }
-        } catch (Exception $e) {
-            // Item not found, continue without meta data
-        }
-    }
+    $ogData['item'] = [
+        'tracking_number' => $trackingNumber,
+        'title' => 'Item #' . $trackingNumber,
+        'description' => 'View this item on ClaimIt',
+        'image_key' => null // Will be populated by JavaScript if needed
+    ];
 } elseif ($page === 'user-listings' && isset($_GET['id'])) {
     $userId = $_GET['id'];
-    $awsService = getAwsService();
-    if ($awsService) {
-        try {
-            $result = $awsService->listObjects();
-            $objects = $result['objects'] ?? [];
-            $items = [];
-            $userName = '';
-            
-            foreach ($objects as $object) {
-                if (str_ends_with($object['key'], '.yaml')) {
-                    $yamlObject = $awsService->getObject($object['key']);
-                    $yamlContent = $yamlObject['content'];
-                    $data = parseSimpleYaml($yamlContent);
-                    
-                    if ($data && isset($data['user_id']) && $data['user_id'] === $userId) {
-                        if (empty($userName)) {
-                            $userName = $data['user_name'] ?? 'Legacy User';
-                        }
-                        $items[] = $data;
-                    }
-                }
-            }
-            
-            $ogData['userName'] = $userName;
-            $ogData['items'] = $items;
-            $ogData['userId'] = $userId;
-        } catch (Exception $e) {
-            // Error loading user data, continue without meta data
-        }
-    }
+    $ogData['userId'] = $userId;
+    $ogData['userName'] = 'User #' . $userId;
+    $ogData['items'] = [];
 }
 
 ?>

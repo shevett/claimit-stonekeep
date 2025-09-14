@@ -90,99 +90,26 @@ if (isset($_GET['action']) && $_GET['action'] === 'presigned' && isset($_GET['ke
 
 
 
-// Get list of S3 objects and parse YAML files for item listings
+// Get items efficiently with minimal S3 API calls and pagination
 $items = [];
+$pagination = null;
 $error = null;
-$awsService = null;
 
 try {
-    $awsService = getAwsService();
-    if ($awsService) {
-        // Get all objects in the bucket
-        $result = $awsService->listObjects('', 1000);
-        $objects = $result['objects'];
-        
-        // Find all YAML files and parse them
-        foreach ($objects as $object) {
-            if (substr($object['key'], -5) === '.yaml') {
-                try {
-                    // Extract tracking number from filename
-                    $trackingNumber = basename($object['key'], '.yaml');
-                    
-                    // Get YAML content
-                    $yamlObject = $awsService->getObject($object['key']);
-                    $yamlContent = $yamlObject['content'];
-                    
-                    // Parse YAML content (simple parser for our specific format)
-                    $data = parseSimpleYaml($yamlContent);
-                    if ($data && isset($data['description']) && isset($data['price']) && isset($data['contact_email'])) {
-                        // Check if corresponding image exists
-                        $imageKey = null;
-                        $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
-                        foreach ($imageExtensions as $ext) {
-                            $possibleImageKey = $trackingNumber . '.' . $ext;
-                            foreach ($objects as $imgObj) {
-                                if ($imgObj['key'] === $possibleImageKey) {
-                                    $imageKey = $possibleImageKey;
-                                    break 2;
-                                }
-                            }
-                        }
-                        
-                        // Handle backward compatibility - use description as title if title is missing
-                        $title = $data['title'];
-                        $description = $data['description'];
-                        
-                        // Check if item should be filtered out based on gone status
-                        $currentUser = getCurrentUser();
-                        $showGoneItems = $currentUser ? getUserShowGoneItems($currentUser['id']) : false;
-                        $isItemGone = isItemGone($data);
-                        
-                        // Skip gone items unless user wants to see them
-                        if ($isItemGone && !$showGoneItems) {
-                            continue;
-                        }
-                        
-                        // Get active claims for this item
-                        $activeClaims = getActiveClaims($trackingNumber);
-                        $primaryClaim = getPrimaryClaim($trackingNumber);
-                        
-                        $items[] = [
-                            'tracking_number' => $trackingNumber,
-                            'title' => $title,
-                            'description' => $description,
-                            'price' => $data['price'],
-                            'contact_email' => $data['contact_email'],
-                            'image_key' => $imageKey,
-                            'posted_date' => $data['submitted_at'] ?? 'Unknown',
-                            'yaml_key' => $object['key'],
-                            // For backward compatibility, keep old fields but populate from new system
-                            'claimed_by' => $primaryClaim ? $primaryClaim['user_id'] : null,
-                            'claimed_by_name' => $primaryClaim ? $primaryClaim['user_name'] : null,
-                            'claimed_at' => $primaryClaim ? $primaryClaim['claimed_at'] : null,
-                            'user_id' => $data['user_id'] ?? 'legacy_user',
-                            'user_name' => $data['user_name'] ?? 'Legacy User',
-                            'user_email' => $data['user_email'] ?? $data['contact_email'] ?? '',
-                            // Include all YAML fields
-                            'gone' => $data['gone'] ?? null,
-                            'gone_at' => $data['gone_at'] ?? null,
-                            'gone_by' => $data['gone_by'] ?? null,
-                            'relisted_at' => $data['relisted_at'] ?? null,
-                            'relisted_by' => $data['relisted_by'] ?? null
-                        ];
-                    }
-                } catch (Exception $e) {
-                    // Skip invalid YAML files
-                    continue;
-                }
-            }
-        }
-        
-        // Sort items by tracking number (newest first)
-        usort($items, function($a, $b) {
-            return strcmp($b['tracking_number'], $a['tracking_number']);
-        });
-    }
+    // Check if user wants to see gone items
+    $currentUser = getCurrentUser();
+    $showGoneItems = $currentUser ? getUserShowGoneItems($currentUser['id']) : false;
+    
+    // Get pagination parameters
+    $page = max(1, intval($_GET['page'] ?? 1));
+    $limit = 20; // Show 20 items per page for better performance
+    $offset = ($page - 1) * $limit;
+    
+    // Use efficient function that batches S3 operations
+    $result = getAllItemsEfficiently($limit, $showGoneItems, $offset);
+    $items = $result['items'] ?? [];
+    $pagination = $result['pagination'] ?? null;
+    
 } catch (Exception $e) {
     $error = $e->getMessage();
 }
@@ -226,12 +153,11 @@ if ($presignedUrl) {
             </div>
         <?php endif; ?>
 
-        <?php if ($awsService): ?>
-            <?php if (empty($items)): ?>
-                <div class="no-items">
-                    <p>No items available at the moment.</p>
-                </div>
-            <?php else: ?>
+        <?php if (empty($items)): ?>
+            <div class="no-items">
+                <p>No items available at the moment.</p>
+            </div>
+        <?php else: ?>
                 <div class="items-grid">
                     <?php foreach ($items as $item): ?>
                         <?php
@@ -243,7 +169,28 @@ if ($presignedUrl) {
                         <?php include __DIR__ . '/item-card.php'; ?>
                     <?php endforeach; ?>
                 </div>
-            <?php endif; ?>
+                
+                <?php if ($pagination && $pagination['total_pages'] > 1): ?>
+                    <div class="pagination">
+                        <div class="pagination-info">
+                            Showing <?php echo $pagination['offset'] + 1; ?>-<?php echo min($pagination['offset'] + $pagination['limit'], $pagination['total']); ?> 
+                            of <?php echo $pagination['total']; ?> items
+                        </div>
+                        <div class="pagination-controls">
+                            <?php if ($pagination['has_prev']): ?>
+                                <a href="?page=<?php echo $pagination['current_page'] - 1; ?>" class="btn btn-secondary">← Previous</a>
+                            <?php endif; ?>
+                            
+                            <span class="pagination-current">
+                                Page <?php echo $pagination['current_page']; ?> of <?php echo $pagination['total_pages']; ?>
+                            </span>
+                            
+                            <?php if ($pagination['has_next']): ?>
+                                <a href="?page=<?php echo $pagination['current_page'] + 1; ?>" class="btn btn-secondary">Next →</a>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>

@@ -84,6 +84,8 @@ try {
                         'price' => $data['price'],
                         'contact_email' => $data['contact_email'],
                         'image_key' => $imageKey,
+                        'image_width' => $data['image_width'] ?? null,
+                        'image_height' => $data['image_height'] ?? null,
                         'posted_date' => $data['submitted_at'] ?? 'Unknown',
                         'yaml_key' => $object['key'],
                         'claimed_by' => $data['claimed_by'] ?? null,

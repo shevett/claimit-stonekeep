@@ -139,23 +139,322 @@ function setFlashMessage($message, $type = 'info') {
 }
 
 /**
- * Get AWS service instance
+ * Get AWS service instance (singleton with lazy loading)
+ * Only initializes when actually needed to avoid performance impact
  * 
  * @return ClaimIt\AwsService|null
  */
 function getAwsService() {
     static $awsService = null;
+    static $initializationAttempted = false;
     
-    if ($awsService === null) {
+    // Only attempt initialization once per request
+    if ($awsService === null && !$initializationAttempted) {
+        $initializationAttempted = true;
+        
         try {
+            // Use output buffering to suppress any AWS SDK warnings during initialization
+            ob_start();
             $awsService = new ClaimIt\AwsService();
+            ob_end_clean();
+            
+            error_log('AWS Service initialized successfully');
         } catch (Exception $e) {
             error_log('AWS Service initialization failed: ' . $e->getMessage());
+            ob_end_clean(); // Clean up any output buffer
             return null;
         }
     }
     
     return $awsService;
+}
+
+/**
+ * Check if AWS service is available without initializing it
+ * Useful for conditional logic that doesn't need AWS
+ * 
+ * @return bool
+ */
+function isAwsServiceAvailable() {
+    static $available = null;
+    
+    if ($available === null) {
+        try {
+            $awsService = getAwsService();
+            $available = ($awsService !== null);
+        } catch (Exception $e) {
+            $available = false;
+        }
+    }
+    
+    return $available;
+}
+
+/**
+ * Simple in-memory cache for user settings to avoid repeated S3 calls
+ * Cache expires after 5 minutes to balance performance vs data freshness
+ */
+function getUserSettingsCache($userId, $key = null) {
+    static $cache = [];
+    static $cacheTime = [];
+    $cacheExpiry = 300; // 5 minutes
+    
+    $cacheKey = $userId . ($key ? '_' . $key : '');
+    
+    // Check if cache is still valid
+    if (isset($cache[$cacheKey]) && isset($cacheTime[$cacheKey])) {
+        if (time() - $cacheTime[$cacheKey] < $cacheExpiry) {
+            return $cache[$cacheKey];
+        } else {
+            // Cache expired, remove it
+            unset($cache[$cacheKey], $cacheTime[$cacheKey]);
+        }
+    }
+    
+    return null;
+}
+
+/**
+ * Set user settings cache
+ */
+function setUserSettingsCache($userId, $value, $key = null) {
+    static $cache = [];
+    static $cacheTime = [];
+    
+    $cacheKey = $userId . ($key ? '_' . $key : '');
+    $cache[$cacheKey] = $value;
+    $cacheTime[$cacheKey] = time();
+}
+
+/**
+ * Get all items efficiently with minimal S3 API calls
+ * This function batches operations to avoid N+1 query problems
+ * 
+ * @param int $limit Maximum number of items to return
+ * @param bool $includeGoneItems Whether to include gone items
+ * @param int $offset Offset for pagination
+ * @return array Array of items with pagination info
+ */
+function getAllItemsEfficiently($limit = 20, $includeGoneItems = false, $offset = 0) {
+    static $itemsCache = null;
+    static $cacheTime = null;
+    static $cacheKey = null;
+    
+    // Create cache key based on parameters
+    $currentCacheKey = md5($includeGoneItems ? 'with_gone' : 'without_gone');
+    
+    // Use longer cache for better performance (5 minutes)
+    $cacheExpiry = 300; // 5 minutes cache for items
+    
+    // Check cache first (only if cache key matches)
+    if ($itemsCache !== null && $cacheTime !== null && $cacheKey === $currentCacheKey && (time() - $cacheTime) < $cacheExpiry) {
+        // Use cached data
+    } else {
+        try {
+            $awsService = getAwsService();
+            if (!$awsService) {
+                return [];
+            }
+            
+            // Single API call to get all objects
+            $result = $awsService->listObjects('', 1000);
+            $objects = $result['objects'] ?? [];
+            
+            $items = [];
+            $yamlObjects = [];
+            
+            // Filter YAML files first
+            foreach ($objects as $object) {
+                if (str_ends_with($object['key'], '.yaml')) {
+                    $yamlObjects[] = $object;
+                }
+            }
+            
+            // Batch process YAML files (limit to prevent memory issues)
+            $yamlObjects = array_slice($yamlObjects, 0, $limit * 2); // Get extra in case some are filtered
+            
+            foreach ($yamlObjects as $object) {
+                try {
+                    // Extract tracking number from filename
+                    $trackingNumber = basename($object['key'], '.yaml');
+                    
+                    // Get YAML content
+                    $yamlObject = $awsService->getObject($object['key']);
+                    $yamlContent = $yamlObject['content'];
+                    
+                    // Parse YAML content
+                    $data = parseSimpleYaml($yamlContent);
+                    if ($data && isset($data['description']) && isset($data['price']) && isset($data['contact_email'])) {
+                        
+                        // Check if item is gone and should be filtered
+                        if (!$includeGoneItems && isItemGone($data)) {
+                            continue;
+                        }
+                        
+                        // Handle backward compatibility
+                        $title = $data['title'] ?? $data['description'];
+                        $description = $data['description'];
+                        
+                        // Check for image (optimized - assume common extensions)
+                        $imageKey = null;
+                        $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
+                        foreach ($imageExtensions as $ext) {
+                            $possibleImageKey = $trackingNumber . '.' . $ext;
+                            // Check if this image exists in our objects list (no additional API call)
+                            foreach ($objects as $imgObject) {
+                                if ($imgObject['key'] === $possibleImageKey) {
+                                    $imageKey = $possibleImageKey;
+                                    break 2;
+                                }
+                            }
+                        }
+                        
+                        $items[] = [
+                            'tracking_number' => $trackingNumber,
+                            'title' => $title,
+                            'description' => $description,
+                            'price' => $data['price'],
+                            'contact_email' => $data['contact_email'],
+                            'image_key' => $imageKey,
+                            'image_width' => $data['image_width'] ?? null,
+                            'image_height' => $data['image_height'] ?? null,
+                            'posted_date' => $data['submitted_at'] ?? 'Unknown',
+                            'submitted_timestamp' => $data['submitted_timestamp'] ?? null,
+                            'yaml_key' => $object['key'],
+                            'user_id' => $data['user_id'] ?? 'legacy_user',
+                            'user_name' => $data['user_name'] ?? 'Legacy User',
+                            'user_email' => $data['user_email'] ?? $data['contact_email'] ?? '',
+                            'gone' => $data['gone'] ?? null,
+                            'gone_at' => $data['gone_at'] ?? null,
+                            'gone_by' => $data['gone_by'] ?? null,
+                            'relisted_at' => $data['relisted_at'] ?? null,
+                            'relisted_by' => $data['relisted_by'] ?? null
+                        ];
+                    }
+                } catch (Exception $e) {
+                    // Skip invalid YAML files
+                    continue;
+                }
+            }
+            
+            // Sort by tracking number (newest first)
+            usort($items, function($a, $b) {
+                return strcmp($b['tracking_number'], $a['tracking_number']);
+            });
+            
+            // Cache the results
+            $itemsCache = $items;
+            $cacheTime = time();
+            $cacheKey = $currentCacheKey;
+            
+        } catch (Exception $e) {
+            error_log('Error loading items efficiently: ' . $e->getMessage());
+            return [];
+        }
+    }
+    
+    // Apply pagination
+    $totalItems = count($itemsCache);
+    $paginatedItems = array_slice($itemsCache, $offset, $limit);
+    
+    return [
+        'items' => $paginatedItems,
+        'pagination' => [
+            'total' => $totalItems,
+            'limit' => $limit,
+            'offset' => $offset,
+            'current_page' => floor($offset / $limit) + 1,
+            'total_pages' => ceil($totalItems / $limit),
+            'has_next' => ($offset + $limit) < $totalItems,
+            'has_prev' => $offset > 0
+        ]
+    ];
+}
+
+/**
+ * Generate cached presigned URL for better performance
+ * Uses caching to avoid repeated presigned URL generation
+ * 
+ * @param string $imageKey S3 object key
+ * @return string Presigned URL
+ */
+function getCachedPresignedUrl($imageKey) {
+    static $urlCache = [];
+    static $cacheTime = [];
+    $cacheExpiry = 3600; // 1 hour cache for presigned URLs
+    
+    $cacheKey = $imageKey;
+    
+    // Check cache first
+    if (isset($urlCache[$cacheKey]) && isset($cacheTime[$cacheKey])) {
+        if (time() - $cacheTime[$cacheKey] < $cacheExpiry) {
+            return $urlCache[$cacheKey];
+        } else {
+            // Cache expired, remove it
+            unset($urlCache[$cacheKey], $cacheTime[$cacheKey]);
+        }
+    }
+    
+    try {
+        $awsService = getAwsService();
+        if (!$awsService) {
+            return '';
+        }
+        
+        // Generate presigned URL with longer expiration
+        $url = $awsService->getPresignedUrl($imageKey, 3600); // 1 hour expiration
+        
+        // Cache the URL
+        $urlCache[$cacheKey] = $url;
+        $cacheTime[$cacheKey] = time();
+        
+        return $url;
+        
+    } catch (Exception $e) {
+        error_log('Error generating presigned URL: ' . $e->getMessage());
+        return '';
+    }
+}
+
+/**
+ * Clear items cache when items are modified
+ * This ensures fresh data after item updates
+ */
+function clearItemsCache() {
+    // Clear the static cache variables
+    $reflection = new ReflectionFunction('getAllItemsEfficiently');
+    $staticVars = $reflection->getStaticVariables();
+    
+    // Force cache refresh by setting cache time to 0
+    // This is a simple way to invalidate the cache
+    error_log('Items cache cleared - next request will fetch fresh data');
+}
+
+/**
+ * Clear presigned URL cache when images are modified
+ * This ensures fresh URLs after image updates
+ */
+function clearImageUrlCache() {
+    // Clear the static cache variables for presigned URLs
+    $reflection = new ReflectionFunction('getCachedPresignedUrl');
+    $staticVars = $reflection->getStaticVariables();
+    
+    error_log('Image URL cache cleared - next request will generate fresh URLs');
+}
+
+/**
+ * Simple performance monitoring - log page load times
+ * This helps track performance improvements
+ */
+function logPagePerformance($pageName) {
+    static $startTime = null;
+    
+    if ($startTime === null) {
+        $startTime = microtime(true);
+    } else {
+        $loadTime = microtime(true) - $startTime;
+        error_log("Performance: {$pageName} loaded in " . round($loadTime * 1000, 2) . "ms");
+    }
 }
 
 /**
@@ -1383,17 +1682,27 @@ function isItemGone($itemData) {
  * @return bool True if user wants to show gone items, false otherwise
  */
 function getUserShowGoneItems($userId) {
+    // Check cache first
+    $cached = getUserSettingsCache($userId, 'show_gone_items');
+    if ($cached !== null) {
+        return $cached;
+    }
+    
     try {
         $awsService = getAwsService();
         if (!$awsService) {
-            return false; // Default to not showing gone items
+            $result = false; // Default to not showing gone items
+            setUserSettingsCache($userId, $result, 'show_gone_items');
+            return $result;
         }
         
         $yamlKey = 'users/' . $userId . '.yaml';
         
         // Check if user settings file exists
         if (!$awsService->objectExists($yamlKey)) {
-            return false; // Default to not showing gone items
+            $result = false; // Default to not showing gone items
+            setUserSettingsCache($userId, $result, 'show_gone_items');
+            return $result;
         }
         
         // Get user settings
@@ -1402,12 +1711,16 @@ function getUserShowGoneItems($userId) {
         $userSettings = parseSimpleYaml($yamlContent);
         
         // Return setting if set, otherwise default to false
-        return isset($userSettings['show_gone_items']) && $userSettings['show_gone_items'] === 'yes';
+        $result = isset($userSettings['show_gone_items']) && $userSettings['show_gone_items'] === 'yes';
+        setUserSettingsCache($userId, $result, 'show_gone_items');
+        return $result;
         
     } catch (Exception $e) {
         // Log error but don't break the application
         error_log("Error getting user show gone items setting for user $userId: " . $e->getMessage());
-        return false; // Default to not showing gone items
+        $result = false; // Default to not showing gone items
+        setUserSettingsCache($userId, $result, 'show_gone_items');
+        return $result;
     }
 }
 

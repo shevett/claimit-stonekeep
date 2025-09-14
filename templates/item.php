@@ -55,6 +55,8 @@ try {
                     'price' => $data['price'],
                     'contact_email' => $data['contact_email'],
                     'image_key' => $imageKey,
+                    'image_width' => $data['image_width'] ?? null,
+                    'image_height' => $data['image_height'] ?? null,
                     'posted_date' => $data['submitted_at'] ?? 'Unknown',
                     'submitted_timestamp' => $data['submitted_timestamp'] ?? null,
                     'yaml_key' => $yamlKey,
@@ -116,12 +118,16 @@ $flashMessage = showFlashMessage();
             <div class="item-detail-image">
                 <?php if ($item['image_key']): ?>
                     <?php 
-                        $imageUrl = $awsService->getPresignedUrl($item['image_key'], 3600);
+                        $imageUrl = getCachedPresignedUrl($item['image_key']);
                     ?>
                     <div class="image-container">
                         <img src="<?php echo escape($imageUrl); ?>" 
                              alt="<?php echo escape($item['title']); ?>" 
-                             class="detail-image">
+                             class="detail-image"
+                             <?php if ($item['image_width'] && $item['image_height']): ?>
+                             width="<?php echo escape($item['image_width']); ?>" 
+                             height="<?php echo escape($item['image_height']); ?>"
+                             <?php endif; ?>>
                         <?php 
                         // Show rotation button only for item owners
                         $currentUser = getCurrentUser();

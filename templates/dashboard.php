@@ -75,8 +75,7 @@ if ($authService) {
                                 <div class="item-image">
                                     <?php if ($item['image_key']): ?>
                                         <?php 
-                                        $awsService = getAwsService();
-                                        $imageUrl = $awsService ? $awsService->getPresignedUrl($item['image_key']) : '';
+                                        $imageUrl = getCachedPresignedUrl($item['image_key']);
                                         ?>
                                         <img src="<?php echo escape($imageUrl); ?>" alt="<?php echo escape($item['title']); ?>">
                                     <?php else: ?>

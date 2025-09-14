@@ -1489,6 +1489,13 @@ footer {
     height: 200px;
     overflow: hidden;
     background: #f8f9fa;
+    /* Prevent layout shift by setting consistent aspect ratio */
+    aspect-ratio: 16/9;
+    min-height: 200px;
+    /* Fallback for older browsers */
+    @supports not (aspect-ratio: 16/9) {
+        height: 200px;
+    }
 }
 
 .item-image {
@@ -1496,10 +1503,76 @@ footer {
     height: 100%;
     object-fit: cover;
     transition: transform 0.3s ease;
+    /* Prevent layout shift by reserving space */
+    display: block;
 }
 
 .item-card:hover .item-image {
     transform: scale(1.05);
+}
+
+/* Detail view image container - prevent layout shift */
+.image-container {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    /* Reserve space to prevent layout shift */
+    min-height: 200px;
+}
+
+.detail-image {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    /* Prevent layout shift by reserving space */
+    min-height: 200px;
+    object-fit: contain;
+}
+
+/* Pagination Styles */
+.pagination {
+    margin-top: 3rem;
+    padding: 2rem 0;
+    border-top: 1px solid #e9ecef;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.pagination-info {
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.pagination-current {
+    font-weight: 500;
+    color: #333;
+    padding: 0.5rem 1rem;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.pagination .btn {
+    min-width: 100px;
+}
+
+@media (max-width: 480px) {
+    .pagination-controls {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .pagination .btn {
+        width: 100%;
+        max-width: 200px;
+    }
 }
 
 .no-image-placeholder {

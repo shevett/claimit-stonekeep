@@ -28,15 +28,10 @@ $canEditItem = canUserEditItem($item['user_id'] ?? null);
 // Check if item is marked as gone
 $isItemGone = isItemGone($item);
 
-// Get image URL
+// Get image URL (use cached presigned URL for better performance)
 $imageUrl = null;
 if (!empty($item['image_key'])) {
-    try {
-        $awsService = getAwsService();
-        $imageUrl = $awsService->getPresignedUrl($item['image_key'], 3600);
-    } catch (Exception $e) {
-        $imageUrl = null;
-    }
+    $imageUrl = getCachedPresignedUrl($item['image_key']);
 }
 ?>
 
@@ -44,7 +39,13 @@ if (!empty($item['image_key'])) {
     <a href="?page=item&id=<?php echo escape($item['tracking_number']); ?>" class="item-link">
         <div class="item-image-container">
             <?php if ($imageUrl): ?>
-                <img src="<?php echo escape($imageUrl); ?>" alt="<?php echo escape($item['title']); ?>" class="item-image">
+                <img src="<?php echo escape($imageUrl); ?>" 
+                     alt="<?php echo escape($item['title']); ?>" 
+                     class="item-image"
+                     <?php if (isset($item['image_width']) && isset($item['image_height']) && $item['image_width'] && $item['image_height']): ?>
+                     width="<?php echo escape($item['image_width']); ?>" 
+                     height="<?php echo escape($item['image_height']); ?>"
+                     <?php endif; ?>>
             <?php else: ?>
                 <div class="no-image-placeholder">
                     <span>🖼️</span>

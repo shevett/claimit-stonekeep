@@ -93,11 +93,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Create a temporary file for the resized image
                 $tempResizedPath = tempnam(sys_get_temp_dir(), 'claimit_resized_');
                 
-                // Resize the image to keep it under 500KB
+                // Resize the image to keep it under 500KB and get dimensions
+                $imageWidth = null;
+                $imageHeight = null;
+                
                 if (resizeImageToFitSize($uploadedFile['tmp_name'], $tempResizedPath, 512000)) {
                     // Use the resized image
                     $imageContent = file_get_contents($tempResizedPath);
                     $mimeType = mime_content_type($tempResizedPath);
+                    
+                    // Get dimensions of resized image
+                    $imageInfo = getimagesize($tempResizedPath);
+                    if ($imageInfo) {
+                        $imageWidth = $imageInfo[0];
+                        $imageHeight = $imageInfo[1];
+                    }
                     
                     // Clean up temporary file
                     unlink($tempResizedPath);
@@ -106,6 +116,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     error_log('Image resizing failed, using original image');
                     $imageContent = file_get_contents($uploadedFile['tmp_name']);
                     $mimeType = mime_content_type($uploadedFile['tmp_name']);
+                    
+                    // Get dimensions of original image
+                    $imageInfo = getimagesize($uploadedFile['tmp_name']);
+                    if ($imageInfo) {
+                        $imageWidth = $imageInfo[0];
+                        $imageHeight = $imageInfo[1];
+                    }
                     
                     // Clean up temporary file if it exists
                     if (file_exists($tempResizedPath)) {
@@ -124,6 +141,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'price' => floatval($amount),
                 'contact_email' => $contactEmail,
                 'image_file' => $imageKey,
+                'image_width' => $imageWidth,
+                'image_height' => $imageHeight,
                 'user_id' => $currentUser['id'],
                 'user_name' => $currentUser['name'],
                 'user_email' => $currentUser['email'],
@@ -140,6 +159,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $yamlContent .= "price: " . $yamlData['price'] . "\n";
             $yamlContent .= "contact_email: '" . $yamlData['contact_email'] . "'\n";
             $yamlContent .= "image_file: " . ($yamlData['image_file'] ? "'" . $yamlData['image_file'] . "'" : "null") . "\n";
+            if ($yamlData['image_width'] && $yamlData['image_height']) {
+                $yamlContent .= "image_width: " . $yamlData['image_width'] . "\n";
+                $yamlContent .= "image_height: " . $yamlData['image_height'] . "\n";
+            }
             $yamlContent .= "user_id: '" . $yamlData['user_id'] . "'\n";
             $yamlContent .= "user_name: '" . str_replace("'", "''", $yamlData['user_name']) . "'\n";
             $yamlContent .= "user_email: '" . $yamlData['user_email'] . "'\n";
@@ -149,6 +172,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Upload YAML file
             $yamlKey = $trackingNumber . '.yaml';
             $awsService->putObject($yamlKey, $yamlContent, 'text/plain');
+            
+            // Clear items cache since we added a new item
+            clearItemsCache();
             
             setFlashMessage("Your item has been posted successfully! Tracking number: {$trackingNumber}", 'success');
             redirect('items');
