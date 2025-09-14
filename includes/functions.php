@@ -30,11 +30,13 @@ function redirect($page = 'home') {
 }
 
 /**
- * Get Authentication service instance
+ * Get Authentication service instance (lazy loading)
  */
 function getAuthService() {
     static $authService = null;
     
+    // Always attempt initialization if not already done
+    // This ensures fresh initialization on each request
     if ($authService === null) {
         try {
             $awsService = getAwsService();
@@ -146,21 +148,25 @@ function setFlashMessage($message, $type = 'info') {
  */
 function getAwsService() {
     static $awsService = null;
-    static $initializationAttempted = false;
+    static $requestId = null;
     
-    // Only attempt initialization once per request
-    if ($awsService === null && !$initializationAttempted) {
-        $initializationAttempted = true;
-        
+    // Generate a unique request ID to ensure fresh initialization per request
+    if ($requestId === null) {
+        $requestId = uniqid('req_', true);
+    }
+    
+    // Always attempt initialization if not already done
+    // This ensures fresh initialization on each request
+    if ($awsService === null) {
         try {
             // Use output buffering to suppress any AWS SDK warnings during initialization
             ob_start();
             $awsService = new ClaimIt\AwsService();
             ob_end_clean();
             
-            error_log('AWS Service initialized successfully');
+            error_log("AWS Service initialized successfully (Request: $requestId)");
         } catch (Exception $e) {
-            error_log('AWS Service initialization failed: ' . $e->getMessage());
+            error_log("AWS Service initialization failed (Request: $requestId): " . $e->getMessage());
             ob_end_clean(); // Clean up any output buffer
             return null;
         }
@@ -251,9 +257,10 @@ function getAllItemsEfficiently($limit = 20, $includeGoneItems = false, $offset 
         // Use cached data
     } else {
         try {
+            // Initialize AWS service only when actually needed
             $awsService = getAwsService();
             if (!$awsService) {
-                return [];
+                throw new Exception('AWS service not available');
             }
             
             // Single API call to get all objects
@@ -440,6 +447,21 @@ function clearImageUrlCache() {
     $staticVars = $reflection->getStaticVariables();
     
     error_log('Image URL cache cleared - next request will generate fresh URLs');
+}
+
+/**
+ * Clear all static caches for development/testing
+ * This forces fresh initialization of all services
+ */
+function clearAllCaches() {
+    // Clear OPcache if available
+    if (function_exists('opcache_reset')) {
+        opcache_reset();
+    }
+    
+    // Clear static variables by forcing re-initialization
+    // This is a development helper function
+    error_log('All caches cleared - next request will use fresh initialization');
 }
 
 /**

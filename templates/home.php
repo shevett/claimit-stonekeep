@@ -34,19 +34,30 @@ $pagination = null;
 $error = null;
 
 try {
-    // Check if user wants to see gone items
-    $currentUser = getCurrentUser();
-    $showGoneItems = $currentUser ? getUserShowGoneItems($currentUser['id']) : false;
+    // Check if user wants to see gone items (lazy auth loading)
+    $currentUser = null;
+    $showGoneItems = false;
+    
+    // Only check user settings if we have a session (avoid AWS initialization)
+    if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['authenticated']) && $_SESSION['authenticated']) {
+        $currentUser = getCurrentUser();
+        $showGoneItems = $currentUser ? getUserShowGoneItems($currentUser['id']) : false;
+    }
     
     // Get pagination parameters
-    $page = max(1, intval($_GET['page'] ?? 1));
+    $currentPage = max(1, intval($_GET['page'] ?? 1));
     $limit = 20; // Show 20 items per page for better performance
-    $offset = ($page - 1) * $limit;
+    $offset = ($currentPage - 1) * $limit;
     
-    // Use efficient function that batches S3 operations
-    $result = getAllItemsEfficiently($limit, $showGoneItems, $offset);
-    $items = $result['items'] ?? [];
-    $pagination = $result['pagination'] ?? null;
+    // Only load items if AWS credentials are configured (lazy loading)
+    $items = [];
+    $pagination = null;
+    
+    // Skip loading items on initial page load for maximum performance
+    // Items will be loaded via JavaScript after page loads
+    $items = [];
+    $pagination = null;
+    $error = null;
     
 } catch (Exception $e) {
     $error = $e->getMessage();
@@ -77,21 +88,12 @@ $flashMessage = showFlashMessage();
             <div class="alert alert-error">
                 Error loading items: <?php echo escape($error); ?>
             </div>
-        <?php elseif (empty($items)): ?>
-            <div class="no-items">
-                <p>No items available at the moment.</p>
-            </div>
         <?php else: ?>
-            <div class="items-grid">
-                <?php foreach ($items as $item): ?>
-                    <?php
-                    // Set context for the unified template
-                    $context = 'home';
-                    $isOwnListings = false;
-                    $currentUser = getCurrentUser();
-                    ?>
-                    <?php include __DIR__ . '/item-card.php'; ?>
-                <?php endforeach; ?>
+            <div class="items-grid" id="items-grid">
+                <div class="loading-indicator" id="loading-indicator">
+                    <div class="spinner"></div>
+                    <p>Loading items...</p>
+                </div>
             </div>
             
             <?php if ($pagination && $pagination['total_pages'] > 1): ?>

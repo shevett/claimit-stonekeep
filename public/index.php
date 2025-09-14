@@ -32,6 +32,17 @@ set_error_handler(function($errno, $errstr, $errfile, $errline) {
     return false;
 });
 
+// Start performance monitoring
+$startTime = microtime(true);
+
+// Clear caches for development (remove in production)
+if (isset($_GET['clear_cache']) && $_GET['clear_cache'] === '1') {
+    if (function_exists('opcache_reset')) {
+        opcache_reset();
+    }
+    error_log('Cache cleared via URL parameter');
+}
+
 // Load Composer autoloader
 require_once __DIR__ . '/../vendor/autoload.php';
 
@@ -48,6 +59,56 @@ require_once __DIR__ . '/../includes/functions.php';
 
 // Load authentication service
 require_once __DIR__ . '/../src/AuthService.php';
+
+// Handle AJAX requests before any HTML output
+if (isset($_GET['ajax']) && $_GET['ajax'] === '1' && $_GET['page'] === 'home') {
+    // AJAX request for home page items
+    header('Content-Type: text/html');
+    
+    try {
+        // Check if user wants to see gone items (lazy auth loading)
+        $currentUser = null;
+        $showGoneItems = false;
+        
+        // Only check user settings if we have a session (avoid AWS initialization)
+        if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['authenticated']) && $_SESSION['authenticated']) {
+            $currentUser = getCurrentUser();
+            $showGoneItems = $currentUser ? getUserShowGoneItems($currentUser['id']) : false;
+        }
+        
+        // Get pagination parameters (use different variable name to avoid conflict)
+        $limit = intval($_GET['limit'] ?? 20);
+        $offset = intval($_GET['offset'] ?? 0);
+        
+        // Load items
+        $items = [];
+        $pagination = null;
+        
+        if (hasAwsCredentials()) {
+            $result = getAllItemsEfficiently($limit, $showGoneItems, $offset);
+            $items = $result['items'] ?? [];
+            $pagination = $result['pagination'] ?? null;
+        }
+        
+        // Render items
+        if (empty($items)) {
+            echo '<div class="no-items"><p>No items available at the moment.</p></div>';
+        } else {
+            foreach ($items as $item) {
+                $context = 'home';
+                $isOwnListings = false;
+                include __DIR__ . '/../templates/item-card.php';
+            }
+        }
+        
+        
+    } catch (Exception $e) {
+        error_log('AJAX Error: ' . $e->getMessage());
+        echo '<div class="no-items"><p>Error loading items: ' . escape($e->getMessage()) . '</p></div>';
+    }
+    
+    exit;
+}
 
 // Handle AJAX delete requests before any HTML output
 if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['tracking_number'])) {
@@ -713,8 +774,29 @@ if (!in_array($page, $availablePages)) {
 }
 
 // Get current user for navigation and page context
-$currentUser = getCurrentUser();
-$isLoggedIn = isLoggedIn();
+// Always check authentication for navigation bar display
+$currentUser = null;
+$isLoggedIn = false;
+
+// Check authentication for navigation (but don't initialize AWS unless needed)
+if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['authenticated']) && $_SESSION['authenticated']) {
+    // Only initialize AWS if we actually need it for this page
+    $authRequiredPages = ['dashboard', 'claim', 'settings'];
+    if (in_array($page, $authRequiredPages)) {
+        $currentUser = getCurrentUser();
+        $isLoggedIn = isLoggedIn();
+    } else {
+        // For other pages, just check session without initializing AWS
+        $isLoggedIn = true;
+        $currentUser = $_SESSION['user'] ?? null;
+        
+        // Debug: Check if user data is available
+        if (!$currentUser && isset($_SESSION['authenticated'])) {
+            error_log("Warning: Session shows authenticated but no user data found");
+        }
+    }
+}
+
 
 // Prepare data for Open Graph meta tags
 $ogData = [];
@@ -736,6 +818,10 @@ if ($page === 'item' && isset($_GET['id'])) {
     $ogData['userName'] = 'User #' . $userId;
     $ogData['items'] = [];
 }
+
+// Log performance metrics
+$loadTime = microtime(true) - $startTime;
+error_log("Performance: Page '{$page}' loaded in " . round($loadTime * 1000, 2) . "ms");
 
 ?>
 <!DOCTYPE html>
@@ -1031,5 +1117,39 @@ if ($page === 'item' && isset($_GET['id'])) {
     
 
     </script>
+    
+    <?php if ($page === 'home'): ?>
+    <script>
+        // Load items after page loads for maximum performance
+        document.addEventListener('DOMContentLoaded', function() {
+            const itemsGrid = document.getElementById('items-grid');
+            const loadingIndicator = document.getElementById('loading-indicator');
+            
+            if (itemsGrid && loadingIndicator) {
+                // Load items via AJAX
+                fetch('?page=home&ajax=1&limit=20&offset=0')
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                        }
+                        return response.text();
+                    })
+                    .then(html => {
+                        loadingIndicator.remove();
+                        itemsGrid.innerHTML = html;
+                    })
+                    .catch(error => {
+                        console.error('Error loading items:', error);
+                        loadingIndicator.innerHTML = '<p>Error loading items: ' + error.message + '. Please refresh the page.</p>';
+                    });
+            } else {
+                console.error('Could not find items-grid or loading-indicator elements');
+                if (loadingIndicator) {
+                    loadingIndicator.innerHTML = '<p>Error: Could not find required elements</p>';
+                }
+            }
+        });
+    </script>
+    <?php endif; ?>
 </body>
 </html> 

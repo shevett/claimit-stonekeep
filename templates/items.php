@@ -96,9 +96,15 @@ $pagination = null;
 $error = null;
 
 try {
-    // Check if user wants to see gone items
-    $currentUser = getCurrentUser();
-    $showGoneItems = $currentUser ? getUserShowGoneItems($currentUser['id']) : false;
+    // Check if user wants to see gone items (lazy auth loading)
+    $currentUser = null;
+    $showGoneItems = false;
+    
+    // Only check user settings if we have a session (avoid AWS initialization)
+    if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['authenticated']) && $_SESSION['authenticated']) {
+        $currentUser = getCurrentUser();
+        $showGoneItems = $currentUser ? getUserShowGoneItems($currentUser['id']) : false;
+    }
     
     // Get pagination parameters
     $page = max(1, intval($_GET['page'] ?? 1));
@@ -164,7 +170,7 @@ if ($presignedUrl) {
                         // Set context for the unified template
                         $context = 'listing';
                         $isOwnListings = false;
-                        $currentUser = getCurrentUser();
+                        $currentUser = $currentUser ?? null;
                         ?>
                         <?php include __DIR__ . '/item-card.php'; ?>
                     <?php endforeach; ?>
