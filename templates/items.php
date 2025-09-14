@@ -90,9 +90,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'presigned' && isset($_GET['ke
 
 
 
-// Get items efficiently with minimal S3 API calls and pagination
+// Get items efficiently with minimal S3 API calls
 $items = [];
-$pagination = null;
 $error = null;
 
 try {
@@ -106,15 +105,8 @@ try {
         $showGoneItems = $currentUser ? getUserShowGoneItems($currentUser['id']) : false;
     }
     
-    // Get pagination parameters
-    $page = max(1, intval($_GET['page'] ?? 1));
-    $limit = 20; // Show 20 items per page for better performance
-    $offset = ($page - 1) * $limit;
-    
     // Use efficient function that batches S3 operations
-    $result = getAllItemsEfficiently($limit, $showGoneItems, $offset);
-    $items = $result['items'] ?? [];
-    $pagination = $result['pagination'] ?? null;
+    $items = getAllItemsEfficiently($showGoneItems);
     
 } catch (Exception $e) {
     $error = $e->getMessage();
@@ -176,27 +168,6 @@ if ($presignedUrl) {
                     <?php endforeach; ?>
                 </div>
                 
-                <?php if ($pagination && $pagination['total_pages'] > 1): ?>
-                    <div class="pagination">
-                        <div class="pagination-info">
-                            Showing <?php echo $pagination['offset'] + 1; ?>-<?php echo min($pagination['offset'] + $pagination['limit'], $pagination['total']); ?> 
-                            of <?php echo $pagination['total']; ?> items
-                        </div>
-                        <div class="pagination-controls">
-                            <?php if ($pagination['has_prev']): ?>
-                                <a href="?page=<?php echo $pagination['current_page'] - 1; ?>" class="btn btn-secondary">← Previous</a>
-                            <?php endif; ?>
-                            
-                            <span class="pagination-current">
-                                Page <?php echo $pagination['current_page']; ?> of <?php echo $pagination['total_pages']; ?>
-                            </span>
-                            
-                            <?php if ($pagination['has_next']): ?>
-                                <a href="?page=<?php echo $pagination['current_page'] + 1; ?>" class="btn btn-secondary">Next →</a>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>

@@ -76,18 +76,11 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1' && $_GET['page'] === 'home') {
             $showGoneItems = $currentUser ? getUserShowGoneItems($currentUser['id']) : false;
         }
         
-        // Get pagination parameters (use different variable name to avoid conflict)
-        $limit = intval($_GET['limit'] ?? 20);
-        $offset = intval($_GET['offset'] ?? 0);
-        
         // Load items
         $items = [];
-        $pagination = null;
         
         if (hasAwsCredentials()) {
-            $result = getAllItemsEfficiently($limit, $showGoneItems, $offset);
-            $items = $result['items'] ?? [];
-            $pagination = $result['pagination'] ?? null;
+            $items = getAllItemsEfficiently($showGoneItems);
         }
         
         // Render items
@@ -1127,7 +1120,7 @@ error_log("Performance: Page '{$page}' loaded in " . round($loadTime * 1000, 2) 
             
             if (itemsGrid && loadingIndicator) {
                 // Load items via AJAX
-                fetch('?page=home&ajax=1&limit=20&offset=0')
+                fetch('?page=home&ajax=1')
                     .then(response => {
                         if (!response.ok) {
                             throw new Error(`HTTP ${response.status}: ${response.statusText}`);

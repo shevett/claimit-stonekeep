@@ -236,12 +236,10 @@ function setUserSettingsCache($userId, $value, $key = null) {
  * Get all items efficiently with minimal S3 API calls
  * This function batches operations to avoid N+1 query problems
  * 
- * @param int $limit Maximum number of items to return
  * @param bool $includeGoneItems Whether to include gone items
- * @param int $offset Offset for pagination
- * @return array Array of items with pagination info
+ * @return array Array of items
  */
-function getAllItemsEfficiently($limit = 20, $includeGoneItems = false, $offset = 0) {
+function getAllItemsEfficiently($includeGoneItems = false) {
     static $itemsCache = null;
     static $cacheTime = null;
     static $cacheKey = null;
@@ -277,8 +275,7 @@ function getAllItemsEfficiently($limit = 20, $includeGoneItems = false, $offset 
                 }
             }
             
-            // Batch process YAML files (limit to prevent memory issues)
-            $yamlObjects = array_slice($yamlObjects, 0, $limit * 2); // Get extra in case some are filtered
+            // Process all YAML files
             
             foreach ($yamlObjects as $object) {
                 try {
@@ -360,22 +357,8 @@ function getAllItemsEfficiently($limit = 20, $includeGoneItems = false, $offset 
         }
     }
     
-    // Apply pagination
-    $totalItems = count($itemsCache);
-    $paginatedItems = array_slice($itemsCache, $offset, $limit);
-    
-    return [
-        'items' => $paginatedItems,
-        'pagination' => [
-            'total' => $totalItems,
-            'limit' => $limit,
-            'offset' => $offset,
-            'current_page' => floor($offset / $limit) + 1,
-            'total_pages' => ceil($totalItems / $limit),
-            'has_next' => ($offset + $limit) < $totalItems,
-            'has_prev' => $offset > 0
-        ]
-    ];
+    // Return all items
+    return $itemsCache;
 }
 
 /**

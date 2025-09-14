@@ -1554,51 +1554,6 @@ footer {
     100% { transform: rotate(360deg); }
 }
 
-/* Pagination Styles */
-.pagination {
-    margin-top: 3rem;
-    padding: 2rem 0;
-    border-top: 1px solid #e9ecef;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-}
-
-.pagination-info {
-    color: #6c757d;
-    font-size: 0.9rem;
-}
-
-.pagination-controls {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
-
-.pagination-current {
-    font-weight: 500;
-    color: #333;
-    padding: 0.5rem 1rem;
-    background: #f8f9fa;
-    border-radius: 6px;
-}
-
-.pagination .btn {
-    min-width: 100px;
-}
-
-@media (max-width: 480px) {
-    .pagination-controls {
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-    
-    .pagination .btn {
-        width: 100%;
-        max-width: 200px;
-    }
-}
 
 .no-image-placeholder {
     display: flex;
