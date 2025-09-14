@@ -77,6 +77,17 @@ try {
                         continue;
                     }
                     
+                    // Check for active claims
+                    $claims = $data['claims'] ?? [];
+                    $hasActiveClaims = false;
+                    foreach ($claims as $claim) {
+                        $status = $claim['status'] ?? 'active';
+                        if ($status === 'active') {
+                            $hasActiveClaims = true;
+                            break;
+                        }
+                    }
+                    
                     $items[] = [
                         'tracking_number' => $trackingNumber,
                         'title' => $title,
@@ -99,7 +110,13 @@ try {
                         'gone_at' => $data['gone_at'] ?? null,
                         'gone_by' => $data['gone_by'] ?? null,
                         'relisted_at' => $data['relisted_at'] ?? null,
-                        'relisted_by' => $data['relisted_by'] ?? null
+                        'relisted_by' => $data['relisted_by'] ?? null,
+                        // Add claims data for stats
+                        'has_active_claims' => $hasActiveClaims,
+                        'claims_count' => count(array_filter($claims, function($claim) {
+                            $status = $claim['status'] ?? 'active';
+                            return $status === 'active';
+                        }))
                     ];
                 }
             } catch (Exception $e) {
@@ -169,6 +186,15 @@ $isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
         <?php endif; ?>
 
         <?php if ($isOwnListings): ?>
+            <?php
+            // Calculate additional stats using the data already loaded
+            $itemsWithClaims = array_filter($items, function($item) { 
+                return $item['has_active_claims'] === true; 
+            });
+            $itemsGone = array_filter($items, function($item) { 
+                return isset($item['gone']) && $item['gone'] === 'yes'; 
+            });
+            ?>
             <div class="dashboard-stats">
                 <div class="stat-card">
                     <h3><?php echo count($items); ?></h3>
@@ -184,7 +210,15 @@ $isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
                 </div>
                 <div class="stat-card">
                     <h3><?php echo count($claimedItems); ?></h3>
-                    <p>Items Claimed</p>
+                    <p>Items I've claimed</p>
+                </div>
+                <div class="stat-card">
+                    <h3><?php echo count($itemsWithClaims); ?></h3>
+                    <p>Items people have claimed</p>
+                </div>
+                <div class="stat-card">
+                    <h3><?php echo count($itemsGone); ?></h3>
+                    <p>Items gone</p>
                 </div>
             </div>
         <?php endif; ?>
@@ -216,7 +250,7 @@ $isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
             <!-- Show claimed items section even when no posted items -->
             <div class="dashboard-content" style="margin-top: 3rem;">
                 <div class="section-header">
-                    <h2>Items You've Claimed</h2>
+                    <h2>Items I've claimed</h2>
                     <p class="text-muted">Items you've claimed or are on the waiting list for</p>
                 </div>
             </div>
@@ -293,7 +327,7 @@ $isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
             <!-- Claimed Items Section -->
             <div class="dashboard-content" style="margin-top: <?php echo empty($items) ? '0' : '3rem'; ?>;">
                 <div class="section-header">
-                    <h2>Items You've Claimed</h2>
+                    <h2>Items I've claimed</h2>
                     <p class="text-muted">Items you've claimed or are on the waiting list for</p>
                 </div>
             </div>
@@ -315,6 +349,43 @@ $isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
 
 
 <style>
+
+/* Dashboard Stats Layout */
+.dashboard-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border: 1px solid #e9ecef;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.stat-card h3 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--primary-600);
+    margin: 0 0 0.5rem 0;
+}
+
+.stat-card p {
+    color: var(--gray-600);
+    font-size: 0.875rem;
+    margin: 0;
+    font-weight: 500;
+}
 
 /* Items Grid Layout */
 .items-grid {
@@ -474,6 +545,25 @@ $isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
     .profile-stats {
         flex-direction: column;
         gap: 1.5rem;
+    }
+    
+    .dashboard-stats {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+    
+    .stat-card {
+        padding: 1rem;
+    }
+    
+    .stat-card h3 {
+        font-size: 1.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .dashboard-stats {
+        grid-template-columns: 1fr;
     }
 }
 </style>
