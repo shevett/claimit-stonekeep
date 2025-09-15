@@ -794,17 +794,72 @@ if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['authenticated'])
 // Prepare data for Open Graph meta tags
 $ogData = [];
 
-// Get page-specific data for meta tags (simplified for performance)
-// Note: Removed expensive AWS calls that were causing 2-3 second delays
-// Meta tags will use basic page info instead of full item data
+// Get page-specific data for meta tags
 if ($page === 'item' && isset($_GET['id'])) {
     $trackingNumber = $_GET['id'];
-    $ogData['item'] = [
-        'tracking_number' => $trackingNumber,
-        'title' => 'Item #' . $trackingNumber,
-        'description' => 'View this item on ClaimIt',
-        'image_key' => null // Will be populated by JavaScript if needed
-    ];
+    
+    // For item pages, we need the actual title and description for proper link unfurling
+    try {
+        $awsService = getAwsService();
+        if ($awsService) {
+            $yamlKey = $trackingNumber . '.yaml';
+            $yamlObject = $awsService->getObject($yamlKey);
+            $yamlContent = $yamlObject['content'];
+            $data = parseSimpleYaml($yamlContent);
+            
+            if ($data && isset($data['description'])) {
+                $title = $data['title'] ?? $data['description'];
+                $description = $data['description'];
+                $price = $data['price'] ?? 0;
+                
+                // Check for image
+                $imageKey = null;
+                $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
+                foreach ($imageExtensions as $ext) {
+                    $possibleImageKey = $trackingNumber . '.' . $ext;
+                    try {
+                        if ($awsService->objectExists($possibleImageKey)) {
+                            $imageKey = $possibleImageKey;
+                            break;
+                        }
+                    } catch (Exception $e) {
+                        // Continue to next extension
+                    }
+                }
+                
+                $ogData['item'] = [
+                    'tracking_number' => $trackingNumber,
+                    'title' => 'Item #' . $trackingNumber . ' - ' . $title,
+                    'description' => $description . ($price > 0 ? ' - $' . $price : ' - Free'),
+                    'image_key' => $imageKey
+                ];
+            } else {
+                // Fallback if YAML parsing fails
+                $ogData['item'] = [
+                    'tracking_number' => $trackingNumber,
+                    'title' => 'Item #' . $trackingNumber . ' - View on ClaimIt',
+                    'description' => 'View this item on ClaimIt',
+                    'image_key' => null
+                ];
+            }
+        } else {
+        // Fallback if AWS service unavailable
+        $ogData['item'] = [
+            'tracking_number' => $trackingNumber,
+            'title' => 'Item #' . $trackingNumber . ' - View on ClaimIt',
+            'description' => 'View this item on ClaimIt',
+            'image_key' => null
+        ];
+        }
+    } catch (Exception $e) {
+        // Fallback on any error
+        $ogData['item'] = [
+            'tracking_number' => $trackingNumber,
+            'title' => 'Item #' . $trackingNumber . ' - View on ClaimIt',
+            'description' => 'View this item on ClaimIt',
+            'image_key' => null
+        ];
+    }
 } elseif ($page === 'user-listings' && isset($_GET['id'])) {
     $userId = $_GET['id'];
     $ogData['userId'] = $userId;
