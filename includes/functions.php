@@ -817,6 +817,12 @@ function generateOpenGraphTags($page, $data = []) {
                         }
                     }
                 }
+            } else {
+                // Fallback when item data is not available
+                $metaTags['title'] = 'Item on ClaimIt';
+                $metaTags['description'] = $defaultDescription;
+                $metaTags['type'] = 'website';
+                $metaTags['url'] = $baseUrl;
             }
             break;
             
@@ -849,11 +855,17 @@ function generateOpenGraphTags($page, $data = []) {
     // Generate HTML meta tags
     $html = '';
     
+    // Ensure required keys exist with fallbacks
+    $title = $metaTags['title'] ?? $siteName;
+    $description = $metaTags['description'] ?? $defaultDescription;
+    $type = $metaTags['type'] ?? 'website';
+    $url = $metaTags['url'] ?? $baseUrl;
+    
     // Basic meta tags
-    $html .= '<meta property="og:title" content="' . htmlspecialchars($metaTags['title']) . '">' . "\n";
-    $html .= '<meta property="og:description" content="' . htmlspecialchars($metaTags['description']) . '">' . "\n";
-    $html .= '<meta property="og:type" content="' . htmlspecialchars($metaTags['type']) . '">' . "\n";
-    $html .= '<meta property="og:url" content="' . htmlspecialchars($metaTags['url']) . '">' . "\n";
+    $html .= '<meta property="og:title" content="' . htmlspecialchars($title) . '">' . "\n";
+    $html .= '<meta property="og:description" content="' . htmlspecialchars($description) . '">' . "\n";
+    $html .= '<meta property="og:type" content="' . htmlspecialchars($type) . '">' . "\n";
+    $html .= '<meta property="og:url" content="' . htmlspecialchars($url) . '">' . "\n";
     $html .= '<meta property="og:site_name" content="' . htmlspecialchars($siteName) . '">' . "\n";
     
     // Image meta tags
