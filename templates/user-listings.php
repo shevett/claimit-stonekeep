@@ -88,6 +88,12 @@ try {
                         }
                     }
                     
+                    // Generate image URL using CloudFront
+                    $imageUrl = null;
+                    if ($imageKey) {
+                        $imageUrl = getCloudFrontUrl($imageKey);
+                    }
+                    
                     $items[] = [
                         'tracking_number' => $trackingNumber,
                         'title' => $title,
@@ -95,6 +101,7 @@ try {
                         'price' => $data['price'],
                         'contact_email' => $data['contact_email'],
                         'image_key' => $imageKey,
+                        'image_url' => $imageUrl,
                         'image_width' => $data['image_width'] ?? null,
                         'image_height' => $data['image_height'] ?? null,
                         'posted_date' => $data['submitted_at'] ?? 'Unknown',
