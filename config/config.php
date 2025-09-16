@@ -21,7 +21,11 @@ define('DB_CHARSET', 'utf8mb4');
 define('DEVELOPMENT_MODE', true);
 
 // Debug logging (set to 'yes' to enable detailed timing logs)
-define('DEBUG', 'no');
+define('DEBUG', 'yes');
+
+// CloudFront CDN configuration
+// Replace with your actual CloudFront domain (e.g., 'd1234567890.cloudfront.net')
+define('CLOUDFRONT_DOMAIN', 'dpwmq6brmwcyc.cloudfront.net');
 
 if (DEVELOPMENT_MODE) {
     error_reporting(E_ALL);

@@ -75,7 +75,7 @@ if ($authService) {
                                 <div class="item-image">
                                     <?php if ($item['image_key']): ?>
                                         <?php 
-                                        $imageUrl = getCachedPresignedUrl($item['image_key']);
+                                        $imageUrl = getCloudFrontUrl($item['image_key']);
                                         ?>
                                         <img src="<?php echo escape($imageUrl); ?>" alt="<?php echo escape($item['title']); ?>">
                                     <?php else: ?>

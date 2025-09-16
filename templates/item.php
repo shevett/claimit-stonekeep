@@ -118,7 +118,7 @@ $flashMessage = showFlashMessage();
             <div class="item-detail-image">
                 <?php if ($item['image_key']): ?>
                     <?php 
-                        $imageUrl = getCachedPresignedUrl($item['image_key']);
+                        $imageUrl = getCloudFrontUrl($item['image_key']);
                     ?>
                     <div class="image-container">
                         <img src="<?php echo escape($imageUrl); ?>" 

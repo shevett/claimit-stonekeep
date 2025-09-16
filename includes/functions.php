@@ -349,10 +349,10 @@ function getAllItemsEfficiently($includeGoneItems = false) {
                             }
                         }
                         
-                        // Pre-generate image URL to avoid AWS calls during template rendering
+                        // Pre-generate image URL using CloudFront (much faster than presigned URLs)
                         $imageUrl = null;
                         if ($imageKey) {
-                            $imageUrl = getCachedPresignedUrl($imageKey);
+                            $imageUrl = getCloudFrontUrl($imageKey);
                         }
                         
                         // Pre-compute item states to avoid expensive function calls during template rendering
@@ -548,6 +548,23 @@ function debugLog($message) {
     if (defined('DEBUG') && DEBUG === 'yes') {
         error_log($message);
     }
+}
+
+/**
+ * Get CloudFront URL for an image
+ * 
+ * @param string $imageKey The S3 object key for the image
+ * @return string CloudFront URL or empty string if not configured
+ */
+function getCloudFrontUrl($imageKey) {
+    if (!defined('CLOUDFRONT_DOMAIN') || empty(CLOUDFRONT_DOMAIN)) {
+        // Fallback to presigned URL if CloudFront not configured
+        debugLog("CloudFront not configured, using presigned URL for: {$imageKey}");
+        return getCachedPresignedUrl($imageKey);
+    }
+    
+    debugLog("Using CloudFront URL for: {$imageKey}");
+    return 'https://' . CLOUDFRONT_DOMAIN . '/' . $imageKey;
 }
 
 /**

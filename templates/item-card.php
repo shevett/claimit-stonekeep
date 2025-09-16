@@ -27,7 +27,7 @@ $isOwnItem = ($item['user_id'] ?? null) === ($currentUser['id'] ?? null);
 $canEditItem = $item['can_edit_item'] ?? false;
 $isItemGone = $item['is_item_gone'] ?? false;
 
-// Use pre-generated image URL (generated during getAllItemsEfficiently)
+// Use pre-generated CloudFront image URL (generated during getAllItemsEfficiently)
 $imageUrl = $item['image_url'] ?? null;
 ?>
 
