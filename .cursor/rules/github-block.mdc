@@ -1,0 +1,5 @@
+---
+description: Do not push to github unless explicitely told to do so
+globs:
+alwaysApply: true
+---

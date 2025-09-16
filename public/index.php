@@ -59,6 +59,7 @@ session_start();
 // Load includes
 require_once __DIR__ . '/../includes/functions.php';
 
+
 // Load authentication service
 require_once __DIR__ . '/../src/AuthService.php';
 
@@ -68,7 +69,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1' && $_GET['page'] === 'home') {
     header('Content-Type: text/html');
     
     $ajaxStartTime = microtime(true);
-    error_log("AJAX: Starting home page items request");
+    debugLog("AJAX: Starting home page items request");
     
     
     try {
@@ -87,11 +88,11 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1' && $_GET['page'] === 'home') {
         
         if (hasAwsCredentials()) {
             $itemsStartTime = microtime(true);
-            error_log("AJAX: Starting getAllItemsEfficiently");
+            debugLog("AJAX: Starting getAllItemsEfficiently");
             $items = getAllItemsEfficiently($showGoneItems);
             $itemsEndTime = microtime(true);
             $itemsTime = round(($itemsEndTime - $itemsStartTime) * 1000, 2);
-            error_log("AJAX: getAllItemsEfficiently completed in {$itemsTime}ms, loaded " . count($items) . " items");
+            debugLog("AJAX: getAllItemsEfficiently completed in {$itemsTime}ms, loaded " . count($items) . " items");
         }
         
         // Render items
@@ -99,7 +100,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1' && $_GET['page'] === 'home') {
             echo '<div class="no-items"><p>No items available at the moment.</p></div>';
         } else {
             $renderStartTime = microtime(true);
-            error_log("AJAX: Starting template rendering for " . count($items) . " items");
+            debugLog("AJAX: Starting template rendering for " . count($items) . " items");
             
             $itemCount = 0;
             foreach ($items as $item) {
@@ -114,7 +115,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1' && $_GET['page'] === 'home') {
             
             $renderEndTime = microtime(true);
             $renderTime = round(($renderEndTime - $renderStartTime) * 1000, 2);
-            error_log("AJAX: Template rendering completed in {$renderTime}ms");
+            debugLog("AJAX: Template rendering completed in {$renderTime}ms");
         }
         
         
@@ -125,7 +126,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1' && $_GET['page'] === 'home') {
     
     $ajaxEndTime = microtime(true);
     $ajaxTotalTime = round(($ajaxEndTime - $ajaxStartTime) * 1000, 2);
-    error_log("AJAX: Total request completed in {$ajaxTotalTime}ms");
+    debugLog("AJAX: Total request completed in {$ajaxTotalTime}ms");
     
     exit;
 }
@@ -795,7 +796,7 @@ if (!in_array($page, $availablePages)) {
 
 // Log routing completion
 $timingLogs['routing'] = round((microtime(true) - $startTime) * 1000, 2);
-error_log("Performance: Routing completed in {$timingLogs['routing']}ms");
+debugLog("Performance: Routing completed in {$timingLogs['routing']}ms");
 
 // Get current user for navigation and page context
 // Always check authentication for navigation bar display
@@ -823,7 +824,7 @@ if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['authenticated'])
 
 // Log authentication completion
 $timingLogs['auth'] = round((microtime(true) - $startTime) * 1000, 2);
-error_log("Performance: Authentication completed in {$timingLogs['auth']}ms");
+debugLog("Performance: Authentication completed in {$timingLogs['auth']}ms");
 
 // Prepare data for Open Graph meta tags
 $ogData = [];
@@ -903,11 +904,11 @@ if ($page === 'item' && isset($_GET['id'])) {
 
 // Log Open Graph data preparation completion
 $timingLogs['og_data'] = round((microtime(true) - $startTime) * 1000, 2);
-error_log("Performance: Open Graph data prepared in {$timingLogs['og_data']}ms");
+debugLog("Performance: Open Graph data prepared in {$timingLogs['og_data']}ms");
 
 // Log performance metrics
 $loadTime = microtime(true) - $startTime;
-error_log("Performance: Page '{$page}' loaded in " . round($loadTime * 1000, 2) . "ms");
+debugLog("Performance: Page '{$page}' loaded in " . round($loadTime * 1000, 2) . "ms");
 
 // Store timing data for display
 $performanceData = [
@@ -995,7 +996,7 @@ $performanceData = [
         <?php
         // Log before template rendering
         $timingLogs['before_template'] = round((microtime(true) - $startTime) * 1000, 2);
-        error_log("Performance: Before template rendering in {$timingLogs['before_template']}ms");
+        debugLog("Performance: Before template rendering in {$timingLogs['before_template']}ms");
         
         // Include the appropriate page template
         $templateFile = __DIR__ . "/../templates/{$page}.php";
@@ -1007,7 +1008,7 @@ $performanceData = [
         
         // Log after template rendering
         $timingLogs['after_template'] = round((microtime(true) - $startTime) * 1000, 2);
-        error_log("Performance: After template rendering in {$timingLogs['after_template']}ms");
+        debugLog("Performance: After template rendering in {$timingLogs['after_template']}ms");
         ?>
     </main>
 

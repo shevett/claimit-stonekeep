@@ -275,7 +275,7 @@ function getAllItemsEfficiently($includeGoneItems = false) {
                 }
             }
             
-            error_log("Found " . count($yamlObjects) . " YAML files to process");
+            debugLog("Found " . count($yamlObjects) . " YAML files to process");
             
             // Load YAML files in batches of 20 for better performance
             $yamlContents = [];
@@ -300,16 +300,16 @@ function getAllItemsEfficiently($includeGoneItems = false) {
                 }
                 $batchEndTime = microtime(true);
                 $batchTime = round(($batchEndTime - $batchStartTime) * 1000, 2);
-                error_log("Batch " . ($batch + 1) . "/{$totalBatches}: Loaded " . count($batchObjects) . " files in {$batchTime}ms");
+                debugLog("Batch " . ($batch + 1) . "/{$totalBatches}: Loaded " . count($batchObjects) . " files in {$batchTime}ms");
             }
             
             $loadEndTime = microtime(true);
             $totalLoadTime = round(($loadEndTime - $loadStartTime) * 1000, 2);
-            error_log("Total: Loaded " . count($yamlContents) . " YAML files in {$totalLoadTime}ms across {$totalBatches} batches");
+            debugLog("Total: Loaded " . count($yamlContents) . " YAML files in {$totalLoadTime}ms across {$totalBatches} batches");
             
             // Process all YAML files
             $processStartTime = microtime(true);
-            error_log("Performance: Starting YAML processing for " . count($yamlObjects) . " files");
+            debugLog("Performance: Starting YAML processing for " . count($yamlObjects) . " files");
             
             foreach ($yamlObjects as $object) {
                 try {
@@ -412,7 +412,7 @@ function getAllItemsEfficiently($includeGoneItems = false) {
             // Log YAML processing completion
             $processEndTime = microtime(true);
             $processTime = round(($processEndTime - $processStartTime) * 1000, 2);
-            error_log("Performance: YAML processing completed in {$processTime}ms, processed " . count($items) . " items");
+            debugLog("Performance: YAML processing completed in {$processTime}ms, processed " . count($items) . " items");
             
             // Sort by tracking number (newest first)
             usort($items, function($a, $b) {
@@ -469,6 +469,7 @@ function getCachedPresignedUrl($imageKey) {
         $url = $awsService->getPresignedUrl($imageKey, 3600); // 1 hour expiration
         $urlEndTime = microtime(true);
         $urlTime = round(($urlEndTime - $urlStartTime) * 1000, 2);
+        debugLog("getCachedPresignedUrl for {$imageKey}: {$urlTime}ms");
         
         // Cache the URL
         $urlCache[$cacheKey] = $url;
@@ -535,6 +536,17 @@ function logPagePerformance($pageName) {
     } else {
         $loadTime = microtime(true) - $startTime;
         error_log("Performance: {$pageName} loaded in " . round($loadTime * 1000, 2) . "ms");
+    }
+}
+
+/**
+ * Debug logging function - only logs when DEBUG is set to 'yes'
+ * 
+ * @param string $message The message to log
+ */
+function debugLog($message) {
+    if (defined('DEBUG') && DEBUG === 'yes') {
+        error_log($message);
     }
 }
 

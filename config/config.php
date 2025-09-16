@@ -20,6 +20,9 @@ define('DB_CHARSET', 'utf8mb4');
 // Error reporting (set to false in production)
 define('DEVELOPMENT_MODE', true);
 
+// Debug logging (set to 'yes' to enable detailed timing logs)
+define('DEBUG', 'no');
+
 if (DEVELOPMENT_MODE) {
     error_reporting(E_ALL);
     ini_set('display_errors', 1);
