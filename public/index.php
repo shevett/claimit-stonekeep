@@ -34,6 +34,8 @@ set_error_handler(function($errno, $errstr, $errfile, $errline) {
 
 // Start performance monitoring
 $startTime = microtime(true);
+$timingLogs = [];
+
 
 // Clear caches for development (remove in production)
 if (isset($_GET['clear_cache']) && $_GET['clear_cache'] === '1') {
@@ -65,6 +67,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1' && $_GET['page'] === 'home') {
     // AJAX request for home page items
     header('Content-Type: text/html');
     
+    $ajaxStartTime = microtime(true);
+    error_log("AJAX: Starting home page items request");
+    
+    
     try {
         // Check if user wants to see gone items (lazy auth loading)
         $currentUser = null;
@@ -80,18 +86,35 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1' && $_GET['page'] === 'home') {
         $items = [];
         
         if (hasAwsCredentials()) {
+            $itemsStartTime = microtime(true);
+            error_log("AJAX: Starting getAllItemsEfficiently");
             $items = getAllItemsEfficiently($showGoneItems);
+            $itemsEndTime = microtime(true);
+            $itemsTime = round(($itemsEndTime - $itemsStartTime) * 1000, 2);
+            error_log("AJAX: getAllItemsEfficiently completed in {$itemsTime}ms, loaded " . count($items) . " items");
         }
         
         // Render items
         if (empty($items)) {
             echo '<div class="no-items"><p>No items available at the moment.</p></div>';
         } else {
+            $renderStartTime = microtime(true);
+            error_log("AJAX: Starting template rendering for " . count($items) . " items");
+            
+            $itemCount = 0;
             foreach ($items as $item) {
+                $itemStartTime = microtime(true);
                 $context = 'home';
                 $isOwnListings = false;
                 include __DIR__ . '/../templates/item-card.php';
+                $itemEndTime = microtime(true);
+                $itemTime = round(($itemEndTime - $itemStartTime) * 1000, 2);
+                $itemCount++;
             }
+            
+            $renderEndTime = microtime(true);
+            $renderTime = round(($renderEndTime - $renderStartTime) * 1000, 2);
+            error_log("AJAX: Template rendering completed in {$renderTime}ms");
         }
         
         
@@ -99,6 +122,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1' && $_GET['page'] === 'home') {
         error_log('AJAX Error: ' . $e->getMessage());
         echo '<div class="no-items"><p>Error loading items: ' . escape($e->getMessage()) . '</p></div>';
     }
+    
+    $ajaxEndTime = microtime(true);
+    $ajaxTotalTime = round(($ajaxEndTime - $ajaxStartTime) * 1000, 2);
+    error_log("AJAX: Total request completed in {$ajaxTotalTime}ms");
     
     exit;
 }
@@ -766,6 +793,10 @@ if (!in_array($page, $availablePages)) {
     $page = 'home';
 }
 
+// Log routing completion
+$timingLogs['routing'] = round((microtime(true) - $startTime) * 1000, 2);
+error_log("Performance: Routing completed in {$timingLogs['routing']}ms");
+
 // Get current user for navigation and page context
 // Always check authentication for navigation bar display
 $currentUser = null;
@@ -790,6 +821,9 @@ if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['authenticated'])
     }
 }
 
+// Log authentication completion
+$timingLogs['auth'] = round((microtime(true) - $startTime) * 1000, 2);
+error_log("Performance: Authentication completed in {$timingLogs['auth']}ms");
 
 // Prepare data for Open Graph meta tags
 $ogData = [];
@@ -867,9 +901,23 @@ if ($page === 'item' && isset($_GET['id'])) {
     $ogData['items'] = [];
 }
 
+// Log Open Graph data preparation completion
+$timingLogs['og_data'] = round((microtime(true) - $startTime) * 1000, 2);
+error_log("Performance: Open Graph data prepared in {$timingLogs['og_data']}ms");
+
 // Log performance metrics
 $loadTime = microtime(true) - $startTime;
 error_log("Performance: Page '{$page}' loaded in " . round($loadTime * 1000, 2) . "ms");
+
+// Store timing data for display
+$performanceData = [
+    'total_time' => round($loadTime * 1000, 2),
+    'routing_time' => $timingLogs['routing'] ?? 0,
+    'auth_time' => $timingLogs['auth'] ?? 0,
+    'og_data_time' => $timingLogs['og_data'] ?? 0,
+    'before_template_time' => $timingLogs['before_template'] ?? 0,
+    'after_template_time' => $timingLogs['after_template'] ?? 0
+];
 
 ?>
 <!DOCTYPE html>
@@ -945,6 +993,10 @@ error_log("Performance: Page '{$page}' loaded in " . round($loadTime * 1000, 2) 
 
     <main class="main-content">
         <?php
+        // Log before template rendering
+        $timingLogs['before_template'] = round((microtime(true) - $startTime) * 1000, 2);
+        error_log("Performance: Before template rendering in {$timingLogs['before_template']}ms");
+        
         // Include the appropriate page template
         $templateFile = __DIR__ . "/../templates/{$page}.php";
         if (file_exists($templateFile)) {
@@ -952,12 +1004,26 @@ error_log("Performance: Page '{$page}' loaded in " . round($loadTime * 1000, 2) 
         } else {
             include __DIR__ . '/../templates/404.php';
         }
+        
+        // Log after template rendering
+        $timingLogs['after_template'] = round((microtime(true) - $startTime) * 1000, 2);
+        error_log("Performance: After template rendering in {$timingLogs['after_template']}ms");
         ?>
     </main>
 
     <footer>
         <div class="footer-content">
             <p>&copy; <?php echo date('Y'); ?> ClaimIt by Stonekeep.com. All rights reserved. | <a href="?page=about" class="footer-link">About</a> | <a href="?page=contact" class="footer-link">Contact</a></p>
+            <?php if (isset($performanceData)): ?>
+            <div style="font-size: 12px; color: #666; margin-top: 10px;">
+                Performance: Total: <?php echo $performanceData['total_time']; ?>ms | 
+                Routing: <?php echo $performanceData['routing_time']; ?>ms | 
+                Auth: <?php echo $performanceData['auth_time']; ?>ms | 
+                OG Data: <?php echo $performanceData['og_data_time']; ?>ms | 
+                Before Template: <?php echo $performanceData['before_template_time']; ?>ms | 
+                After Template: <?php echo $performanceData['after_template_time']; ?>ms
+            </div>
+            <?php endif; ?>
         </div>
     </footer>
 

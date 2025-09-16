@@ -308,6 +308,9 @@ function getAllItemsEfficiently($includeGoneItems = false) {
             error_log("Total: Loaded " . count($yamlContents) . " YAML files in {$totalLoadTime}ms across {$totalBatches} batches");
             
             // Process all YAML files
+            $processStartTime = microtime(true);
+            error_log("Performance: Starting YAML processing for " . count($yamlObjects) . " files");
+            
             foreach ($yamlObjects as $object) {
                 try {
                     // Extract tracking number from filename
@@ -346,6 +349,31 @@ function getAllItemsEfficiently($includeGoneItems = false) {
                             }
                         }
                         
+                        // Pre-generate image URL to avoid AWS calls during template rendering
+                        $imageUrl = null;
+                        if ($imageKey) {
+                            $imageUrl = getCachedPresignedUrl($imageKey);
+                        }
+                        
+                        // Pre-compute item states to avoid expensive function calls during template rendering
+                        $isItemGone = isItemGone($data);
+                        $canEditItem = canUserEditItem($data['user_id'] ?? null);
+                        
+                        // Pre-compute claim data to avoid AWS calls during template rendering
+                        $activeClaims = [];
+                        $primaryClaim = null;
+                        $isUserClaimed = false;
+                        $canUserClaim = false;
+                        
+                        // Get current user for claim calculations
+                        $currentUser = getCurrentUser();
+                        if ($currentUser) {
+                            $activeClaims = getActiveClaims($trackingNumber);
+                            $primaryClaim = getPrimaryClaim($trackingNumber);
+                            $isUserClaimed = isUserClaimed($trackingNumber, $currentUser['id']);
+                            $canUserClaim = canUserClaim($trackingNumber, $currentUser['id']);
+                        }
+                        
                         $items[] = [
                             'tracking_number' => $trackingNumber,
                             'title' => $title,
@@ -353,6 +381,7 @@ function getAllItemsEfficiently($includeGoneItems = false) {
                             'price' => $data['price'],
                             'contact_email' => $data['contact_email'],
                             'image_key' => $imageKey,
+                            'image_url' => $imageUrl,
                             'image_width' => $data['image_width'] ?? null,
                             'image_height' => $data['image_height'] ?? null,
                             'posted_date' => $data['submitted_at'] ?? 'Unknown',
@@ -365,7 +394,13 @@ function getAllItemsEfficiently($includeGoneItems = false) {
                             'gone_at' => $data['gone_at'] ?? null,
                             'gone_by' => $data['gone_by'] ?? null,
                             'relisted_at' => $data['relisted_at'] ?? null,
-                            'relisted_by' => $data['relisted_by'] ?? null
+                            'relisted_by' => $data['relisted_by'] ?? null,
+                            'is_item_gone' => $isItemGone,
+                            'can_edit_item' => $canEditItem,
+                            'active_claims' => $activeClaims,
+                            'primary_claim' => $primaryClaim,
+                            'is_user_claimed' => $isUserClaimed,
+                            'can_user_claim' => $canUserClaim
                         ];
                     }
                 } catch (Exception $e) {
@@ -373,6 +408,11 @@ function getAllItemsEfficiently($includeGoneItems = false) {
                     continue;
                 }
             }
+            
+            // Log YAML processing completion
+            $processEndTime = microtime(true);
+            $processTime = round(($processEndTime - $processStartTime) * 1000, 2);
+            error_log("Performance: YAML processing completed in {$processTime}ms, processed " . count($items) . " items");
             
             // Sort by tracking number (newest first)
             usort($items, function($a, $b) {
@@ -419,6 +459,7 @@ function getCachedPresignedUrl($imageKey) {
     }
     
     try {
+        $urlStartTime = microtime(true);
         $awsService = getAwsService();
         if (!$awsService) {
             return '';
@@ -426,6 +467,8 @@ function getCachedPresignedUrl($imageKey) {
         
         // Generate presigned URL with longer expiration
         $url = $awsService->getPresignedUrl($imageKey, 3600); // 1 hour expiration
+        $urlEndTime = microtime(true);
+        $urlTime = round(($urlEndTime - $urlStartTime) * 1000, 2);
         
         // Cache the URL
         $urlCache[$cacheKey] = $url;

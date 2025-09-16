@@ -13,26 +13,22 @@ $context = $context ?? 'listing';
 $currentUser = $currentUser ?? null;
 $isOwnListings = $isOwnListings ?? false;
 
-// Get helper data
-$activeClaims = getActiveClaims($item['tracking_number']);
-$primaryClaim = getPrimaryClaim($item['tracking_number']);
-$isUserClaimed = isUserClaimed($item['tracking_number'], $currentUser['id'] ?? null);
-$canUserClaim = canUserClaim($item['tracking_number'], $currentUser['id'] ?? null);
+// Use pre-computed claim data to avoid expensive AWS calls during template rendering
+$activeClaims = $item['active_claims'] ?? [];
+$primaryClaim = $item['primary_claim'] ?? null;
+$isUserClaimed = $item['is_user_claimed'] ?? false;
+$canUserClaim = $item['can_user_claim'] ?? false;
 
 // Determine if this is the current user's item
 $isOwnItem = ($item['user_id'] ?? null) === ($currentUser['id'] ?? null);
 
 // Determine if the current user can edit this item (owner or admin)
-$canEditItem = canUserEditItem($item['user_id'] ?? null);
+// Use pre-computed values to avoid expensive function calls during template rendering
+$canEditItem = $item['can_edit_item'] ?? false;
+$isItemGone = $item['is_item_gone'] ?? false;
 
-// Check if item is marked as gone
-$isItemGone = isItemGone($item);
-
-// Get image URL (use cached presigned URL for better performance)
-$imageUrl = null;
-if (!empty($item['image_key'])) {
-    $imageUrl = getCachedPresignedUrl($item['image_key']);
-}
+// Use pre-generated image URL (generated during getAllItemsEfficiently)
+$imageUrl = $item['image_url'] ?? null;
 ?>
 
 <div class="item-card">
