@@ -360,16 +360,15 @@ function getAllItemsEfficiently($includeGoneItems = false) {
                         $canEditItem = canUserEditItem($data['user_id'] ?? null);
                         
                         // Pre-compute claim data to avoid AWS calls during template rendering
-                        $activeClaims = [];
-                        $primaryClaim = null;
+                        // Always compute claim data so logged-out users can see claim status
+                        $activeClaims = getActiveClaims($trackingNumber);
+                        $primaryClaim = getPrimaryClaim($trackingNumber);
+                        
+                        // User-specific claim data (only for logged-in users)
                         $isUserClaimed = false;
                         $canUserClaim = false;
-                        
-                        // Get current user for claim calculations
                         $currentUser = getCurrentUser();
                         if ($currentUser) {
-                            $activeClaims = getActiveClaims($trackingNumber);
-                            $primaryClaim = getPrimaryClaim($trackingNumber);
                             $isUserClaimed = isUserClaimed($trackingNumber, $currentUser['id']);
                             $canUserClaim = canUserClaim($trackingNumber, $currentUser['id']);
                         }
