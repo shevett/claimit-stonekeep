@@ -53,6 +53,10 @@ $imageUrl = $item['image_url'] ?? null;
         <div class="item-content">
             <h3 class="item-title"><?php echo escape($item['title']); ?></h3>
             <p class="item-description"><?php echo escape(truncateText($item['description'], 100)); ?></p>
+            
+            <div class="item-posted-date">
+                <span class="posted-date">Posted: <?php echo escape($item['posted_date'] ?? 'Unknown'); ?></span>
+            </div>
 
             <div class="item-meta">
                 <span class="item-price"><?php echo $item['price'] > 0 ? '$' . escape(number_format($item['price'], 2)) : 'Free'; ?></span>

@@ -55,10 +55,10 @@ try {
                     $imageKey = null;
                     $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
                     foreach ($imageExtensions as $ext) {
-                        $possibleImageKey = $trackingNumber . '.' . $ext;
+                        $possibleImageKey = 'images/' . $trackingNumber . '.' . $ext;
                         foreach ($objects as $imgObj) {
                             if ($imgObj['key'] === $possibleImageKey) {
-                                $imageKey = $possibleImageKey;
+                                $imageKey = $trackingNumber . '.' . $ext; // Store without images/ prefix for getCloudFrontUrl
                                 break 2;
                             }
                         }

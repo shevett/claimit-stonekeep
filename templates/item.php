@@ -33,10 +33,10 @@ try {
                 $imageKey = null;
                 $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
                 foreach ($imageExtensions as $ext) {
-                    $possibleImageKey = $itemId . '.' . $ext;
+                    $possibleImageKey = 'images/' . $itemId . '.' . $ext;
                     try {
                         if ($awsService->objectExists($possibleImageKey)) {
-                            $imageKey = $possibleImageKey;
+                            $imageKey = $itemId . '.' . $ext; // Store without images/ prefix for getCloudFrontUrl
                             break;
                         }
                     } catch (Exception $e) {

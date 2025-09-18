@@ -1592,6 +1592,16 @@ footer {
     font-size: 0.875rem;
 }
 
+.item-posted-date {
+    margin: 0 0 0.75rem 0;
+}
+
+.posted-date {
+    color: #6c757d;
+    font-size: 0.8rem;
+    font-style: italic;
+}
+
 .item-meta {
     display: flex;
     flex-direction: column;

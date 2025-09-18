@@ -339,11 +339,11 @@ function getAllItemsEfficiently($includeGoneItems = false) {
                         $imageKey = null;
                         $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
                         foreach ($imageExtensions as $ext) {
-                            $possibleImageKey = $trackingNumber . '.' . $ext;
+                            $possibleImageKey = 'images/' . $trackingNumber . '.' . $ext;
                             // Check if this image exists in our objects list (no additional API call)
                             foreach ($objects as $imgObject) {
                                 if ($imgObject['key'] === $possibleImageKey) {
-                                    $imageKey = $possibleImageKey;
+                                    $imageKey = $trackingNumber . '.' . $ext; // Store without images/ prefix for getCloudFrontUrl
                                     break 2;
                                 }
                             }
