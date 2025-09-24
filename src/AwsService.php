@@ -293,6 +293,16 @@ class AwsService
     }
     
     /**
+     * Get AWS configuration for use by other services
+     * 
+     * @return array AWS configuration
+     */
+    public function getAwsConfig(): array
+    {
+        return $this->config;
+    }
+    
+    /**
      * Delete an object from S3
      * 
      * @param string $key S3 object key

@@ -24,8 +24,7 @@ function redirect($page = 'home') {
         ? 'http://localhost:8000/'
         : 'https://claimit.stonekeep.com/';
     
-    echo "<script>window.location.href = '" . $baseUrl . "?page=" . urlencode($page) . "';</script>";
-    echo "<p>Redirecting to " . htmlspecialchars($page) . "... <a href='" . $baseUrl . "?page=" . urlencode($page) . "'>Click here if not redirected automatically</a></p>";
+    header('Location: ' . $baseUrl . '?page=' . urlencode($page));
     exit;
 }
 
@@ -52,6 +51,29 @@ function getAuthService() {
     
     return $authService;
 }
+
+/**
+ * Get Email service instance (lazy loading)
+ */
+function getEmailService() {
+    static $emailService = null;
+    
+    if ($emailService === null) {
+        try {
+            $awsService = getAwsService();
+            if (!$awsService) {
+                throw new Exception('AWS service not available');
+            }
+            $emailService = new \ClaimIt\EmailService($awsService);
+        } catch (Exception $e) {
+            error_log('Failed to initialize Email service: ' . $e->getMessage());
+            return null;
+        }
+    }
+    
+    return $emailService;
+}
+
 
 /**
  * Check if user is logged in
@@ -1007,6 +1029,37 @@ function addClaimToItem($trackingNumber) {
     $newYamlContent = convertToYaml($data);
     $awsService->putObject($yamlKey, $newYamlContent, 'text/yaml');
     
+    // Send email notification to item owner (if different from claimer)
+    try {
+        if ($data['user_id'] !== $currentUser['id']) {
+            $emailService = getEmailService();
+            if ($emailService) {
+                // Get item owner information
+                $itemOwner = [
+                    'id' => $data['user_id'],
+                    'email' => $data['user_email'] ?? '',
+                    'name' => $data['user_name'] ?? 'Unknown'
+                ];
+                
+                // Prepare item data for email
+                $itemForEmail = [
+                    'tracking_number' => $trackingNumber,
+                    'title' => $data['title'] ?? 'Untitled Item',
+                    'description' => $data['description'] ?? '',
+                    'type' => $data['type'] ?? 'Unknown',
+                    'created_at' => $data['created_at'] ?? date('Y-m-d H:i:s'),
+                    'image_key' => $data['image_key'] ?? null
+                ];
+                
+                // Send notification
+                $emailService->sendItemClaimedNotification($itemOwner, $itemForEmail, $currentUser);
+            }
+        }
+    } catch (Exception $e) {
+        // Log error but don't fail the claim process
+        error_log("Failed to send email notification for claim on item $trackingNumber: " . $e->getMessage());
+    }
+    
     return $newClaim;
 }
 
@@ -1794,6 +1847,55 @@ function relistItem($trackingNumber) {
  */
 function isItemGone($itemData) {
     return isset($itemData['gone']) && $itemData['gone'] === 'yes';
+}
+
+/**
+ * Get user setting for email notifications
+ *
+ * @param string $userId The user ID
+ * @return bool True if user wants email notifications, false otherwise
+ */
+function getUserEmailNotifications($userId) {
+    // Check cache first
+    $cached = getUserSettingsCache($userId, 'email_notifications');
+    if ($cached !== null) {
+        return $cached;
+    }
+    
+    try {
+        $awsService = getAwsService();
+        if (!$awsService) {
+            $result = false; // Default to no email notifications
+            setUserSettingsCache($userId, $result, 'email_notifications');
+            return $result;
+        }
+        
+        $yamlKey = 'users/' . $userId . '.yaml';
+        
+        // Check if user settings file exists
+        if (!$awsService->objectExists($yamlKey)) {
+            $result = false; // Default to no email notifications
+            setUserSettingsCache($userId, $result, 'email_notifications');
+            return $result;
+        }
+        
+        // Get user settings
+        $yamlObject = $awsService->getObject($yamlKey);
+        $yamlContent = $yamlObject['content'];
+        $userSettings = parseSimpleYaml($yamlContent);
+        
+        // Return setting if set, otherwise default to false
+        $result = isset($userSettings['email_notifications']) && $userSettings['email_notifications'] === 'yes';
+        setUserSettingsCache($userId, $result, 'email_notifications');
+        return $result;
+        
+    } catch (Exception $e) {
+        // Log error but don't break the application
+        error_log("Error getting user email notifications setting for user $userId: " . $e->getMessage());
+        $result = false; // Default to no email notifications
+        setUserSettingsCache($userId, $result, 'email_notifications');
+        return $result;
+    }
 }
 
 /**

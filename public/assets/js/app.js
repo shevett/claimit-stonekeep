@@ -632,9 +632,11 @@ document.addEventListener('DOMContentLoaded', function() {
 function saveUserSettings() {
     const displayName = document.getElementById('displayName').value.trim();
     const showGoneItems = document.getElementById('showGoneItems').checked;
+    const emailNotifications = document.getElementById('emailNotifications').checked;
+    const sendTestEmail = document.getElementById('sendTestEmail') ? document.getElementById('sendTestEmail').checked : false;
     
     if (!displayName) {
-        alert('Display name is required');
+        showMessage('Display name is required', 'error');
         return;
     }
     
@@ -651,22 +653,24 @@ function saveUserSettings() {
             'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: 'display_name=' + encodeURIComponent(displayName) + 
-              (showGoneItems ? '&show_gone_items=on' : '')
+              (showGoneItems ? '&show_gone_items=on' : '') +
+              (emailNotifications ? '&email_notifications=on' : '') +
+              (sendTestEmail ? '&send_test_email=on' : '')
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('Settings saved successfully!');
+            showMessage(data.message || 'Settings saved successfully!', 'success');
             closeSettingsModal();
             // Optionally refresh the page to show updated name
             location.reload();
         } else {
-            alert('Error saving settings: ' + (data.message || 'Unknown error'));
+            showMessage('Error saving settings: ' + (data.message || 'Unknown error'), 'error');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Error saving settings. Please try again.');
+        showMessage('Error saving settings. Please try again.', 'error');
     })
     .finally(() => {
         // Restore button state

@@ -679,6 +679,8 @@ if (isset($_GET['page']) && $_GET['page'] === 'settings' && isset($_GET['action'
         
         $displayName = trim($_POST['display_name'] ?? '');
         $showGoneItems = isset($_POST['show_gone_items']) && $_POST['show_gone_items'] === 'on';
+        $emailNotifications = isset($_POST['email_notifications']) && $_POST['email_notifications'] === 'on';
+        $sendTestEmail = isset($_POST['send_test_email']) && $_POST['send_test_email'] === 'on';
         
         if (empty($displayName)) {
             echo json_encode(['success' => false, 'message' => 'Display name is required']);
@@ -697,6 +699,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'settings' && isset($_GET['action'
                 'google_name' => $currentUser['name'],
                 'display_name' => $displayName,
                 'show_gone_items' => $showGoneItems ? 'yes' : 'no',
+                'email_notifications' => $emailNotifications ? 'yes' : 'no',
                 'email' => $currentUser['email'],
                 'updated_at' => date('Y-m-d H:i:s'),
                 'updated_timestamp' => time()
@@ -709,7 +712,25 @@ if (isset($_GET['page']) && $_GET['page'] === 'settings' && isset($_GET['action'
             $yamlKey = 'users/' . $currentUser['id'] . '.yaml';
             $awsService->putObject($yamlKey, $yamlContent);
             
-            echo json_encode(['success' => true, 'message' => 'Settings saved successfully']);
+            // Send test email if requested and user is admin
+            $testEmailSent = false;
+            if ($sendTestEmail && isAdmin()) {
+                try {
+                    $emailService = getEmailService();
+                    if ($emailService) {
+                        $testEmailSent = $emailService->sendTestEmail($currentUser);
+                    }
+                } catch (Exception $e) {
+                    error_log("Failed to send test email: " . $e->getMessage());
+                }
+            }
+            
+            $message = 'Settings saved successfully';
+            if ($sendTestEmail && isAdmin()) {
+                $message .= $testEmailSent ? '. Test email sent!' : '. Test email failed to send.';
+            }
+            
+            echo json_encode(['success' => true, 'message' => $message]);
             
         } catch (Exception $e) {
             echo json_encode(['success' => false, 'message' => 'Failed to save settings: ' . $e->getMessage()]);
@@ -1059,6 +1080,27 @@ $performanceData = [
                         </label>
                         <small>When enabled, items marked as "gone" will still appear in item listings</small>
                     </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="emailNotifications" name="emailNotifications" <?php 
+                                if ($isLoggedIn && $currentUser && getUserEmailNotifications($currentUser['id'])) {
+                                    echo 'checked';
+                                }
+                            ?>>
+                            Notify me when someone claims one of my items
+                        </label>
+                        <small>When enabled, you'll receive email notifications when someone claims your items</small>
+                    </div>
+                    
+                    <?php if ($isLoggedIn && $currentUser && isAdmin()): ?>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="sendTestEmail" name="sendTestEmail">
+                            Send a test email to me
+                        </label>
+                        <small>Administrator option: Send a test email to verify SMTP configuration is working</small>
+                    </div>
+                    <?php endif; ?>
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary">Save Changes</button>
                         <button type="button" class="btn btn-secondary" onclick="closeSettingsModal()">Cancel</button>
