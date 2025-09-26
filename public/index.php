@@ -994,9 +994,9 @@ $performanceData = [
                                     <span class="nav-user-arrow">▼</span>
                                 </button>
                                 <div class="nav-user-dropdown-menu" id="userDropdown">
-                                    <a href="#" class="nav-dropdown-item" onclick="openSettingsModal(); return false;">
+                                    <a href="?page=settings" class="nav-dropdown-item">
                                         <span class="nav-dropdown-icon">⚙️</span>
-                                        Settings...
+                                        Settings
                                     </a>
                                     <a href="?page=auth&action=logout" class="nav-dropdown-item">
                                         <span class="nav-dropdown-icon">🚪</span>
@@ -1049,66 +1049,6 @@ $performanceData = [
         </div>
     </footer>
 
-    <!-- Settings Modal -->
-    <div id="settingsModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>User Settings</h2>
-                <span class="close" onclick="closeSettingsModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <form id="settingsForm">
-                    <div class="form-group">
-                        <label for="displayName">Display Name:</label>
-                        <input type="text" id="displayName" name="displayName" value="<?php 
-                            if ($isLoggedIn && $currentUser) {
-                                echo escape(getUserDisplayName($currentUser['id'], $currentUser['name']));
-                            } else {
-                                echo escape($currentUser['name'] ?? '');
-                            }
-                        ?>" required>
-                        <small>This name will be displayed on your listings and claims</small>
-                    </div>
-                    <div class="form-group">
-                        <label>
-                            <input type="checkbox" id="showGoneItems" name="showGoneItems" <?php 
-                                if ($isLoggedIn && $currentUser && getUserShowGoneItems($currentUser['id'])) {
-                                    echo 'checked';
-                                }
-                            ?>>
-                            Show gone items in listings
-                        </label>
-                        <small>When enabled, items marked as "gone" will still appear in item listings</small>
-                    </div>
-                    <div class="form-group">
-                        <label>
-                            <input type="checkbox" id="emailNotifications" name="emailNotifications" <?php 
-                                if ($isLoggedIn && $currentUser && getUserEmailNotifications($currentUser['id'])) {
-                                    echo 'checked';
-                                }
-                            ?>>
-                            Notify me when someone claims one of my items
-                        </label>
-                        <small>When enabled, you'll receive email notifications when someone claims your items</small>
-                    </div>
-                    
-                    <?php if ($isLoggedIn && $currentUser && isAdmin()): ?>
-                    <div class="form-group">
-                        <label>
-                            <input type="checkbox" id="sendTestEmail" name="sendTestEmail">
-                            Send a test email to me
-                        </label>
-                        <small>Administrator option: Send a test email to verify SMTP configuration is working</small>
-                    </div>
-                    <?php endif; ?>
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">Save Changes</button>
-                        <button type="button" class="btn btn-secondary" onclick="closeSettingsModal()">Cancel</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
 
     <!-- Edit Item Modal -->
     <div id="editModal" class="modal">

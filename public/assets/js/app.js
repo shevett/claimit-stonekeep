@@ -391,21 +391,6 @@ function toggleUserDropdown() {
     }
 }
 
-// Settings modal functionality
-function openSettingsModal() {
-    const modal = document.getElementById('settingsModal');
-    modal.style.display = 'block';
-    // Close dropdown when opening modal
-    const dropdown = document.getElementById('userDropdown');
-    if (dropdown) {
-        dropdown.classList.remove('show');
-    }
-}
-
-function closeSettingsModal() {
-    const modal = document.getElementById('settingsModal');
-    modal.style.display = 'none';
-}
 
 // Edit Modal Functions
 function openEditModal(trackingNumber, title, description) {
@@ -610,71 +595,3 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Close modal when clicking outside of it
-window.onclick = function(event) {
-    const modal = document.getElementById('settingsModal');
-    if (event.target === modal) {
-        closeSettingsModal();
-    }
-}
-
-// Handle settings form submission
-document.addEventListener('DOMContentLoaded', function() {
-    const settingsForm = document.getElementById('settingsForm');
-    if (settingsForm) {
-        settingsForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            saveUserSettings();
-        });
-    }
-});
-
-function saveUserSettings() {
-    const displayName = document.getElementById('displayName').value.trim();
-    const showGoneItems = document.getElementById('showGoneItems').checked;
-    const emailNotifications = document.getElementById('emailNotifications').checked;
-    const sendTestEmail = document.getElementById('sendTestEmail') ? document.getElementById('sendTestEmail').checked : false;
-    
-    if (!displayName) {
-        showMessage('Display name is required', 'error');
-        return;
-    }
-    
-    // Show loading state
-    const submitBtn = document.querySelector('#settingsForm button[type="submit"]');
-    const originalText = submitBtn.textContent;
-    submitBtn.textContent = 'Saving...';
-    submitBtn.disabled = true;
-    
-    // Send AJAX request to save settings
-    fetch('/?page=settings&action=save', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: 'display_name=' + encodeURIComponent(displayName) + 
-              (showGoneItems ? '&show_gone_items=on' : '') +
-              (emailNotifications ? '&email_notifications=on' : '') +
-              (sendTestEmail ? '&send_test_email=on' : '')
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showMessage(data.message || 'Settings saved successfully!', 'success');
-            closeSettingsModal();
-            // Optionally refresh the page to show updated name
-            location.reload();
-        } else {
-            showMessage('Error saving settings: ' + (data.message || 'Unknown error'), 'error');
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showMessage('Error saving settings. Please try again.', 'error');
-    })
-    .finally(() => {
-        // Restore button state
-        submitBtn.textContent = originalText;
-        submitBtn.disabled = false;
-    });
-} 
