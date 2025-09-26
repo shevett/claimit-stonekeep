@@ -1899,6 +1899,52 @@ function getUserEmailNotifications($userId) {
 }
 
 /**
+ * Get user's new listing notification preference
+ */
+function getUserNewListingNotifications($userId) {
+    // Check cache first
+    $cached = getUserSettingsCache($userId, 'new_listing_notifications');
+    if ($cached !== null) {
+        return $cached;
+    }
+    
+    try {
+        $awsService = getAwsService();
+        if (!$awsService) {
+            $result = false; // Default to no new listing notifications
+            setUserSettingsCache($userId, $result, 'new_listing_notifications');
+            return $result;
+        }
+        
+        $yamlKey = 'users/' . $userId . '.yaml';
+        
+        // Check if user settings file exists
+        if (!$awsService->objectExists($yamlKey)) {
+            $result = false; // Default to no new listing notifications
+            setUserSettingsCache($userId, $result, 'new_listing_notifications');
+            return $result;
+        }
+        
+        // Get user settings
+        $yamlObject = $awsService->getObject($yamlKey);
+        $yamlContent = $yamlObject['content'];
+        $userSettings = parseSimpleYaml($yamlContent);
+        
+        // Return setting if set, otherwise default to false
+        $result = isset($userSettings['new_listing_notifications']) && $userSettings['new_listing_notifications'] === 'yes';
+        setUserSettingsCache($userId, $result, 'new_listing_notifications');
+        return $result;
+        
+    } catch (Exception $e) {
+        // Log error but don't break the application
+        error_log("Error getting user new listing notifications setting for user $userId: " . $e->getMessage());
+        $result = false; // Default to no new listing notifications
+        setUserSettingsCache($userId, $result, 'new_listing_notifications');
+        return $result;
+    }
+}
+
+/**
  * Get user setting for showing gone items
  *
  * @param string $userId The user ID

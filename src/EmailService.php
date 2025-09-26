@@ -116,6 +116,60 @@ class EmailService
     }
     
     /**
+     * Send new listing notification to all users who have it enabled
+     */
+    public function sendNewListingNotifications(array $newItem, array $itemOwner): bool
+    {
+        try {
+            // Get all users who have new listing notifications enabled
+            $usersToNotify = $this->getUsersWithNewListingNotifications();
+            
+            if (empty($usersToNotify)) {
+                error_log("No users have new listing notifications enabled");
+                return true; // Not an error, just no one to notify
+            }
+            
+            $successCount = 0;
+            $totalCount = count($usersToNotify);
+            
+            foreach ($usersToNotify as $user) {
+                // Don't notify the person who posted the item
+                if ($user['id'] === $itemOwner['id']) {
+                    continue;
+                }
+                
+                try {
+                    $subject = 'New item posted on ClaimIt!';
+                    $htmlBody = $this->generateNewListingHtml($newItem, $itemOwner, $user);
+                    $textBody = $this->generateNewListingText($newItem, $itemOwner, $user);
+                    
+                    $result = $this->sendSmtpEmail(
+                        $user['email'],
+                        $subject,
+                        $htmlBody,
+                        $textBody
+                    );
+                    
+                    if ($result) {
+                        $successCount++;
+                        error_log("New listing notification sent to {$user['email']}");
+                    }
+                    
+                } catch (\Exception $e) {
+                    error_log("Failed to send new listing notification to {$user['email']}: " . $e->getMessage());
+                }
+            }
+            
+            error_log("New listing notifications sent: $successCount/$totalCount");
+            return $successCount > 0;
+            
+        } catch (\Exception $e) {
+            error_log("New Listing Notifications Error: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
      * Send email via SMTP
      */
     private function sendSmtpEmail(string $to, string $subject, string $htmlBody, string $textBody): bool
@@ -611,5 +665,168 @@ You can now disable email notifications in your settings if you don't want to re
 
 This test email was sent from ClaimIt Email Service
         ";
+    }
+    
+    /**
+     * Get all users who have new listing notifications enabled
+     */
+    private function getUsersWithNewListingNotifications(): array
+    {
+        try {
+            $awsService = getAwsService();
+            if (!$awsService) {
+                return [];
+            }
+            
+            // Get all user files from S3
+            $result = $awsService->listObjects('users/');
+            $userFiles = $result['objects'] ?? [];
+            $usersToNotify = [];
+            
+            foreach ($userFiles as $file) {
+                if (strpos($file['key'], '.yaml') === false) {
+                    continue; // Skip non-YAML files
+                }
+                
+                try {
+                    $yamlObject = $awsService->getObject($file['key']);
+                    $yamlContent = $yamlObject['content'];
+                    $userSettings = parseSimpleYaml($yamlContent);
+                    
+                    // Check if user has new listing notifications enabled
+                    if (isset($userSettings['new_listing_notifications']) && 
+                        $userSettings['new_listing_notifications'] === 'yes' &&
+                        !empty($userSettings['email'])) {
+                        
+                        $usersToNotify[] = [
+                            'id' => $userSettings['user_id'] ?? '',
+                            'name' => $userSettings['display_name'] ?? $userSettings['google_name'] ?? 'Unknown',
+                            'email' => $userSettings['email']
+                        ];
+                    }
+                    
+                } catch (\Exception $e) {
+                    error_log("Error reading user settings from {$file['key']}: " . $e->getMessage());
+                    continue;
+                }
+            }
+            
+            return $usersToNotify;
+            
+        } catch (\Exception $e) {
+            error_log("Error getting users with new listing notifications: " . $e->getMessage());
+            return [];
+        }
+    }
+    
+    /**
+     * Generate new listing notification HTML content
+     */
+    private function generateNewListingHtml(array $newItem, array $itemOwner, array $recipient): string
+    {
+        $siteUrl = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'claimit.stonekeep.com');
+        $itemUrl = $siteUrl . '/?page=item&id=' . $newItem['tracking_number'];
+        $imageUrl = !empty($newItem['image_key']) ? getCloudFrontUrl($newItem['image_key']) : null;
+        
+        $html = "
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset='utf-8'>
+            <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+            <title>New Item on ClaimIt</title>
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 20px; background-color: #f4f4f4; }
+                .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
+                .header h1 { margin: 0; font-size: 28px; font-weight: 300; }
+                .content { padding: 30px; }
+                .content h2 { color: #667eea; margin-top: 0; }
+                .content p { margin-bottom: 20px; }
+                .item-card { border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin: 20px 0; background: #f9f9f9; }
+                .item-title { font-size: 20px; font-weight: bold; color: #333; margin-bottom: 10px; }
+                .item-description { color: #666; margin-bottom: 15px; }
+                .item-meta { color: #888; font-size: 14px; margin-bottom: 15px; }
+                .item-image { max-width: 100%; height: auto; border-radius: 5px; margin: 10px 0; }
+                .cta-button { display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 15px 0; }
+                .cta-button:hover { background: #5a6fd8; }
+                .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #6c757d; font-size: 14px; }
+                .footer a { color: #667eea; text-decoration: none; }
+                .footer a:hover { text-decoration: underline; }
+            </style>
+        </head>
+        <body>
+            <div class='container'>
+                <div class='header'>
+                    <h1>🆕 New Item on ClaimIt!</h1>
+                </div>
+                <div class='content'>
+                    <h2>Someone just posted a new item!</h2>
+                    <p>Hello {$recipient['name']},</p>
+                    <p>A new item has been posted on ClaimIt that you might be interested in:</p>
+                    
+                    <div class='item-card'>
+                        <div class='item-title'>{$newItem['title']}</div>
+                        <div class='item-description'>{$newItem['description']}</div>
+                        <div class='item-meta'>
+                            <strong>Posted by:</strong> {$itemOwner['name']}<br>
+                            <strong>Price:</strong> $" . number_format($newItem['price'], 2) . "<br>
+                            <strong>Tracking #:</strong> {$newItem['tracking_number']}
+                        </div>";
+        
+        if ($imageUrl) {
+            $html .= "<img src='{$imageUrl}' alt='Item image' class='item-image'>";
+        }
+        
+        $html .= "
+                        <a href='{$itemUrl}' class='cta-button'>View Item Details</a>
+                    </div>
+                    
+                    <p>Don't miss out! Check out this item and others on ClaimIt.</p>
+                    <p>Best regards,<br>The ClaimIt Team</p>
+                </div>
+                <div class='footer'>
+                    <p>This email was sent from <a href='{$siteUrl}'>ClaimIt</a></p>
+                    <p>You're receiving this because you have new listing notifications enabled in your settings.</p>
+                </div>
+            </div>
+        </body>
+        </html>";
+        
+        return $html;
+    }
+    
+    /**
+     * Generate new listing notification text content
+     */
+    private function generateNewListingText(array $newItem, array $itemOwner, array $recipient): string
+    {
+        $siteUrl = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'claimit.stonekeep.com');
+        $itemUrl = $siteUrl . '/?page=item&id=' . $newItem['tracking_number'];
+        
+        return "New Item on ClaimIt!
+
+Hello {$recipient['name']},
+
+A new item has been posted on ClaimIt that you might be interested in:
+
+{$newItem['title']}
+
+{$newItem['description']}
+
+Posted by: {$itemOwner['name']}
+Price: $" . number_format($newItem['price'], 2) . "
+Tracking #: {$newItem['tracking_number']}
+
+View this item: {$itemUrl}
+
+Don't miss out! Check out this item and others on ClaimIt.
+
+Best regards,
+The ClaimIt Team
+
+---
+This email was sent from {$siteUrl}
+You're receiving this because you have new listing notifications enabled in your settings.";
     }
 }

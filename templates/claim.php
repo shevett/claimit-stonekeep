@@ -88,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $imageKey = null;
             if ($uploadedFile && $uploadedFile['error'] === UPLOAD_ERR_OK) {
                 $imageExtension = strtolower(pathinfo($uploadedFile['name'], PATHINFO_EXTENSION));
-                $imageKey = $trackingNumber . '.' . $imageExtension;
+                $imageKey = 'images/' . $trackingNumber . '.' . $imageExtension;
                 
                 // Create a temporary file for the resized image
                 $tempResizedPath = tempnam(sys_get_temp_dir(), 'claimit_resized_');
@@ -175,6 +175,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Clear items cache since we added a new item
             clearItemsCache();
+            
+            // Send new listing notifications to users who have it enabled
+            try {
+                $emailService = getEmailService();
+                if ($emailService) {
+                    // Prepare item data for email
+                    $itemForEmail = [
+                        'tracking_number' => $trackingNumber,
+                        'title' => $title,
+                        'description' => $description,
+                        'price' => floatval($amount),
+                        'image_key' => $imageKey
+                    ];
+                    
+                    // Prepare item owner data
+                    $itemOwner = [
+                        'id' => $currentUser['id'],
+                        'name' => $currentUser['name'],
+                        'email' => $currentUser['email']
+                    ];
+                    
+                    // Send notifications
+                    $emailService->sendNewListingNotifications($itemForEmail, $itemOwner);
+                }
+            } catch (Exception $e) {
+                // Log error but don't fail the item posting process
+                error_log("Failed to send new listing notifications for item $trackingNumber: " . $e->getMessage());
+            }
             
             setFlashMessage("Your item has been posted successfully! Tracking number: {$trackingNumber}", 'success');
             redirect('items');

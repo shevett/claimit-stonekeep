@@ -70,6 +70,18 @@ $flashMessage = showFlashMessage();
                         <small class="form-help">When enabled, you'll receive email notifications when someone claims your items</small>
                     </div>
 
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="newListingNotifications" name="newListingNotifications" <?php 
+                                if (getUserNewListingNotifications($currentUser['id'])) {
+                                    echo 'checked';
+                                }
+                            ?>>
+                            <span class="checkbox-text">Notify me of any new listings</span>
+                        </label>
+                        <small class="form-help">When enabled, you'll receive email notifications whenever anyone posts a new item</small>
+                    </div>
+
                     <?php if (isAdmin()): ?>
                     <div class="form-group admin-section">
                         <div class="admin-badge">
@@ -361,6 +373,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const displayName = document.getElementById('displayName').value.trim();
         const showGoneItems = document.getElementById('showGoneItems').checked;
         const emailNotifications = document.getElementById('emailNotifications').checked;
+        const newListingNotifications = document.getElementById('newListingNotifications').checked;
         const sendTestEmail = document.getElementById('sendTestEmail') ? document.getElementById('sendTestEmail').checked : false;
         
         if (!displayName) {
@@ -382,6 +395,7 @@ document.addEventListener('DOMContentLoaded', function() {
             body: 'display_name=' + encodeURIComponent(displayName) + 
                   (showGoneItems ? '&show_gone_items=on' : '') +
                   (emailNotifications ? '&email_notifications=on' : '') +
+                  (newListingNotifications ? '&new_listing_notifications=on' : '') +
                   (sendTestEmail ? '&send_test_email=on' : '')
         })
         .then(response => response.json())

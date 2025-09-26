@@ -680,6 +680,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'settings' && isset($_GET['action'
         $displayName = trim($_POST['display_name'] ?? '');
         $showGoneItems = isset($_POST['show_gone_items']) && $_POST['show_gone_items'] === 'on';
         $emailNotifications = isset($_POST['email_notifications']) && $_POST['email_notifications'] === 'on';
+        $newListingNotifications = isset($_POST['new_listing_notifications']) && $_POST['new_listing_notifications'] === 'on';
         $sendTestEmail = isset($_POST['send_test_email']) && $_POST['send_test_email'] === 'on';
         
         if (empty($displayName)) {
@@ -700,6 +701,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'settings' && isset($_GET['action'
                 'display_name' => $displayName,
                 'show_gone_items' => $showGoneItems ? 'yes' : 'no',
                 'email_notifications' => $emailNotifications ? 'yes' : 'no',
+                'new_listing_notifications' => $newListingNotifications ? 'yes' : 'no',
                 'email' => $currentUser['email'],
                 'updated_at' => date('Y-m-d H:i:s'),
                 'updated_timestamp' => time()
