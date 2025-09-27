@@ -56,6 +56,7 @@ config/secrets.php
 .env.production
 config/aws-credentials.php
 config/google-oauth.php
+config/smtp-config.php
 aws-credentials.json
 *.pem
 *.key
