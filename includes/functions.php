@@ -290,6 +290,21 @@ function getAllItemsEfficiently($includeGoneItems = false) {
             $items = [];
             $yamlObjects = [];
             
+            // Create image lookup table for O(1) access instead of O(n) searches
+            $lookupStartTime = microtime(true);
+            $imageLookup = [];
+            foreach ($objects as $object) {
+                if (str_starts_with($object['key'], 'images/') && !str_ends_with($object['key'], '.yaml')) {
+                    // Store image key without 'images/' prefix for easy lookup
+                    $imageKey = str_replace('images/', '', $object['key']);
+                    $imageLookup[$imageKey] = $object['key'];
+                }
+            }
+            
+            $lookupEndTime = microtime(true);
+            $lookupTime = round(($lookupEndTime - $lookupStartTime) * 1000, 2);
+            debugLog("Created image lookup table with " . count($imageLookup) . " images in {$lookupTime}ms");
+            
             // Filter YAML files first
             foreach ($objects as $object) {
                 if (str_ends_with($object['key'], '.yaml')) {
@@ -333,6 +348,24 @@ function getAllItemsEfficiently($includeGoneItems = false) {
             $processStartTime = microtime(true);
             debugLog("Performance: Starting YAML processing for " . count($yamlObjects) . " files");
             
+            // Pre-process all YAML data to extract claims information
+            $claimsData = [];
+            foreach ($yamlObjects as $object) {
+                $trackingNumber = basename($object['key'], '.yaml');
+                $yamlContent = $yamlContents[$object['key']] ?? null;
+                if ($yamlContent) {
+                    $data = parseSimpleYaml($yamlContent);
+                    if ($data && isset($data['claims'])) {
+                        $claimsData[$trackingNumber] = $data['claims'];
+                    } else {
+                        $claimsData[$trackingNumber] = [];
+                    }
+                } else {
+                    $claimsData[$trackingNumber] = [];
+                }
+            }
+            debugLog("Pre-processed claims data for " . count($claimsData) . " items");
+            
             foreach ($yamlObjects as $object) {
                 try {
                     // Extract tracking number from filename
@@ -357,17 +390,14 @@ function getAllItemsEfficiently($includeGoneItems = false) {
                         $title = $data['title'] ?? $data['description'];
                         $description = $data['description'];
                         
-                        // Check for image (optimized - assume common extensions)
+                        // Check for image using fast O(1) lookup instead of O(n) search
                         $imageKey = null;
                         $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
                         foreach ($imageExtensions as $ext) {
-                            $possibleImageKey = 'images/' . $trackingNumber . '.' . $ext;
-                            // Check if this image exists in our objects list (no additional API call)
-                            foreach ($objects as $imgObject) {
-                                if ($imgObject['key'] === $possibleImageKey) {
-                                    $imageKey = $trackingNumber . '.' . $ext; // Store without images/ prefix for getCloudFrontUrl
-                                    break 2;
-                                }
+                            $possibleImageKey = $trackingNumber . '.' . $ext;
+                            if (isset($imageLookup[$possibleImageKey])) {
+                                $imageKey = $possibleImageKey; // Store without images/ prefix for getCloudFrontUrl
+                                break;
                             }
                         }
                         
@@ -381,18 +411,38 @@ function getAllItemsEfficiently($includeGoneItems = false) {
                         $isItemGone = isItemGone($data);
                         $canEditItem = canUserEditItem($data['user_id'] ?? null);
                         
-                        // Pre-compute claim data to avoid AWS calls during template rendering
+                        // Pre-compute claim data using pre-processed data (no AWS calls!)
                         // Always compute claim data so logged-out users can see claim status
-                        $activeClaims = getActiveClaims($trackingNumber);
-                        $primaryClaim = getPrimaryClaim($trackingNumber);
+                        $allClaims = $claimsData[$trackingNumber] ?? [];
+                        $activeClaims = [];
+                        foreach ($allClaims as $claim) {
+                            $status = $claim['status'] ?? 'active';
+                            if ($status === 'active') {
+                                $activeClaims[] = $claim;
+                            }
+                        }
+                        // Sort by claim date (oldest first)
+                        usort($activeClaims, function($a, $b) {
+                            $aDate = $a['claimed_at'] ?? '';
+                            $bDate = $b['claimed_at'] ?? '';
+                            return strcmp($aDate, $bDate);
+                        });
+                        $primaryClaim = !empty($activeClaims) ? $activeClaims[0] : null;
                         
                         // User-specific claim data (only for logged-in users)
                         $isUserClaimed = false;
                         $canUserClaim = false;
                         $currentUser = getCurrentUser();
                         if ($currentUser) {
-                            $isUserClaimed = isUserClaimed($trackingNumber, $currentUser['id']);
-                            $canUserClaim = canUserClaim($trackingNumber, $currentUser['id']);
+                            // Check if user has claimed this item using pre-processed data
+                            foreach ($activeClaims as $claim) {
+                                if ($claim['user_id'] === $currentUser['id']) {
+                                    $isUserClaimed = true;
+                                    break;
+                                }
+                            }
+                            // User can claim if item is not gone and they haven't claimed it
+                            $canUserClaim = !$isItemGone && !$isUserClaimed;
                         }
                         
                         $items[] = [
@@ -1311,6 +1361,458 @@ function convertToYaml($data) {
     }
     
     return $yaml;
+}
+
+/**
+ * Get all items posted by a specific user (optimized version)
+ * Uses the same efficient pattern as getAllItemsEfficiently
+ */
+function getUserItemsEfficiently($userId, $includeGoneItems = false) {
+    static $userItemsCache = [];
+    static $cacheTime = [];
+    static $cacheKey = null;
+    
+    // Create cache key based on parameters
+    $currentCacheKey = md5($userId . '_' . ($includeGoneItems ? 'with_gone' : 'without_gone'));
+    
+    // Use longer cache for better performance (5 minutes)
+    $cacheExpiry = 300; // 5 minutes cache for user items
+    
+    // Check cache first (only if cache key matches)
+    if (isset($userItemsCache[$currentCacheKey]) && isset($cacheTime[$currentCacheKey]) && (time() - $cacheTime[$currentCacheKey]) < $cacheExpiry) {
+        return $userItemsCache[$currentCacheKey];
+    }
+    
+    try {
+        // Initialize AWS service only when actually needed
+        $awsService = getAwsService();
+        if (!$awsService) {
+            throw new Exception('AWS service not available');
+        }
+        
+        // Single API call to get all objects
+        $result = $awsService->listObjects('', 1000);
+        $objects = $result['objects'] ?? [];
+        
+        $items = [];
+        $yamlObjects = [];
+        
+        // Create image lookup table for O(1) access instead of O(n) searches
+        $lookupStartTime = microtime(true);
+        $imageLookup = [];
+        foreach ($objects as $object) {
+            if (str_starts_with($object['key'], 'images/') && !str_ends_with($object['key'], '.yaml')) {
+                // Store image key without 'images/' prefix for easy lookup
+                $imageKey = str_replace('images/', '', $object['key']);
+                $imageLookup[$imageKey] = $object['key'];
+            }
+        }
+        
+        $lookupEndTime = microtime(true);
+        $lookupTime = round(($lookupEndTime - $lookupStartTime) * 1000, 2);
+        debugLog("Created image lookup table with " . count($imageLookup) . " images in {$lookupTime}ms");
+        
+        // Filter YAML files for this user
+        foreach ($objects as $object) {
+            if (str_ends_with($object['key'], '.yaml')) {
+                $yamlObjects[] = $object;
+            }
+        }
+        
+        debugLog("Found " . count($yamlObjects) . " YAML files to process for user {$userId}");
+        
+        // Load YAML files in batches of 20 for better performance
+        $yamlContents = [];
+        $loadStartTime = microtime(true);
+        $batchSize = 20;
+        $totalBatches = ceil(count($yamlObjects) / $batchSize);
+        
+        for ($batch = 0; $batch < $totalBatches; $batch++) {
+            $batchStart = $batch * $batchSize;
+            $batchEnd = min($batchStart + $batchSize, count($yamlObjects));
+            $batchObjects = array_slice($yamlObjects, $batchStart, $batchEnd - $batchStart);
+            
+            $batchStartTime = microtime(true);
+            foreach ($batchObjects as $object) {
+                try {
+                    $yamlObject = $awsService->getObject($object['key']);
+                    $yamlContents[$object['key']] = $yamlObject['content'];
+                } catch (Exception $e) {
+                    error_log("Failed to load YAML file {$object['key']}: " . $e->getMessage());
+                    $yamlContents[$object['key']] = null;
+                }
+            }
+            $batchEndTime = microtime(true);
+            $batchTime = round(($batchEndTime - $batchStartTime) * 1000, 2);
+            debugLog("Batch " . ($batch + 1) . "/{$totalBatches}: Loaded " . count($batchObjects) . " files in {$batchTime}ms");
+        }
+        
+        $loadEndTime = microtime(true);
+        $totalLoadTime = round(($loadEndTime - $loadStartTime) * 1000, 2);
+        debugLog("Total: Loaded " . count($yamlContents) . " YAML files in {$totalLoadTime}ms across {$totalBatches} batches");
+        
+        // Process all YAML files
+        $processStartTime = microtime(true);
+        debugLog("Performance: Starting YAML processing for " . count($yamlObjects) . " files");
+        
+        // Pre-process all YAML data to extract claims information
+        $claimsData = [];
+        foreach ($yamlObjects as $object) {
+            $trackingNumber = basename($object['key'], '.yaml');
+            $yamlContent = $yamlContents[$object['key']] ?? null;
+            if ($yamlContent) {
+                $data = parseSimpleYaml($yamlContent);
+                if ($data && isset($data['claims'])) {
+                    $claimsData[$trackingNumber] = $data['claims'];
+                } else {
+                    $claimsData[$trackingNumber] = [];
+                }
+            } else {
+                $claimsData[$trackingNumber] = [];
+            }
+        }
+        debugLog("Pre-processed claims data for " . count($claimsData) . " items");
+        
+        foreach ($yamlObjects as $object) {
+            try {
+                // Extract tracking number from filename
+                $trackingNumber = basename($object['key'], '.yaml');
+                
+                // Get YAML content from bulk loaded data
+                $yamlContent = $yamlContents[$object['key']] ?? null;
+                if (!$yamlContent) {
+                    continue; // Skip if failed to load
+                }
+                
+                // Parse YAML content
+                $data = parseSimpleYaml($yamlContent);
+                if ($data && isset($data['description']) && isset($data['price']) && isset($data['contact_email'])) {
+                    
+                    // Only include items by this user
+                    $itemUserId = $data['user_id'] ?? 'legacy_user';
+                    if ($itemUserId !== $userId) {
+                        continue;
+                    }
+                    
+                    // Check if item is gone and should be filtered
+                    if (!$includeGoneItems && isItemGone($data)) {
+                        continue;
+                    }
+                    
+                    // Handle backward compatibility
+                    $title = $data['title'] ?? $data['description'];
+                    $description = $data['description'];
+                    
+                    // Check for image using fast O(1) lookup instead of O(n) search
+                    $imageKey = null;
+                    $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
+                    foreach ($imageExtensions as $ext) {
+                        $possibleImageKey = $trackingNumber . '.' . $ext;
+                        if (isset($imageLookup[$possibleImageKey])) {
+                            $imageKey = $possibleImageKey; // Store without images/ prefix for getCloudFrontUrl
+                            break;
+                        }
+                    }
+                    
+                    // Pre-generate image URL using CloudFront (much faster than presigned URLs)
+                    $imageUrl = null;
+                    if ($imageKey) {
+                        $imageUrl = getCloudFrontUrl($imageKey);
+                    }
+                    
+                    // Pre-compute item states to avoid expensive function calls during template rendering
+                    $isItemGone = isItemGone($data);
+                    $canEditItem = canUserEditItem($data['user_id'] ?? null);
+                    
+                    // Pre-compute claim data using pre-processed data (no AWS calls!)
+                    $allClaims = $claimsData[$trackingNumber] ?? [];
+                    $activeClaims = [];
+                    foreach ($allClaims as $claim) {
+                        $status = $claim['status'] ?? 'active';
+                        if ($status === 'active') {
+                            $activeClaims[] = $claim;
+                        }
+                    }
+                    // Sort by claim date (oldest first)
+                    usort($activeClaims, function($a, $b) {
+                        $aDate = $a['claimed_at'] ?? '';
+                        $bDate = $b['claimed_at'] ?? '';
+                        return strcmp($aDate, $bDate);
+                    });
+                    $primaryClaim = !empty($activeClaims) ? $activeClaims[0] : null;
+                    
+                    // User-specific claim data (only for logged-in users)
+                    $isUserClaimed = false;
+                    $canUserClaim = false;
+                    $currentUser = getCurrentUser();
+                    if ($currentUser) {
+                        // Check if user has claimed this item using pre-processed data
+                        foreach ($activeClaims as $claim) {
+                            if ($claim['user_id'] === $currentUser['id']) {
+                                $isUserClaimed = true;
+                                break;
+                            }
+                        }
+                        // User can claim if item is not gone and they haven't claimed it
+                        $canUserClaim = !$isItemGone && !$isUserClaimed;
+                    }
+                    
+                    $items[] = [
+                        'tracking_number' => $trackingNumber,
+                        'title' => $title,
+                        'description' => $description,
+                        'price' => $data['price'],
+                        'contact_email' => $data['contact_email'],
+                        'image_key' => $imageKey,
+                        'image_url' => $imageUrl,
+                        'image_width' => $data['image_width'] ?? null,
+                        'image_height' => $data['image_height'] ?? null,
+                        'posted_date' => $data['submitted_at'] ?? 'Unknown',
+                        'yaml_key' => $object['key'],
+                        'claimed_by' => $data['claimed_by'] ?? null,
+                        'claimed_by_name' => $data['claimed_by_name'] ?? null,
+                        'claimed_at' => $data['claimed_at'] ?? null,
+                        'user_id' => $itemUserId,
+                        'user_name' => $data['user_name'] ?? 'Legacy User',
+                        'user_email' => $data['user_email'] ?? $data['contact_email'] ?? '',
+                        // Include all YAML fields
+                        'gone' => $data['gone'] ?? null,
+                        'gone_at' => $data['gone_at'] ?? null,
+                        'gone_by' => $data['gone_by'] ?? null,
+                        'relisted_at' => $data['relisted_at'] ?? null,
+                        'relisted_by' => $data['relisted_by'] ?? null,
+                        // Pre-computed claim data
+                        'active_claims' => $activeClaims,
+                        'primary_claim' => $primaryClaim,
+                        'is_user_claimed' => $isUserClaimed,
+                        'can_user_claim' => $canUserClaim,
+                        'is_item_gone' => $isItemGone,
+                        'can_edit_item' => $canEditItem,
+                        // Add claims data for stats
+                        'has_active_claims' => !empty($activeClaims),
+                        'claims_count' => count($activeClaims)
+                    ];
+                }
+            } catch (Exception $e) {
+                error_log("Error processing YAML file {$object['key']}: " . $e->getMessage());
+                continue;
+            }
+        }
+        
+        $processEndTime = microtime(true);
+        $processTime = round(($processEndTime - $processStartTime) * 1000, 2);
+        debugLog("Performance: Processed " . count($items) . " user items in {$processTime}ms");
+        
+        // Sort items by tracking number (newest first)
+        usort($items, function($a, $b) {
+            return strcmp($b['tracking_number'], $a['tracking_number']);
+        });
+        
+        // Cache the results
+        $userItemsCache[$currentCacheKey] = $items;
+        $cacheTime[$currentCacheKey] = time();
+        
+        return $items;
+        
+    } catch (Exception $e) {
+        error_log('Error in getUserItemsEfficiently: ' . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get all items that a user has claimed or is on the waiting list for (optimized version)
+ * Uses the same efficient pattern as getAllItemsEfficiently
+ */
+function getItemsClaimedByUserOptimized($userId) {
+    static $claimedItemsCache = [];
+    static $cacheTime = [];
+    static $cacheKey = null;
+    
+    // Create cache key based on user ID
+    $currentCacheKey = md5('claimed_' . $userId);
+    
+    // Use longer cache for better performance (5 minutes)
+    $cacheExpiry = 300; // 5 minutes cache for claimed items
+    
+    // Check cache first (only if cache key matches)
+    if (isset($claimedItemsCache[$currentCacheKey]) && isset($cacheTime[$currentCacheKey]) && (time() - $cacheTime[$currentCacheKey]) < $cacheExpiry) {
+        return $claimedItemsCache[$currentCacheKey];
+    }
+    
+    try {
+        // Initialize AWS service only when actually needed
+        $awsService = getAwsService();
+        if (!$awsService) {
+            throw new Exception('AWS service not available');
+        }
+        
+        // Single API call to get all objects
+        $result = $awsService->listObjects('', 1000);
+        $objects = $result['objects'] ?? [];
+        
+        $claimedItems = [];
+        $yamlObjects = [];
+        
+        // Create image lookup table for O(1) access instead of O(n) searches
+        $lookupStartTime = microtime(true);
+        $imageLookup = [];
+        foreach ($objects as $object) {
+            if (str_starts_with($object['key'], 'images/') && !str_ends_with($object['key'], '.yaml')) {
+                // Store image key without 'images/' prefix for easy lookup
+                $imageKey = str_replace('images/', '', $object['key']);
+                $imageLookup[$imageKey] = $object['key'];
+            }
+        }
+        
+        $lookupEndTime = microtime(true);
+        $lookupTime = round(($lookupEndTime - $lookupStartTime) * 1000, 2);
+        debugLog("Created image lookup table with " . count($imageLookup) . " images in {$lookupTime}ms");
+        
+        // Filter YAML files
+        foreach ($objects as $object) {
+            if (str_ends_with($object['key'], '.yaml')) {
+                $yamlObjects[] = $object;
+            }
+        }
+        
+        debugLog("Found " . count($yamlObjects) . " YAML files to process for claimed items by user {$userId}");
+        
+        // Load YAML files in batches of 20 for better performance
+        $yamlContents = [];
+        $loadStartTime = microtime(true);
+        $batchSize = 20;
+        $totalBatches = ceil(count($yamlObjects) / $batchSize);
+        
+        for ($batch = 0; $batch < $totalBatches; $batch++) {
+            $batchStart = $batch * $batchSize;
+            $batchEnd = min($batchStart + $batchSize, count($yamlObjects));
+            $batchObjects = array_slice($yamlObjects, $batchStart, $batchEnd - $batchStart);
+            
+            $batchStartTime = microtime(true);
+            foreach ($batchObjects as $object) {
+                try {
+                    $yamlObject = $awsService->getObject($object['key']);
+                    $yamlContents[$object['key']] = $yamlObject['content'];
+                } catch (Exception $e) {
+                    error_log("Failed to load YAML file {$object['key']}: " . $e->getMessage());
+                    $yamlContents[$object['key']] = null;
+                }
+            }
+            $batchEndTime = microtime(true);
+            $batchTime = round(($batchEndTime - $batchStartTime) * 1000, 2);
+            debugLog("Batch " . ($batch + 1) . "/{$totalBatches}: Loaded " . count($batchObjects) . " files in {$batchTime}ms");
+        }
+        
+        $loadEndTime = microtime(true);
+        $totalLoadTime = round(($loadEndTime - $loadStartTime) * 1000, 2);
+        debugLog("Total: Loaded " . count($yamlContents) . " YAML files in {$totalLoadTime}ms across {$totalBatches} batches");
+        
+        // Process all YAML files
+        $processStartTime = microtime(true);
+        debugLog("Performance: Starting YAML processing for claimed items");
+        
+        foreach ($yamlObjects as $object) {
+            try {
+                // Extract tracking number from filename
+                $trackingNumber = basename($object['key'], '.yaml');
+                
+                // Get YAML content from bulk loaded data
+                $yamlContent = $yamlContents[$object['key']] ?? null;
+                if (!$yamlContent) {
+                    continue; // Skip if failed to load
+                }
+                
+                // Parse YAML content
+                $data = parseSimpleYaml($yamlContent);
+                if (!$data || !isset($data['description']) || !isset($data['price']) || !isset($data['contact_email'])) {
+                    continue;
+                }
+                
+                // Check if user has claimed this item using pre-loaded data
+                $claims = $data['claims'] ?? [];
+                $userClaim = null;
+                $claimPosition = null;
+                $activeClaims = [];
+                
+                foreach ($claims as $claim) {
+                    $status = $claim['status'] ?? 'active';
+                    if ($status === 'active') {
+                        $activeClaims[] = $claim;
+                        if ($claim['user_id'] === $userId) {
+                            $userClaim = $claim;
+                            $claimPosition = count($activeClaims); // 1-based position
+                        }
+                    }
+                }
+                
+                if ($userClaim) {
+                    // Check for image using fast O(1) lookup instead of O(n) search
+                    $imageKey = null;
+                    $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
+                    foreach ($imageExtensions as $ext) {
+                        $possibleImageKey = $trackingNumber . '.' . $ext;
+                        if (isset($imageLookup[$possibleImageKey])) {
+                            $imageKey = $possibleImageKey;
+                            break;
+                        }
+                    }
+                    
+                    // Generate image URL using CloudFront
+                    $imageUrl = null;
+                    if ($imageKey) {
+                        $imageUrl = getCloudFrontUrl($imageKey);
+                    }
+                    
+                    $title = $data['title'] ?? $data['description'] ?? 'Untitled';
+                    $description = $data['description'];
+                    
+                    $claimedItems[] = [
+                        'tracking_number' => $trackingNumber,
+                        'title' => $title,
+                        'description' => $description,
+                        'price' => $data['price'],
+                        'contact_email' => $data['contact_email'],
+                        'image_key' => $imageKey,
+                        'image_url' => $imageUrl,
+                        'image_width' => $data['image_width'] ?? null,
+                        'image_height' => $data['image_height'] ?? null,
+                        'posted_date' => $data['submitted_at'] ?? 'Unknown',
+                        'yaml_key' => $object['key'],
+                        'user_id' => $data['user_id'] ?? 'legacy_user',
+                        'user_name' => $data['user_name'] ?? 'Legacy User',
+                        'user_email' => $data['user_email'] ?? $data['contact_email'] ?? '',
+                        'claim' => $userClaim,
+                        'claim_position' => $claimPosition,
+                        'is_primary_claim' => $claimPosition === 1,
+                        'total_claims' => count($activeClaims)
+                    ];
+                }
+            } catch (Exception $e) {
+                error_log("Error processing YAML file {$object['key']}: " . $e->getMessage());
+                continue;
+            }
+        }
+        
+        $processEndTime = microtime(true);
+        $processTime = round(($processEndTime - $processStartTime) * 1000, 2);
+        debugLog("Performance: Processed " . count($claimedItems) . " claimed items in {$processTime}ms");
+        
+        // Sort items by tracking number (newest first)
+        usort($claimedItems, function($a, $b) {
+            return strcmp($b['tracking_number'], $a['tracking_number']);
+        });
+        
+        // Cache the results
+        $claimedItemsCache[$currentCacheKey] = $claimedItems;
+        $cacheTime[$currentCacheKey] = time();
+        
+        return $claimedItems;
+        
+    } catch (Exception $e) {
+        error_log('Error in getItemsClaimedByUserOptimized: ' . $e->getMessage());
+        return [];
+    }
 }
 
 /**

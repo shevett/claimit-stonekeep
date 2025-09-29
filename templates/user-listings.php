@@ -14,132 +14,23 @@ $userName = '';
 $userEmail = '';
 
 try {
-    $awsService = getAwsService();
-    if (!$awsService) {
-        throw new Exception('AWS service not available');
+    // Check if user wants to see gone items
+    $currentUser = getCurrentUser();
+    $showGoneItems = $currentUser ? getUserShowGoneItems($currentUser['id']) : false;
+    
+    // Use the optimized function to get user items
+    $items = getUserItemsEfficiently($userId, $showGoneItems);
+    
+    // Extract user info from first item if available
+    if (!empty($items)) {
+        $userName = $items[0]['user_name'] ?? 'Legacy User';
+        $userEmail = $items[0]['user_email'] ?? '';
     }
     
-    $result = $awsService->listObjects();
-    $objects = $result['objects'] ?? [];
+    // Get items claimed by this user using optimized approach
+    // We can reuse the data already loaded by getUserItemsEfficiently
+    $claimedItems = getItemsClaimedByUserOptimized($userId);
     
-    if (!empty($objects)) {
-        foreach ($objects as $object) {
-            // Only process YAML files
-            if (!str_ends_with($object['key'], '.yaml')) {
-                continue;
-            }
-            
-            try {
-                $trackingNumber = basename($object['key'], '.yaml');
-                
-                // Get YAML content
-                $yamlObject = $awsService->getObject($object['key']);
-                $yamlContent = $yamlObject['content'];
-                
-                // Parse YAML content
-                $data = parseSimpleYaml($yamlContent);
-                if ($data && isset($data['description']) && isset($data['price']) && isset($data['contact_email'])) {
-                    // Only include items by this user
-                    $itemUserId = $data['user_id'] ?? 'legacy_user';
-                    if ($itemUserId !== $userId) {
-                        continue;
-                    }
-                    
-                    // Store user info from first item
-                    if (empty($userName)) {
-                        $userName = $data['user_name'] ?? 'Legacy User';
-                        $userEmail = $data['user_email'] ?? $data['contact_email'] ?? '';
-                    }
-                    
-                    // Check if corresponding image exists
-                    $imageKey = null;
-                    $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
-                    foreach ($imageExtensions as $ext) {
-                        $possibleImageKey = 'images/' . $trackingNumber . '.' . $ext;
-                        foreach ($objects as $imgObj) {
-                            if ($imgObj['key'] === $possibleImageKey) {
-                                $imageKey = $trackingNumber . '.' . $ext; // Store without images/ prefix for getCloudFrontUrl
-                                break 2;
-                            }
-                        }
-                    }
-                    
-                    $title = $data['title'] ?? $data['description'] ?? 'Untitled';
-                    $description = $data['description'];
-                    
-                    // Check if item should be filtered out based on gone status
-                    $currentUser = getCurrentUser();
-                    $showGoneItems = $currentUser ? getUserShowGoneItems($currentUser['id']) : false;
-                    $isItemGone = isItemGone($data);
-                    
-                    // Skip gone items unless user wants to see them
-                    if ($isItemGone && !$showGoneItems) {
-                        continue;
-                    }
-                    
-                    // Check for active claims
-                    $claims = $data['claims'] ?? [];
-                    $hasActiveClaims = false;
-                    foreach ($claims as $claim) {
-                        $status = $claim['status'] ?? 'active';
-                        if ($status === 'active') {
-                            $hasActiveClaims = true;
-                            break;
-                        }
-                    }
-                    
-                    // Generate image URL using CloudFront
-                    $imageUrl = null;
-                    if ($imageKey) {
-                        $imageUrl = getCloudFrontUrl($imageKey);
-                    }
-                    
-                    $items[] = [
-                        'tracking_number' => $trackingNumber,
-                        'title' => $title,
-                        'description' => $description,
-                        'price' => $data['price'],
-                        'contact_email' => $data['contact_email'],
-                        'image_key' => $imageKey,
-                        'image_url' => $imageUrl,
-                        'image_width' => $data['image_width'] ?? null,
-                        'image_height' => $data['image_height'] ?? null,
-                        'posted_date' => $data['submitted_at'] ?? 'Unknown',
-                        'yaml_key' => $object['key'],
-                        'claimed_by' => $data['claimed_by'] ?? null,
-                        'claimed_by_name' => $data['claimed_by_name'] ?? null,
-                        'claimed_at' => $data['claimed_at'] ?? null,
-                        'user_id' => $itemUserId,
-                        'user_name' => $data['user_name'] ?? 'Legacy User',
-                        'user_email' => $data['user_email'] ?? $data['contact_email'] ?? '',
-                        // Include all YAML fields
-                        'gone' => $data['gone'] ?? null,
-                        'gone_at' => $data['gone_at'] ?? null,
-                        'gone_by' => $data['gone_by'] ?? null,
-                        'relisted_at' => $data['relisted_at'] ?? null,
-                        'relisted_by' => $data['relisted_by'] ?? null,
-                        // Add claims data for stats
-                        'has_active_claims' => $hasActiveClaims,
-                        'claims_count' => count(array_filter($claims, function($claim) {
-                            $status = $claim['status'] ?? 'active';
-                            return $status === 'active';
-                        }))
-                    ];
-                }
-            } catch (Exception $e) {
-                // Skip invalid YAML files
-                continue;
-            }
-        }
-        
-        // Sort items by tracking number (newest first)
-        usort($items, function($a, $b) {
-            return strcmp($b['tracking_number'], $a['tracking_number']);
-        });
-        
-        // Get items claimed by this user
-        $claimedItems = getItemsClaimedByUser($userId);
-    }
 } catch (Exception $e) {
     $error = $e->getMessage();
 }
