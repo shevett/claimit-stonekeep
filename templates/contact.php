@@ -1,7 +1,6 @@
-<div class="page-header">
+<div class="page-header compact">
     <div class="container">
         <h1>Contact Us</h1>
-        <p class="page-subtitle">Get in touch with our support team</p>
     </div>
 </div>
 

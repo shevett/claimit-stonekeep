@@ -1239,12 +1239,12 @@ $performanceData = [
                     })
                     .catch(error => {
                         console.error('Error loading items:', error);
-                        loadingIndicator.innerHTML = '<p>Error loading items: ' + error.message + '. Please refresh the page.</p>';
+                        loadingIndicator.innerHTML = '<div style="text-align: center; padding: 1rem;"><p style="color: var(--red-600); font-weight: 500;">Error loading items: ' + error.message + '</p><p style="color: var(--gray-600); font-size: 0.9rem; margin-top: 0.5rem;">Please refresh the page to try again.</p></div>';
                     });
             } else {
                 console.error('Could not find items-grid or loading-indicator elements');
                 if (loadingIndicator) {
-                    loadingIndicator.innerHTML = '<p>Error: Could not find required elements</p>';
+                    loadingIndicator.innerHTML = '<div style="text-align: center; padding: 1rem;"><p style="color: var(--red-600); font-weight: 500;">Error: Could not find required elements</p><p style="color: var(--gray-600); font-size: 0.9rem; margin-top: 0.5rem;">Please refresh the page to try again.</p></div>';
                 }
             }
         });

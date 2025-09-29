@@ -58,7 +58,6 @@ $flashMessage = showFlashMessage();
 <div class="page-header">
     <div class="container">
         <h1>Welcome to ClaimIt</h1>
-        <p class="page-subtitle">Browse available items or post something new</p>
         <div class="hero-buttons" style="margin-top: 1rem;">
             <a href="?page=claim" class="btn btn-primary">Post a New Item</a>
         </div>
@@ -81,7 +80,7 @@ $flashMessage = showFlashMessage();
             <div class="items-grid" id="items-grid">
                 <div class="loading-indicator" id="loading-indicator">
                     <div class="spinner"></div>
-                    <p>Loading items...</p>
+                    <p>Loading items<span class="loading-dots"><span></span><span></span><span></span></span></p>
                 </div>
             </div>
             

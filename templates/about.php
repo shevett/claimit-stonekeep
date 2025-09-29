@@ -1,4 +1,4 @@
-<div class="page-header">
+<div class="page-header compact">
     <div class="container">
         <h1>About ClaimIt</h1>
     </div>

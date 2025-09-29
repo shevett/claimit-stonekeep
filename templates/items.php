@@ -3,10 +3,9 @@
 // Check if AWS credentials are configured
 if (!hasAwsCredentials()) {
     ?>
-    <div class="page-header">
+    <div class="page-header compact">
         <div class="container">
             <h1>S3 Assets</h1>
-            <p class="page-subtitle">AWS S3 bucket file management</p>
         </div>
     </div>
     
@@ -119,10 +118,9 @@ if ($presignedUrl) {
 }
 ?>
 
-<div class="page-header">
+<div class="page-header compact">
     <div class="container">
         <h1>Available Items</h1>
-        <p class="page-subtitle">Browse items posted for sale or for giveaway</p>
     </div>
 </div>
 
@@ -156,18 +154,17 @@ if ($presignedUrl) {
                 <p>No items available at the moment.</p>
             </div>
         <?php else: ?>
-                <div class="items-grid">
-                    <?php foreach ($items as $item): ?>
-                        <?php
-                        // Set context for the unified template
-                        $context = 'listing';
-                        $isOwnListings = false;
-                        $currentUser = $currentUser ?? null;
-                        ?>
-                        <?php include __DIR__ . '/item-card.php'; ?>
-                    <?php endforeach; ?>
-                </div>
-                
+            <div class="items-grid">
+                <?php foreach ($items as $item): ?>
+                    <?php
+                    // Set context for the unified template
+                    $context = 'listing';
+                    $isOwnListings = false;
+                    $currentUser = $currentUser ?? null;
+                    ?>
+                    <?php include __DIR__ . '/item-card.php'; ?>
+                <?php endforeach; ?>
+            </div>
         <?php endif; ?>
     </div>
 </div>
@@ -846,4 +843,4 @@ function showMessage(message, type) {
         width: 100%;
     }
 }
-</style> 
+</style>
