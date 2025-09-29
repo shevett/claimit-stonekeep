@@ -321,6 +321,13 @@ $flashMessage = showFlashMessage();
                                 </div>
                                 <?php if ($isOwnItem): ?>
                                     <div class="waitlist-actions">
+                                        <?php if ($claim['user_email']): ?>
+                                            <a href="mailto:<?php echo escape($claim['user_email']); ?>?subject=Regarding your claim on <?php echo escape($item['title']); ?>&body=Hi <?php echo escape($claim['user_name']); ?>,%0D%0A%0D%0AI'm contacting you about your claim on my item: <?php echo escape($item['title']); ?>%0D%0A%0D%0A" 
+                                               class="btn btn-sm btn-outline-primary mailto-btn" 
+                                               title="Email <?php echo escape($claim['user_name']); ?>">
+                                                ✉️
+                                            </a>
+                                        <?php endif; ?>
                                         <button onclick="removeClaimByOwner('<?php echo escape($item['tracking_number']); ?>', '<?php echo escape($claim['user_id']); ?>')" 
                                                 class="btn btn-sm btn-danger" 
                                                 title="Remove <?php 
@@ -785,6 +792,41 @@ $flashMessage = showFlashMessage();
 
 .waitlist-actions {
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.mailto-btn {
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    height: 2rem;
+    border: 1px solid #d1fae5;
+    color: #065f46;
+    background: #d1fae5;
+    transition: all 0.2s ease;
+    border-radius: var(--radius-sm);
+}
+
+.mailto-btn:hover {
+    background: #a7f3d0;
+    color: #064e3b;
+    text-decoration: none;
+}
+
+.waitlist-actions .btn-danger {
+    background: #d1fae5;
+    border-color: #d1fae5;
+    color: #065f46;
+}
+
+.waitlist-actions .btn-danger:hover {
+    background: #a7f3d0;
+    border-color: #a7f3d0;
+    color: #064e3b;
 }
 
 .btn-sm {
