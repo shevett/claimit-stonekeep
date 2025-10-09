@@ -1074,10 +1074,18 @@ function rotateImage(trackingNumber) {
             // Show success message
             showMessage(data.message, 'success');
             
-            // Reload the page to show the rotated image
+            // Update the image with cache-busting parameter
+            const img = document.querySelector('.detail-image');
+            if (img && data.cache_buster) {
+                const currentSrc = img.src;
+                const separator = currentSrc.includes('?') ? '&' : '?';
+                img.src = currentSrc + separator + 'v=' + data.cache_buster;
+            }
+            
+            // Also reload the page after a short delay to ensure everything is fresh
             setTimeout(() => {
                 window.location.reload();
-            }, 1000);
+            }, 1500);
         } else {
             // Show error message
             showMessage(data.message, 'error');

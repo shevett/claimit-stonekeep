@@ -354,7 +354,7 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                 $imageKey = null;
                 $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
                 foreach ($imageExtensions as $ext) {
-                    $possibleImageKey = $trackingNumber . '.' . $ext;
+                    $possibleImageKey = 'images/' . $trackingNumber . '.' . $ext;
                     try {
                         if ($awsService->objectExists($possibleImageKey)) {
                             $imageKey = $possibleImageKey;
@@ -390,7 +390,14 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                     // Clear image URL cache since the image was modified
                     clearImageUrlCache();
                     
-                    echo json_encode(['success' => true, 'message' => 'Image rotated successfully']);
+                    // Add cache-busting timestamp to force browser refresh
+                    $cacheBuster = time();
+                    
+                    echo json_encode([
+                        'success' => true, 
+                        'message' => 'Image rotated successfully',
+                        'cache_buster' => $cacheBuster
+                    ]);
                     
                 } catch (Exception $e) {
                     echo json_encode(['success' => false, 'message' => 'Failed to rotate image: ' . $e->getMessage()]);
@@ -583,7 +590,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
                 $imageKey = null;
                 $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
                 foreach ($imageExtensions as $ext) {
-                    $possibleImageKey = $trackingNumber . '.' . $ext;
+                    $possibleImageKey = 'images/' . $trackingNumber . '.' . $ext;
                     try {
                         if ($awsService->objectExists($possibleImageKey)) {
                             $imageKey = $possibleImageKey;
@@ -619,7 +626,14 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
                     // Clear image URL cache since the image was modified
                     clearImageUrlCache();
                     
-                    echo json_encode(['success' => true, 'message' => 'Image rotated successfully']);
+                    // Add cache-busting timestamp to force browser refresh
+                    $cacheBuster = time();
+                    
+                    echo json_encode([
+                        'success' => true, 
+                        'message' => 'Image rotated successfully',
+                        'cache_buster' => $cacheBuster
+                    ]);
                     
                 } catch (Exception $e) {
                     echo json_encode(['success' => false, 'message' => 'Failed to rotate image: ' . $e->getMessage()]);
@@ -874,7 +888,7 @@ if ($page === 'item' && isset($_GET['id'])) {
                 $imageKey = null;
                 $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
                 foreach ($imageExtensions as $ext) {
-                    $possibleImageKey = $trackingNumber . '.' . $ext;
+                    $possibleImageKey = 'images/' . $trackingNumber . '.' . $ext;
                     try {
                         if ($awsService->objectExists($possibleImageKey)) {
                             $imageKey = $possibleImageKey;
