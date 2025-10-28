@@ -118,7 +118,14 @@ $flashMessage = showFlashMessage();
             <div class="item-detail-image">
                 <?php if ($item['image_key']): ?>
                     <?php 
-                        $imageUrl = getCloudFrontUrl($item['image_key']);
+                        // Use direct S3 URL if bypass_cdn flag is set (after image rotation)
+                        if (isset($_GET['bypass_cdn']) && $_GET['bypass_cdn'] === '1') {
+                            $awsService = getAwsService();
+                            $s3ImageKey = 'images/' . $item['image_key'];
+                            $imageUrl = $awsService->getPresignedUrl($s3ImageKey, 3600);
+                        } else {
+                            $imageUrl = getCloudFrontUrl($item['image_key']);
+                        }
                     ?>
                     <div class="image-container">
                         <img src="<?php echo escape($imageUrl); ?>" 
@@ -1074,18 +1081,22 @@ function rotateImage(trackingNumber) {
             // Show success message
             showMessage(data.message, 'success');
             
-            // Update the image with cache-busting parameter
+            // Use direct S3 URL to immediately show rotated image (bypasses CloudFront)
             const img = document.querySelector('.detail-image');
-            if (img && data.cache_buster) {
-                const currentSrc = img.src;
-                const separator = currentSrc.includes('?') ? '&' : '?';
-                img.src = currentSrc + separator + 'v=' + data.cache_buster;
+            if (img && data.direct_image_url) {
+                // Immediately replace with direct S3 URL
+                img.src = data.direct_image_url;
+                console.log("Image updated with direct S3 URL bypassing CloudFront");
             }
             
-            // Also reload the page after a short delay to ensure everything is fresh
+            // Reload the page after a short delay to ensure everything is fresh
+            // Use bypass_cdn flag to continue using direct S3 URLs while CloudFront invalidates
             setTimeout(() => {
-                window.location.reload();
-            }, 1500);
+                const url = new URL(window.location.href);
+                url.searchParams.set('bypass_cdn', '1');
+                url.searchParams.set('_', Date.now());
+                window.location.href = url.toString();
+            }, 2000);
         } else {
             // Show error message
             showMessage(data.message, 'error');

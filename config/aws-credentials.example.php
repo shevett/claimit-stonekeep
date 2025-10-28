@@ -20,6 +20,13 @@ return [
     's3' => [
         'bucket' => 'your-bucket-name-here',
         // Optional: prefix for organizing files
-        'prefix' => 'claimit/',
+        // 'prefix' => 'claimit/',
+    ],
+    
+    // CloudFront Configuration
+    // Required for cache invalidation when images are rotated
+    // Find your Distribution ID in AWS Console -> CloudFront -> Your Distribution -> General tab
+    'cloudfront' => [
+        'distribution_id' => 'YOUR_CLOUDFRONT_DISTRIBUTION_ID', // e.g., 'E1234ABCDEFGH'
     ]
 ]; 

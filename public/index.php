@@ -387,8 +387,23 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                     // Upload the rotated image back to S3
                     $result = $awsService->putObject($imageKey, $rotatedImageContent, $contentType);
                     
+                    // Invalidate CloudFront cache for this image
+                    // CloudFront serves images without the 'images/' prefix, so strip it for invalidation
+                    $cloudFrontPath = str_replace('images/', '', $imageKey);
+                    try {
+                        $invalidationResult = $awsService->createInvalidation([$cloudFrontPath]);
+                        error_log("CloudFront invalidation created for path: /{$cloudFrontPath} (ID: " . $invalidationResult['invalidation_id'] . ")");
+                    } catch (Exception $cfException) {
+                        // Log but don't fail - cache will eventually expire
+                        error_log("CloudFront invalidation failed (non-critical): " . $cfException->getMessage());
+                    }
+                    
                     // Clear image URL cache since the image was modified
                     clearImageUrlCache();
+                    
+                    // Generate a direct S3 presigned URL for immediate viewing (bypasses CloudFront)
+                    // This ensures user sees rotated image instantly while CloudFront invalidation propagates
+                    $directImageUrl = $awsService->getPresignedUrl($imageKey, 3600);
                     
                     // Add cache-busting timestamp to force browser refresh
                     $cacheBuster = time();
@@ -396,7 +411,8 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                     echo json_encode([
                         'success' => true, 
                         'message' => 'Image rotated successfully',
-                        'cache_buster' => $cacheBuster
+                        'cache_buster' => $cacheBuster,
+                        'direct_image_url' => $directImageUrl  // Direct S3 URL bypassing CloudFront
                     ]);
                     
                 } catch (Exception $e) {
@@ -623,8 +639,23 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
                     // Upload the rotated image back to S3
                     $result = $awsService->putObject($imageKey, $rotatedImageContent, $contentType);
                     
+                    // Invalidate CloudFront cache for this image
+                    // CloudFront serves images without the 'images/' prefix, so strip it for invalidation
+                    $cloudFrontPath = str_replace('images/', '', $imageKey);
+                    try {
+                        $invalidationResult = $awsService->createInvalidation([$cloudFrontPath]);
+                        error_log("CloudFront invalidation created for path: /{$cloudFrontPath} (ID: " . $invalidationResult['invalidation_id'] . ")");
+                    } catch (Exception $cfException) {
+                        // Log but don't fail - cache will eventually expire
+                        error_log("CloudFront invalidation failed (non-critical): " . $cfException->getMessage());
+                    }
+                    
                     // Clear image URL cache since the image was modified
                     clearImageUrlCache();
+                    
+                    // Generate a direct S3 presigned URL for immediate viewing (bypasses CloudFront)
+                    // This ensures user sees rotated image instantly while CloudFront invalidation propagates
+                    $directImageUrl = $awsService->getPresignedUrl($imageKey, 3600);
                     
                     // Add cache-busting timestamp to force browser refresh
                     $cacheBuster = time();
@@ -632,7 +663,8 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
                     echo json_encode([
                         'success' => true, 
                         'message' => 'Image rotated successfully',
-                        'cache_buster' => $cacheBuster
+                        'cache_buster' => $cacheBuster,
+                        'direct_image_url' => $directImageUrl  // Direct S3 URL bypassing CloudFront
                     ]);
                     
                 } catch (Exception $e) {

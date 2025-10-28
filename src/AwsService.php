@@ -3,6 +3,7 @@
 namespace ClaimIt;
 
 use Aws\S3\S3Client;
+use Aws\CloudFront\CloudFrontClient;
 use Aws\Exception\AwsException;
 
 /**
@@ -11,6 +12,7 @@ use Aws\Exception\AwsException;
 class AwsService
 {
     private S3Client $s3Client;
+    private ?CloudFrontClient $cloudFrontClient = null;
     private array $config;
     
     public function __construct()
@@ -21,6 +23,7 @@ class AwsService
         try {
             $this->loadConfig();
             $this->initializeS3Client();
+            $this->initializeCloudFrontClient();
         } finally {
             // Restore original error reporting
             error_reporting($oldErrorReporting);
@@ -63,6 +66,28 @@ class AwsService
             $this->s3Client = new S3Client($clientConfig);
         } catch (AwsException $e) {
             throw new \Exception('Failed to initialize AWS S3 client: ' . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Initialize CloudFront client with credentials
+     */
+    private function initializeCloudFrontClient(): void
+    {
+        try {
+            // Only initialize if CloudFront is configured
+            if (isset($this->config['cloudfront']['distribution_id'])) {
+                $clientConfig = [
+                    'version' => $this->config['version'],
+                    'region'  => $this->config['region'],
+                    'credentials' => $this->config['credentials']
+                ];
+                
+                $this->cloudFrontClient = new CloudFrontClient($clientConfig);
+            }
+        } catch (AwsException $e) {
+            // Log error but don't fail - CloudFront is optional
+            error_log('Failed to initialize AWS CloudFront client: ' . $e->getMessage());
         }
     }
     
@@ -320,6 +345,54 @@ class AwsService
             
         } catch (AwsException $e) {
             throw new \Exception('Failed to delete S3 object: ' . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Create a CloudFront cache invalidation for specific paths
+     * 
+     * @param array $paths Array of paths to invalidate (e.g., ['/images/12345.jpg'])
+     * @return array Invalidation result with ID and status
+     */
+    public function createInvalidation(array $paths): array
+    {
+        try {
+            if (!$this->cloudFrontClient) {
+                throw new \Exception('CloudFront client is not initialized');
+            }
+            
+            if (empty($this->config['cloudfront']['distribution_id'])) {
+                throw new \Exception('CloudFront distribution ID is not configured');
+            }
+            
+            if (empty($paths)) {
+                throw new \Exception('No paths provided for invalidation');
+            }
+            
+            // Ensure all paths start with /
+            $paths = array_map(function($path) {
+                return '/' . ltrim($path, '/');
+            }, $paths);
+            
+            $result = $this->cloudFrontClient->createInvalidation([
+                'DistributionId' => $this->config['cloudfront']['distribution_id'],
+                'InvalidationBatch' => [
+                    'CallerReference' => time() . '-' . uniqid(),
+                    'Paths' => [
+                        'Quantity' => count($paths),
+                        'Items' => $paths
+                    ]
+                ]
+            ]);
+            
+            return [
+                'invalidation_id' => $result['Invalidation']['Id'],
+                'status' => $result['Invalidation']['Status'],
+                'create_time' => $result['Invalidation']['CreateTime']->format('Y-m-d H:i:s')
+            ];
+            
+        } catch (AwsException $e) {
+            throw new \Exception('Failed to create CloudFront invalidation: ' . $e->getMessage());
         }
     }
 } 

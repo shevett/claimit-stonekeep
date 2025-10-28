@@ -266,6 +266,14 @@ function getAllItemsEfficiently($includeGoneItems = false) {
     static $cacheTime = null;
     static $cacheKey = null;
     
+    // Check if cache should be cleared
+    if (shouldClearItemsCache()) {
+        $itemsCache = null;
+        $cacheTime = null;
+        $cacheKey = null;
+        error_log('Items cache fully cleared');
+    }
+    
     // Create cache key based on parameters
     $currentCacheKey = md5($includeGoneItems ? 'with_gone' : 'without_gone');
     
@@ -517,6 +525,13 @@ function getCachedPresignedUrl($imageKey) {
     static $cacheTime = [];
     $cacheExpiry = 3600; // 1 hour cache for presigned URLs
     
+    // Check if cache should be cleared
+    if (shouldClearImageUrlCache()) {
+        $urlCache = [];
+        $cacheTime = [];
+        error_log('Presigned URL cache fully cleared');
+    }
+    
     $cacheKey = $imageKey;
     
     // Check cache first
@@ -559,13 +574,25 @@ function getCachedPresignedUrl($imageKey) {
  * This ensures fresh data after item updates
  */
 function clearItemsCache() {
-    // Clear the static cache variables
-    $reflection = new ReflectionFunction('getAllItemsEfficiently');
-    $staticVars = $reflection->getStaticVariables();
+    // PHP static variables can't be directly cleared from outside the function
+    // Instead, we'll use a global flag to force cache invalidation
+    global $__itemsCacheCleared;
+    $__itemsCacheCleared = true;
     
-    // Force cache refresh by setting cache time to 0
-    // This is a simple way to invalidate the cache
-    error_log('Items cache cleared - next request will fetch fresh data');
+    error_log('Items cache invalidation flag set - next request will fetch fresh data');
+}
+
+/**
+ * Check if items cache should be cleared
+ * Called from within getAllItemsEfficiently
+ */
+function shouldClearItemsCache() {
+    global $__itemsCacheCleared;
+    if (isset($__itemsCacheCleared) && $__itemsCacheCleared) {
+        $__itemsCacheCleared = false; // Reset flag
+        return true;
+    }
+    return false;
 }
 
 /**
@@ -573,11 +600,25 @@ function clearItemsCache() {
  * This ensures fresh URLs after image updates
  */
 function clearImageUrlCache() {
-    // Clear the static cache variables for presigned URLs
-    $reflection = new ReflectionFunction('getCachedPresignedUrl');
-    $staticVars = $reflection->getStaticVariables();
+    // PHP static variables can't be directly cleared from outside the function
+    // Instead, we'll use a global flag to force cache invalidation
+    global $__imageUrlCacheCleared;
+    $__imageUrlCacheCleared = true;
     
-    error_log('Image URL cache cleared - next request will generate fresh URLs');
+    error_log('Image URL cache invalidation flag set - next request will generate fresh URLs');
+}
+
+/**
+ * Check if image URL cache should be cleared
+ * Called from within getCachedPresignedUrl
+ */
+function shouldClearImageUrlCache() {
+    global $__imageUrlCacheCleared;
+    if (isset($__imageUrlCacheCleared) && $__imageUrlCacheCleared) {
+        $__imageUrlCacheCleared = false; // Reset flag
+        return true;
+    }
+    return false;
 }
 
 /**
