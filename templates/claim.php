@@ -75,8 +75,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if (empty($errors)) {
         try {
-            // Generate tracking number (reverse datestamp)
-            $trackingNumber = date('YmdHis');
+            // Generate tracking number (timestamp + random suffix for uniqueness)
+            $trackingNumber = date('YmdHis') . '-' . bin2hex(random_bytes(2));
             
             // Get AWS service
             $awsService = getAwsService();
