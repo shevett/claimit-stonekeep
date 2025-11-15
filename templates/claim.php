@@ -259,6 +259,7 @@ $flashMessage = showFlashMessage();
                 <label for="item_photo">Upload a picture of your item</label>
                 <input type="file" name="item_photo" id="item_photo" accept="image/*">
                 <small style="color: var(--gray-500); font-size: 0.875rem;">Accepted formats: JPG, PNG, GIF (max 50MB - will be automatically resized)</small>
+                <small style="color: var(--primary-600); font-size: 0.875rem; display: block; margin-top: 0.25rem;">💡 You can add more images later (up to 10 total)</small>
             </div>
 
             <div class="form-group">

@@ -2575,4 +2575,191 @@ function saveUserShowGoneItems($userId, $showGoneItems) {
     }
 }
 
+/**
+ * Get all images for a specific item
+ * Returns array of image keys sorted by index (primary first, then -1, -2, etc.)
+ * 
+ * @param string $trackingNumber The tracking number of the item
+ * @return array Array of image keys (without 'images/' prefix) or empty array
+ */
+function getItemImages($trackingNumber) {
+    try {
+        $awsService = getAwsService();
+        if (!$awsService) {
+            return [];
+        }
+        
+        // Get all objects in the images/ directory
+        $result = $awsService->listObjects('images/', 1000);
+        $objects = $result['objects'] ?? [];
+        
+        $images = [];
+        $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        
+        // Find all images matching this tracking number
+        foreach ($objects as $object) {
+            $key = $object['key'];
+            
+            // Check each extension
+            foreach ($imageExtensions as $ext) {
+                // Match primary image: images/TRACKINGNUM.ext
+                if ($key === "images/{$trackingNumber}.{$ext}") {
+                    $images[] = [
+                        'key' => str_replace('images/', '', $key),
+                        'index' => null, // Primary image has no index
+                        'full_key' => $key
+                    ];
+                    break;
+                }
+                
+                // Match additional images: images/TRACKINGNUM-N.ext
+                $pattern = "/^images\/" . preg_quote($trackingNumber, '/') . "-(\d+)\.{$ext}$/";
+                if (preg_match($pattern, $key, $matches)) {
+                    $images[] = [
+                        'key' => str_replace('images/', '', $key),
+                        'index' => (int)$matches[1],
+                        'full_key' => $key
+                    ];
+                    break;
+                }
+            }
+        }
+        
+        // Sort: primary first (null index), then by index number
+        usort($images, function($a, $b) {
+            if ($a['index'] === null) return -1;
+            if ($b['index'] === null) return 1;
+            return $a['index'] - $b['index'];
+        });
+        
+        // Return just the keys (without 'images/' prefix)
+        return array_map(function($img) {
+            return $img['key'];
+        }, $images);
+        
+    } catch (Exception $e) {
+        error_log("Error getting images for item {$trackingNumber}: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Extract image index from image key
+ * Returns null for primary image, integer for additional images
+ * 
+ * @param string $imageKey The image key (with or without 'images/' prefix)
+ * @return int|null The image index or null for primary
+ */
+function getImageIndex($imageKey) {
+    // Remove 'images/' prefix if present
+    $imageKey = str_replace('images/', '', $imageKey);
+    
+    // Pattern: TRACKINGNUM-INDEX.ext where tracking number is YmdHis or YmdHis-xxxx
+    // Format examples:
+    //   New format with random suffix:
+    //     20251115171627-5241.jpg -> null (primary, -5241 is the random suffix)
+    //     20251115171627-5241-1.jpg -> 1 (additional image)
+    //     20251115171627-5241-12.jpg -> 12 (additional image)
+    //   Old format without random suffix:
+    //     20251115171627.jpg -> null (primary)
+    //     20251115171627-1.jpg -> 1 (additional image)
+    //     20251115171627-12.jpg -> 12 (additional image)
+    
+    // First, check if it's a new format primary image: YmdHis-xxxx.ext (exactly 4 hex chars after dash)
+    if (preg_match('/^\d{14}-[a-f0-9]{4}\.[^.]+$/i', $imageKey)) {
+        return null; // Primary image with random suffix
+    }
+    
+    // Next, try to match new format additional image: YmdHis-xxxx-INDEX.ext
+    if (preg_match('/-[a-f0-9]{4}-(\d+)\.[^.]+$/i', $imageKey, $matches)) {
+        return (int)$matches[1];
+    }
+    
+    // Then, try to match old format additional image: YmdHis-INDEX.ext
+    // Only match if it's after exactly 14 digits (the YmdHis part)
+    if (preg_match('/^\d{14}-(\d+)\.[^.]+$/', $imageKey, $matches)) {
+        return (int)$matches[1];
+    }
+    
+    return null; // Primary image (old format without suffix)
+}
+
+/**
+ * Delete a specific image from S3
+ * Prevents deleting the primary/last image
+ * 
+ * @param string $trackingNumber The tracking number
+ * @param int|null $imageIndex The image index (null for primary)
+ * @return bool Success or failure
+ * @throws Exception If trying to delete primary or last image
+ */
+function deleteImageFromS3($trackingNumber, $imageIndex) {
+    $awsService = getAwsService();
+    if (!$awsService) {
+        throw new Exception('AWS service not available');
+    }
+    
+    // Get all images for this item
+    $images = getItemImages($trackingNumber);
+    
+    if (count($images) <= 1) {
+        throw new Exception('Cannot delete the last image. Items must have at least one image.');
+    }
+    
+    // Prevent deleting primary image
+    if ($imageIndex === null || $imageIndex === 0) {
+        throw new Exception('Cannot delete the primary image. Add a new image first, then delete this one.');
+    }
+    
+    // Find the image to delete
+    $imageToDelete = null;
+    foreach ($images as $imageKey) {
+        if (getImageIndex($imageKey) === $imageIndex) {
+            $imageToDelete = $imageKey;
+            break;
+        }
+    }
+    
+    if (!$imageToDelete) {
+        throw new Exception('Image not found');
+    }
+    
+    // Delete from S3
+    $fullKey = 'images/' . $imageToDelete;
+    $awsService->deleteObject($fullKey);
+    
+    // Invalidate CloudFront cache
+    try {
+        $awsService->createInvalidation([$imageToDelete]);
+    } catch (Exception $e) {
+        error_log("CloudFront invalidation failed for {$imageToDelete}: " . $e->getMessage());
+    }
+    
+    return true;
+}
+
+/**
+ * Get the next available image index for an item
+ * 
+ * @param string $trackingNumber The tracking number
+ * @return int The next available index (1, 2, 3, etc.)
+ */
+function getNextImageIndex($trackingNumber) {
+    $images = getItemImages($trackingNumber);
+    
+    if (empty($images)) {
+        return 1;
+    }
+    
+    $maxIndex = 0;
+    foreach ($images as $imageKey) {
+        $index = getImageIndex($imageKey);
+        if ($index !== null && $index > $maxIndex) {
+            $maxIndex = $index;
+        }
+    }
+    
+    return $maxIndex + 1;
+}
+
 ?> 

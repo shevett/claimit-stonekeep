@@ -203,13 +203,14 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['tr
 }
 
 // Handle AJAX claim requests before any HTML output
-if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_claim', 'remove_claim_by_owner', 'delete_item', 'edit_item', 'rotate_image', 'mark_gone', 'relist_item']) && isset($_POST['tracking_number'])) {
+if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_claim', 'remove_claim_by_owner', 'delete_item', 'edit_item', 'rotate_image', 'mark_gone', 'relist_item', 'upload_additional_image', 'delete_image']) && isset($_POST['tracking_number'])) {
     header('Content-Type: application/json');
     
     $trackingNumber = $_POST['tracking_number'];
     $action = $_POST['action'];
     
-    if (!preg_match('/^\d{14}$/', $trackingNumber)) {
+    // Support both old format (YmdHis) and new format (YmdHis-xxxx)
+    if (!preg_match('/^(\d{14}|\d{14}-[a-f0-9]{4})$/', $trackingNumber)) {
         echo json_encode(['success' => false, 'message' => 'Invalid tracking number']);
         exit;
     }
@@ -278,13 +279,19 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                 $yamlKey = $trackingNumber . '.yaml';
                 $awsService->deleteObject($yamlKey);
                 
-                // Delete the image if it exists
-                if (!empty($item['image_key'])) {
-                    $awsService->deleteObject($item['image_key']);
+                // Delete all images for this item
+                $allImages = getItemImages($trackingNumber);
+                foreach ($allImages as $imageKey) {
+                    try {
+                        $awsService->deleteObject('images/' . $imageKey);
+                    } catch (Exception $e) {
+                        error_log("Failed to delete image {$imageKey}: " . $e->getMessage());
+                    }
                 }
                 
-                // Clear items cache since we deleted an item
+                // Clear caches since we deleted an item
                 clearItemsCache();
+                clearImageUrlCache();
                 
                 echo json_encode(['success' => true, 'message' => 'Item deleted successfully']);
                 break;
@@ -344,30 +351,43 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                     exit;
                 }
                 
-                // Determine the image key by checking for image files with different extensions
+                // Get image index if provided (for rotating specific images)
+                $imageIndex = isset($_POST['image_index']) && $_POST['image_index'] !== 'null' ? intval($_POST['image_index']) : null;
+                
+                // Determine the image key using getItemImages helper
                 $awsService = getAwsService();
                 if (!$awsService) {
                     echo json_encode(['success' => false, 'message' => 'AWS service not available']);
                     exit;
                 }
                 
+                // Get all images for this item
+                $allImages = getItemImages($trackingNumber);
+                
+                if (empty($allImages)) {
+                    echo json_encode(['success' => false, 'message' => 'No images found for this item']);
+                    exit;
+                }
+                
+                // Find the specific image to rotate
                 $imageKey = null;
-                $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
-                foreach ($imageExtensions as $ext) {
-                    $possibleImageKey = 'images/' . $trackingNumber . '.' . $ext;
-                    try {
-                        if ($awsService->objectExists($possibleImageKey)) {
-                            $imageKey = $possibleImageKey;
+                
+                if ($imageIndex === null) {
+                    // Rotate primary image (first in the array)
+                    $imageKey = 'images/' . $allImages[0];
+                } else {
+                    // Rotate specific indexed image
+                    foreach ($allImages as $img) {
+                        if (getImageIndex($img) === $imageIndex) {
+                            $imageKey = 'images/' . $img;
                             break;
                         }
-                    } catch (Exception $e) {
-                        // Continue to next extension
                     }
                 }
                 
-                // Check if item has an image
+                // Check if we found the image
                 if (empty($imageKey)) {
-                    echo json_encode(['success' => false, 'message' => 'No image found for this item']);
+                    echo json_encode(['success' => false, 'message' => 'Image not found']);
                     exit;
                 }
                 
@@ -420,6 +440,122 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                 }
                 break;
                 
+            case 'upload_additional_image':
+                // Verify user owns this item
+                $item = getItem($trackingNumber);
+                if (!$item || !canUserEditItem($item['user_id'] ?? null)) {
+                    echo json_encode(['success' => false, 'message' => 'You can only add images to your own items']);
+                    exit;
+                }
+                
+                // Check if file was uploaded
+                if (!isset($_FILES['image_file']) || $_FILES['image_file']['error'] === UPLOAD_ERR_NO_FILE) {
+                    echo json_encode(['success' => false, 'message' => 'No image file provided']);
+                    exit;
+                }
+                
+                $uploadedFile = $_FILES['image_file'];
+                
+                // Validate upload
+                if ($uploadedFile['error'] !== UPLOAD_ERR_OK) {
+                    echo json_encode(['success' => false, 'message' => 'File upload error']);
+                    exit;
+                }
+                
+                // Validate file type
+                $imageExtension = strtolower(pathinfo($uploadedFile['name'], PATHINFO_EXTENSION));
+                if (!in_array($imageExtension, ['jpg', 'jpeg', 'png', 'gif'])) {
+                    echo json_encode(['success' => false, 'message' => 'Invalid file type. Only JPG, PNG, and GIF allowed']);
+                    exit;
+                }
+                
+                // Validate file size (50MB)
+                if ($uploadedFile['size'] > 52428800) {
+                    echo json_encode(['success' => false, 'message' => 'File too large. Maximum size is 50MB']);
+                    exit;
+                }
+                
+                // Check image count limit
+                $existingImages = getItemImages($trackingNumber);
+                if (count($existingImages) >= 10) {
+                    echo json_encode(['success' => false, 'message' => 'Maximum of 10 images per item']);
+                    exit;
+                }
+                
+                try {
+                    $awsService = getAwsService();
+                    if (!$awsService) {
+                        throw new Exception('AWS service not available');
+                    }
+                    
+                    // Get next available index
+                    $nextIndex = getNextImageIndex($trackingNumber);
+                    $imageKey = 'images/' . $trackingNumber . '-' . $nextIndex . '.' . $imageExtension;
+                    
+                    // Resize the image
+                    $tempResizedPath = tempnam(sys_get_temp_dir(), 'claimit_resized_');
+                    
+                    if (resizeImageToFitSize($uploadedFile['tmp_name'], $tempResizedPath, 512000)) {
+                        $imageContent = file_get_contents($tempResizedPath);
+                        $mimeType = mime_content_type($tempResizedPath);
+                        unlink($tempResizedPath);
+                    } else {
+                        error_log('Image resizing failed, using original image');
+                        $imageContent = file_get_contents($uploadedFile['tmp_name']);
+                        $mimeType = mime_content_type($uploadedFile['tmp_name']);
+                        if (file_exists($tempResizedPath)) {
+                            unlink($tempResizedPath);
+                        }
+                    }
+                    
+                    // Upload to S3
+                    $awsService->putObject($imageKey, $imageContent, $mimeType);
+                    
+                    // Clear caches
+                    clearImageUrlCache();
+                    clearItemsCache();
+                    
+                    echo json_encode([
+                        'success' => true,
+                        'message' => 'Image uploaded successfully',
+                        'image_key' => str_replace('images/', '', $imageKey)
+                    ]);
+                    
+                } catch (Exception $e) {
+                    echo json_encode(['success' => false, 'message' => 'Failed to upload image: ' . $e->getMessage()]);
+                }
+                break;
+                
+            case 'delete_image':
+                // Verify user owns this item
+                $item = getItem($trackingNumber);
+                if (!$item || !canUserEditItem($item['user_id'] ?? null)) {
+                    echo json_encode(['success' => false, 'message' => 'You can only delete images from your own items']);
+                    exit;
+                }
+                
+                // Get image index
+                if (!isset($_POST['image_index'])) {
+                    echo json_encode(['success' => false, 'message' => 'Image index not provided']);
+                    exit;
+                }
+                
+                $imageIndex = intval($_POST['image_index']);
+                
+                try {
+                    deleteImageFromS3($trackingNumber, $imageIndex);
+                    
+                    // Clear caches
+                    clearImageUrlCache();
+                    clearItemsCache();
+                    
+                    echo json_encode(['success' => true, 'message' => 'Image deleted successfully']);
+                    
+                } catch (Exception $e) {
+                    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+                }
+                break;
+                
             case 'mark_gone':
                 try {
                     markItemAsGone($trackingNumber);
@@ -466,7 +602,8 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
     $trackingNumber = $_POST['tracking_number'];
     $action = $_GET['action'];
     
-    if (!preg_match('/^\d{14}$/', $trackingNumber)) {
+    // Support both old format (YmdHis) and new format (YmdHis-xxxx)
+    if (!preg_match('/^(\d{14}|\d{14}-[a-f0-9]{4})$/', $trackingNumber)) {
         echo json_encode(['success' => false, 'message' => 'Invalid tracking number']);
         exit;
     }
@@ -535,13 +672,19 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
                 $yamlKey = $trackingNumber . '.yaml';
                 $awsService->deleteObject($yamlKey);
                 
-                // Delete the image if it exists
-                if (!empty($item['image_key'])) {
-                    $awsService->deleteObject($item['image_key']);
+                // Delete all images for this item
+                $allImages = getItemImages($trackingNumber);
+                foreach ($allImages as $imageKey) {
+                    try {
+                        $awsService->deleteObject('images/' . $imageKey);
+                    } catch (Exception $e) {
+                        error_log("Failed to delete image {$imageKey}: " . $e->getMessage());
+                    }
                 }
                 
-                // Clear items cache since we deleted an item
+                // Clear caches since we deleted an item
                 clearItemsCache();
+                clearImageUrlCache();
                 
                 echo json_encode(['success' => true, 'message' => 'Item deleted successfully']);
                 break;
@@ -596,30 +739,43 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
                     exit;
                 }
                 
-                // Determine the image key by checking for image files with different extensions
+                // Get image index if provided (for rotating specific images)
+                $imageIndex = isset($_POST['image_index']) && $_POST['image_index'] !== 'null' ? intval($_POST['image_index']) : null;
+                
+                // Determine the image key using getItemImages helper
                 $awsService = getAwsService();
                 if (!$awsService) {
                     echo json_encode(['success' => false, 'message' => 'AWS service not available']);
                     exit;
                 }
                 
+                // Get all images for this item
+                $allImages = getItemImages($trackingNumber);
+                
+                if (empty($allImages)) {
+                    echo json_encode(['success' => false, 'message' => 'No images found for this item']);
+                    exit;
+                }
+                
+                // Find the specific image to rotate
                 $imageKey = null;
-                $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
-                foreach ($imageExtensions as $ext) {
-                    $possibleImageKey = 'images/' . $trackingNumber . '.' . $ext;
-                    try {
-                        if ($awsService->objectExists($possibleImageKey)) {
-                            $imageKey = $possibleImageKey;
+                
+                if ($imageIndex === null) {
+                    // Rotate primary image (first in the array)
+                    $imageKey = 'images/' . $allImages[0];
+                } else {
+                    // Rotate specific indexed image
+                    foreach ($allImages as $img) {
+                        if (getImageIndex($img) === $imageIndex) {
+                            $imageKey = 'images/' . $img;
                             break;
                         }
-                    } catch (Exception $e) {
-                        // Continue to next extension
                     }
                 }
                 
-                // Check if item has an image
+                // Check if we found the image
                 if (empty($imageKey)) {
-                    echo json_encode(['success' => false, 'message' => 'No image found for this item']);
+                    echo json_encode(['success' => false, 'message' => 'Image not found']);
                     exit;
                 }
                 

@@ -6,7 +6,8 @@
 // Get the item ID from URL parameter
 $itemId = $_GET['id'] ?? null;
 
-if (!$itemId || !preg_match('/^\d{14}$/', $itemId)) {
+// Support both old format (YmdHis) and new format (YmdHis-xxxx)
+if (!$itemId || !preg_match('/^(\d{14}|\d{14}-[a-f0-9]{4})$/', $itemId)) {
     setFlashMessage('Invalid or missing item ID.', 'error');
     redirect('items');
 }
@@ -116,21 +117,29 @@ $flashMessage = showFlashMessage();
 
         <div class="item-detail-view">
             <div class="item-detail-image">
-                <?php if ($item['image_key']): ?>
+                <?php 
+                // Get all images for this item
+                $allImages = getItemImages($item['tracking_number']);
+                $currentImageKey = !empty($allImages) ? $allImages[0] : $item['image_key'];
+                ?>
+                
+                <?php if ($currentImageKey): ?>
                     <?php 
                         // Use direct S3 URL if bypass_cdn flag is set (after image rotation)
                         if (isset($_GET['bypass_cdn']) && $_GET['bypass_cdn'] === '1') {
                             $awsService = getAwsService();
-                            $s3ImageKey = 'images/' . $item['image_key'];
+                            $s3ImageKey = 'images/' . $currentImageKey;
                             $imageUrl = $awsService->getPresignedUrl($s3ImageKey, 3600);
                         } else {
-                            $imageUrl = getCloudFrontUrl($item['image_key']);
+                            $imageUrl = getCloudFrontUrl($currentImageKey);
                         }
                     ?>
                     <div class="image-container">
                         <img src="<?php echo escape($imageUrl); ?>" 
                              alt="<?php echo escape($item['title']); ?>" 
                              class="detail-image"
+                             id="mainItemImage"
+                             data-image-key="<?php echo escape($currentImageKey); ?>"
                              <?php if ($item['image_width'] && $item['image_height']): ?>
                              width="<?php echo escape($item['image_width']); ?>" 
                              height="<?php echo escape($item['image_height']); ?>"
@@ -141,13 +150,83 @@ $flashMessage = showFlashMessage();
                         $isOwnItem = currentUserOwnsItem($item['tracking_number']);
                         $isItemGone = isItemGone($item);
                         if ($isOwnItem): ?>
-                            <button onclick="rotateImage('<?php echo escape($item['tracking_number']); ?>')" 
+                            <button onclick="rotateCurrentImage()" 
                                     class="rotate-btn" 
+                                    id="rotateBtn"
                                     title="Rotate image 90 degrees">
                                 ↻
                             </button>
                         <?php endif; ?>
                     </div>
+                    
+                    <?php if (count($allImages) > 1): ?>
+                    <!-- Image Thumbnails Gallery -->
+                    <div class="image-thumbnails">
+                        <?php foreach ($allImages as $imageKey): ?>
+                            <?php 
+                                // Use direct S3 URL if bypass_cdn flag is set (after image rotation)
+                                if (isset($_GET['bypass_cdn']) && $_GET['bypass_cdn'] === '1') {
+                                    $awsService = getAwsService();
+                                    $s3ThumbKey = 'images/' . $imageKey;
+                                    $thumbUrl = $awsService->getPresignedUrl($s3ThumbKey, 3600);
+                                } else {
+                                    $thumbUrl = getCloudFrontUrl($imageKey);
+                                }
+                                $imageIndex = getImageIndex($imageKey);
+                                $isPrimary = $imageIndex === null;
+                            ?>
+                            <div class="thumbnail-wrapper" 
+                                 data-image-key="<?php echo escape($imageKey); ?>"
+                                 onclick="switchMainImage('<?php echo escape($imageKey); ?>', '<?php echo escape($thumbUrl); ?>')">
+                                <img src="<?php echo escape($thumbUrl); ?>" 
+                                     alt="Thumbnail" 
+                                     class="image-thumbnail <?php echo $isPrimary ? 'active' : ''; ?>">
+                                <?php if ($isOwnItem): ?>
+                                    <div class="thumbnail-controls">
+                                        <button onclick="event.stopPropagation(); rotateImage('<?php echo escape($item['tracking_number']); ?>', <?php echo $imageIndex === null ? 'null' : $imageIndex; ?>)" 
+                                                class="thumb-btn thumb-rotate" 
+                                                title="Rotate">↻</button>
+                                        <?php if (!$isPrimary): ?>
+                                            <button onclick="event.stopPropagation(); deleteImage('<?php echo escape($item['tracking_number']); ?>', <?php echo $imageIndex; ?>)" 
+                                                    class="thumb-btn thumb-delete" 
+                                                    title="Delete">×</button>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        <?php endforeach; ?>
+                        
+                        <?php if ($isOwnItem && count($allImages) < 10): ?>
+                        <!-- Add More Images Button -->
+                        <div class="thumbnail-wrapper add-image-wrapper">
+                            <label for="addImageInput" class="add-image-btn">
+                                <span class="add-icon">+</span>
+                                <span class="add-text">Add Image</span>
+                            </label>
+                            <input type="file" 
+                                   id="addImageInput" 
+                                   accept="image/*" 
+                                   style="display: none;"
+                                   onchange="uploadAdditionalImage('<?php echo escape($item['tracking_number']); ?>', this)">
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                    <?php elseif ($isOwnItem && count($allImages) === 1): ?>
+                    <!-- Show add button even with just 1 image -->
+                    <div class="image-thumbnails">
+                        <div class="thumbnail-wrapper add-image-wrapper">
+                            <label for="addImageInput" class="add-image-btn">
+                                <span class="add-icon">+</span>
+                                <span class="add-text">Add Image</span>
+                            </label>
+                            <input type="file" 
+                                   id="addImageInput" 
+                                   accept="image/*" 
+                                   style="display: none;"
+                                   onchange="uploadAdditionalImage('<?php echo escape($item['tracking_number']); ?>', this)">
+                        </div>
+                    </div>
+                    <?php endif; ?>
                 <?php else: ?>
                     <div class="no-image-placeholder">
                         <span>📷</span>
@@ -482,6 +561,127 @@ $flashMessage = showFlashMessage();
 
 .rotate-btn:active {
     transform: scale(0.95);
+}
+
+/* Image Thumbnails Gallery */
+.image-thumbnails {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+    max-width: 500px;
+}
+
+.thumbnail-wrapper {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.thumbnail-wrapper:hover {
+    border-color: var(--primary-600, #007bff);
+    transform: translateY(-2px);
+}
+
+.image-thumbnail {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.image-thumbnail.active {
+    border: 3px solid var(--primary-600, #007bff);
+    border-radius: 8px;
+}
+
+.thumbnail-controls {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none; /* Allow clicks to pass through when not visible */
+}
+
+.thumbnail-wrapper:hover .thumbnail-controls {
+    opacity: 1;
+    pointer-events: auto; /* Enable pointer events when visible */
+}
+
+.thumb-btn {
+    background: white;
+    border: none;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    padding: 0;
+    pointer-events: auto; /* Ensure buttons are always clickable */
+}
+
+.thumb-btn:hover {
+    transform: scale(1.1);
+}
+
+.thumb-rotate {
+    color: #007bff;
+}
+
+.thumb-delete {
+    color: #dc3545;
+}
+
+.add-image-wrapper {
+    border: 2px dashed #dee2e6;
+    background: #f8f9fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.add-image-btn {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: #6c757d;
+}
+
+.add-image-wrapper:hover .add-image-btn {
+    color: var(--primary-600, #007bff);
+    background: rgba(0, 123, 255, 0.05);
+}
+
+.add-icon {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.add-text {
+    font-size: 10px;
+    margin-top: 2px;
 }
 
 .no-image-placeholder {
@@ -1029,7 +1229,7 @@ function confirmDelete() {
     
     // Create form data
     const formData = new FormData();
-    formData.append('action', 'delete');
+    formData.append('action', 'delete_item');
     formData.append('tracking_number', trackingNumber);
     
     // Send AJAX request
@@ -1058,14 +1258,82 @@ function confirmDelete() {
 
 
 
-function rotateImage(trackingNumber) {
-    const button = document.querySelector(`button[onclick="rotateImage('${trackingNumber}')"]`);
-    if (!button) return;
+// Switch main image when clicking thumbnail
+function switchMainImage(imageKey, imageUrl) {
+    const mainImage = document.getElementById('mainItemImage');
+    if (mainImage) {
+        mainImage.src = imageUrl;
+        mainImage.dataset.imageKey = imageKey;
+    }
+    
+    // Update active thumbnail - find all thumbnail images and mark the correct one as active
+    document.querySelectorAll('.image-thumbnail').forEach(thumb => {
+        thumb.classList.remove('active');
+    });
+    
+    // Find the thumbnail wrapper that was clicked and activate its image
+    const clickedWrapper = event.currentTarget;
+    if (clickedWrapper) {
+        const thumbImg = clickedWrapper.querySelector('.image-thumbnail');
+        if (thumbImg) {
+            thumbImg.classList.add('active');
+        }
+    }
+}
+
+// Rotate the currently displayed image
+function rotateCurrentImage() {
+    const mainImage = document.getElementById('mainItemImage');
+    if (!mainImage) return;
+    
+    const imageKey = mainImage.dataset.imageKey;
+    const trackingNumber = '<?php echo escape($item['tracking_number']); ?>';
+    
+    // Extract image index from image key
+    // Need to distinguish between tracking suffix (-xxxx) and image index (-N)
+    let imageIndex = null;
+    
+    // First check if it's a new format primary image: YmdHis-xxxx.ext (exactly 4 hex chars)
+    if (imageKey.match(/^\d{14}-[a-f0-9]{4}\.[^.]+$/i)) {
+        imageIndex = null; // Primary image with random suffix
+    }
+    // Next check for new format additional image: YmdHis-xxxx-INDEX.ext
+    else if (imageKey.match(/-[a-f0-9]{4}-(\d+)\./i)) {
+        const match = imageKey.match(/-[a-f0-9]{4}-(\d+)\./i);
+        imageIndex = parseInt(match[1]);
+    }
+    // Finally check old format additional image: YmdHis-INDEX.ext
+    else if (imageKey.match(/^\d{14}-(\d+)\./)) {
+        const match = imageKey.match(/^\d{14}-(\d+)\./);
+        imageIndex = parseInt(match[1]);
+    }
+    
+    rotateImage(trackingNumber, imageIndex);
+}
+
+// Rotate a specific image (updated to support image index)
+function rotateImage(trackingNumber, imageIndex = null) {
+    // Find the button
+    let button;
+    if (imageIndex === null) {
+        button = document.getElementById('rotateBtn');
+    } else {
+        button = event ? event.target : null;
+    }
     
     // Show loading state
-    const originalText = button.innerHTML;
-    button.disabled = true;
-    button.innerHTML = '⏳';
+    let originalText = '';
+    if (button) {
+        originalText = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '⏳';
+    }
+    
+    // Build request body
+    let body = `action=rotate_image&tracking_number=${encodeURIComponent(trackingNumber)}`;
+    if (imageIndex !== null) {
+        body += `&image_index=${imageIndex}`;
+    }
     
     // Send AJAX request
     fetch('', {
@@ -1073,7 +1341,7 @@ function rotateImage(trackingNumber) {
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: `action=rotate_image&tracking_number=${encodeURIComponent(trackingNumber)}`
+        body: body
     })
     .then(response => response.json())
     .then(data => {
@@ -1081,29 +1349,22 @@ function rotateImage(trackingNumber) {
             // Show success message
             showMessage(data.message, 'success');
             
-            // Use direct S3 URL to immediately show rotated image (bypasses CloudFront)
-            const img = document.querySelector('.detail-image');
-            if (img && data.direct_image_url) {
-                // Immediately replace with direct S3 URL
-                img.src = data.direct_image_url;
-                console.log("Image updated with direct S3 URL bypassing CloudFront");
-            }
-            
-            // Reload the page after a short delay to ensure everything is fresh
-            // Use bypass_cdn flag to continue using direct S3 URLs while CloudFront invalidates
+            // Reload the page after a short delay
             setTimeout(() => {
                 const url = new URL(window.location.href);
                 url.searchParams.set('bypass_cdn', '1');
                 url.searchParams.set('_', Date.now());
                 window.location.href = url.toString();
-            }, 2000);
+            }, 1000);
         } else {
             // Show error message
             showMessage(data.message, 'error');
             
             // Restore button
-            button.disabled = false;
-            button.innerHTML = originalText;
+            if (button) {
+                button.disabled = false;
+                button.innerHTML = originalText;
+            }
         }
     })
     .catch(error => {
@@ -1111,8 +1372,100 @@ function rotateImage(trackingNumber) {
         showMessage('An error occurred while rotating the image', 'error');
         
         // Restore button
-        button.disabled = false;
-        button.innerHTML = originalText;
+        if (button) {
+            button.disabled = false;
+            button.innerHTML = originalText;
+        }
+    });
+}
+
+// Upload additional image
+function uploadAdditionalImage(trackingNumber, fileInput) {
+    const file = fileInput.files[0];
+    if (!file) return;
+    
+    // Validate file type
+    if (!file.type.match(/^image\/(jpeg|jpg|png|gif)$/)) {
+        showMessage('Please select a valid image file (JPG, PNG, or GIF)', 'error');
+        fileInput.value = '';
+        return;
+    }
+    
+    // Validate file size (50MB)
+    if (file.size > 52428800) {
+        showMessage('Image file is too large. Maximum size is 50MB', 'error');
+        fileInput.value = '';
+        return;
+    }
+    
+    // Show loading message
+    showMessage('Uploading image...', 'info');
+    
+    // Create form data
+    const formData = new FormData();
+    formData.append('action', 'upload_additional_image');
+    formData.append('tracking_number', trackingNumber);
+    formData.append('image_file', file);
+    
+    // Send AJAX request
+    fetch('', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showMessage(data.message, 'success');
+            
+            // Reload the page to show new image
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showMessage(data.message, 'error');
+            fileInput.value = '';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showMessage('An error occurred while uploading the image', 'error');
+        fileInput.value = '';
+    });
+}
+
+// Delete a specific image
+function deleteImage(trackingNumber, imageIndex) {
+    if (!confirm('Are you sure you want to delete this image?')) {
+        return;
+    }
+    
+    // Show loading message
+    showMessage('Deleting image...', 'info');
+    
+    // Send AJAX request
+    fetch('', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `action=delete_image&tracking_number=${encodeURIComponent(trackingNumber)}&image_index=${imageIndex}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showMessage(data.message, 'success');
+            
+            // Reload the page to reflect changes
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showMessage(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showMessage('An error occurred while deleting the image', 'error');
     });
 }
 </script>

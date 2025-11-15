@@ -391,7 +391,7 @@ function confirmDelete() {
     
     // Create form data
     const formData = new FormData();
-    formData.append('action', 'delete');
+    formData.append('action', 'delete_item');
     formData.append('tracking_number', trackingNumber);
     
     // Send AJAX request
