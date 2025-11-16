@@ -260,6 +260,11 @@ $flashMessage = showFlashMessage();
                 <input type="file" name="item_photo" id="item_photo" accept="image/*">
                 <small style="color: var(--gray-500); font-size: 0.875rem;">Accepted formats: JPG, PNG, GIF (max 50MB - will be automatically resized)</small>
                 <small style="color: var(--primary-600); font-size: 0.875rem; display: block; margin-top: 0.25rem;">💡 You can add more images later (up to 10 total)</small>
+                <small style="color: var(--primary-600); font-size: 0.875rem; display: block; margin-top: 0.25rem;">📋 Pro tip: Press Ctrl+V (or Cmd+V) to paste an image from your clipboard!</small>
+                <div id="pastePreview" style="display: none; margin-top: 1rem; padding: 1rem; background: var(--success-50); border: 2px solid var(--success-300); border-radius: 8px;">
+                    <p style="color: var(--success-700); margin: 0; font-weight: 500;">✅ Image pasted successfully!</p>
+                    <img id="pastePreviewImg" style="max-width: 300px; max-height: 200px; margin-top: 0.5rem; border-radius: 4px; border: 1px solid var(--gray-200);" alt="Pasted image preview">
+                </div>
             </div>
 
             <div class="form-group">
@@ -278,4 +283,82 @@ $flashMessage = showFlashMessage();
             </div>
         </form>
     </div>
-</div> 
+</div>
+
+<script>
+// Handle paste events to allow pasting images directly
+document.addEventListener('paste', function(event) {
+    // Only handle paste on the claim page
+    const fileInput = document.getElementById('item_photo');
+    if (!fileInput) return;
+    
+    // Get clipboard items
+    const items = (event.clipboardData || event.originalEvent.clipboardData).items;
+    
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        
+        // Check if the item is an image
+        if (item.type.indexOf('image') !== -1) {
+            event.preventDefault(); // Prevent default paste behavior
+            
+            // Get the image as a blob
+            const blob = item.getAsFile();
+            
+            if (blob) {
+                // Create a DataTransfer object to set the file input value
+                const dataTransfer = new DataTransfer();
+                
+                // Create a File object with a proper name
+                const fileName = 'pasted-image-' + Date.now() + '.png';
+                const file = new File([blob], fileName, { type: blob.type });
+                
+                // Add the file to the DataTransfer object
+                dataTransfer.items.add(file);
+                
+                // Set the file input's files property
+                fileInput.files = dataTransfer.files;
+                
+                // Show preview
+                const preview = document.getElementById('pastePreview');
+                const previewImg = document.getElementById('pastePreviewImg');
+                
+                // Create a URL for the blob to display as preview
+                const imageUrl = URL.createObjectURL(blob);
+                previewImg.src = imageUrl;
+                preview.style.display = 'block';
+                
+                // Optional: Clean up the URL after image loads to free memory
+                previewImg.onload = function() {
+                    URL.revokeObjectURL(imageUrl);
+                };
+                
+                console.log('Image pasted successfully:', fileName);
+            }
+            
+            break; // Only handle the first image
+        }
+    }
+});
+
+// Also handle file input change to hide/show preview
+document.getElementById('item_photo').addEventListener('change', function(event) {
+    const preview = document.getElementById('pastePreview');
+    const previewImg = document.getElementById('pastePreviewImg');
+    
+    if (event.target.files && event.target.files[0]) {
+        // Show preview for manually selected files too
+        const file = event.target.files[0];
+        const imageUrl = URL.createObjectURL(file);
+        previewImg.src = imageUrl;
+        preview.style.display = 'block';
+        
+        previewImg.onload = function() {
+            URL.revokeObjectURL(imageUrl);
+        };
+    } else {
+        // Hide preview if file is cleared
+        preview.style.display = 'none';
+    }
+});
+</script> 
