@@ -99,13 +99,13 @@ if (file_exists($changelogFile)) {
         color: var(--gray-900);
         font-weight: 500;
         margin-bottom: 0.5rem;
-        line-height: 1.4;
+        line-height: 1.3;
     }
 
     .commit-body {
         color: var(--gray-700);
         font-size: 0.9rem;
-        line-height: 1.6;
+        line-height: 1.4;
         white-space: pre-wrap;
         margin-top: 0.5rem;
         padding-left: 1rem;
@@ -167,7 +167,11 @@ if (file_exists($changelogFile)) {
                             
                             <?php if (!empty($commit['body'])): ?>
                                 <div class="commit-body">
-                                    <?php echo nl2br(htmlspecialchars($commit['body'])); ?>
+                                    <?php 
+                                    // Remove excessive blank lines (collapse multiple newlines into single ones)
+                                    $cleanBody = preg_replace('/\n\s*\n/', "\n", trim($commit['body']));
+                                    echo nl2br(htmlspecialchars($cleanBody)); 
+                                    ?>
                                 </div>
                             <?php endif; ?>
                             

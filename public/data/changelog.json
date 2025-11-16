@@ -1,12 +1,32 @@
 {
-    "generated_at": "2025-11-16T00:24:06+00:00",
-    "generated_at_formatted": "November 16, 2025 12:24 AM",
-    "total_commits": 106,
+    "generated_at": "2025-11-16T00:46:22+00:00",
+    "generated_at_formatted": "November 16, 2025 12:46 AM",
+    "total_commits": 108,
     "groups": [
         {
             "date": "2025-11-16",
             "date_formatted": "November 16, 2025",
             "commits": [
+                {
+                    "hash": "5f11a0f94f3d16927207a50a2a6b1ff526889cee",
+                    "short_hash": "5f11a0f",
+                    "date": "2025-11-15 19:40:18 -0500",
+                    "date_formatted": "November 16, 2025",
+                    "time_formatted": "12:40 AM",
+                    "author": "Dave Shevett",
+                    "subject": "Fix navigation links to work from clean URLs",
+                    "body": "Issue:\n- Navigation links used relative URLs (?page=home)\n- When on /changelog, links became /changelog?page=home\n- Router didn't recognize these, so navigation broke\nSolution:\n- Changed all navigation links to absolute URLs (/?page=home)\n- Works correctly from any page including clean URLs\n- Affects: header nav, footer, login, settings, logout links\nTesting: Navigation now works from /changelog page"
+                },
+                {
+                    "hash": "bdf42fd34a924c0794c15bcb742c3000ca54733e",
+                    "short_hash": "bdf42fd",
+                    "date": "2025-11-15 19:28:02 -0500",
+                    "date_formatted": "November 16, 2025",
+                    "time_formatted": "12:28 AM",
+                    "author": "Dave Shevett",
+                    "subject": "Add automated changelog feature",
+                    "body": "New Features:\n- Automated changelog generation from git commit history\n- Accessible at /changelog with clean URL routing\n- Displays commits grouped by date with full details\n- Shows commit hash, subject, body, author, and timestamp\n- Auto-generates during deployment via GitHub Actions\nFiles Added:\n- scripts/generate-changelog.php: Generates changelog JSON from git log\n- templates/changelog.php: Displays changelog with nice formatting\n- public/data/changelog.json: Generated changelog data (106 commits)\nUpdates:\n- .github/workflows/deploy.yml: Added changelog generation step\n- router.php: Added /changelog route mapping\n- public/index.php: Added 'changelog' to available pages & footer link\nImplementation:\n- Changelog script parses git log with formatted output\n- Groups commits by date for better organization\n- Filters out merge commits for cleaner history\n- JSON output includes full commit details\n- Template displays in card layout with hover effects\n- Runs automatically on every deployment\n- Can also be run manually: php scripts/generate-changelog.php\nUI:\n- Modern card-based layout\n- Grouped by date with collapsible sections\n- Monospace font for commit hashes\n- Shows total commit count and last update time\n- Responsive design matching site style"
+                },
                 {
                     "hash": "bf2dbeaa26a11314f476045b0766e262db81d423",
                     "short_hash": "bf2dbea",
