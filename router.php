@@ -51,6 +51,10 @@ if (preg_match('/^\/auth\/google\/callback/', $path)) {
     $_GET['action'] = 'logout';
     require_once __DIR__ . '/public/index.php';
     exit;
+} elseif ($path === '/changelog' || $path === '/changelog/') {
+    $_GET['page'] = 'changelog';
+    require_once __DIR__ . '/public/index.php';
+    exit;
 }
 
 // Handle static files

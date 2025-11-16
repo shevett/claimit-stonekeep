@@ -29,4 +29,7 @@ jobs:
           # Install/update Composer dependencies
           composer install --no-dev --optimize-autoloader
           
+          # Generate changelog from git history
+          php scripts/generate-changelog.php
+          
           echo "Deployment completed successfully!"
