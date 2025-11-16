@@ -23,6 +23,9 @@ jobs:
           # Navigate to the project directory
           cd /var/www/claimit.stonekeep.com
           
+          # Stash any local changes to avoid conflicts
+          git stash
+          
           # Pull the latest changes
           GIT_SSH_COMMAND="ssh -i /var/www/.ssh/github" git pull origin main
           
