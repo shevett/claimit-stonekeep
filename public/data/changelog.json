@@ -1,18 +1,38 @@
 {
-    "generated_at": "2025-11-16T00:46:22+00:00",
-    "generated_at_formatted": "November 16, 2025 12:46 AM",
-    "total_commits": 108,
+    "generated_at": "2025-11-15T19:58:58-05:00",
+    "generated_at_formatted": "November 15, 2025 7:58 PM",
+    "total_commits": 110,
     "groups": [
         {
-            "date": "2025-11-16",
-            "date_formatted": "November 16, 2025",
+            "date": "2025-11-15",
+            "date_formatted": "November 15, 2025",
             "commits": [
+                {
+                    "hash": "42c6212515f232c643e9031816a0c269bbae8389",
+                    "short_hash": "42c6212",
+                    "date": "2025-11-15 19:53:07 -0500",
+                    "date_formatted": "November 15, 2025",
+                    "time_formatted": "7:53 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Fix deploy workflow to handle local file changes",
+                    "body": "Issue:\n- Production server had local changes to composer.lock\n- Git pull was aborting due to conflicts\n- New files (scripts/generate-changelog.php) weren't being pulled\n- Changelog generation failed with 'Could not open input file'\nSolution:\n- Added 'git stash' before 'git pull' in deploy workflow\n- Stashes any local changes on server before pulling\n- Allows clean pull without conflicts\n- Ensures all new files are properly deployed\nThis prevents deployment failures when files are modified on server."
+                },
+                {
+                    "hash": "2a98de31e4eaa3c37da898f1958a49d93a0f49db",
+                    "short_hash": "2a98de3",
+                    "date": "2025-11-15 19:47:23 -0500",
+                    "date_formatted": "November 15, 2025",
+                    "time_formatted": "7:47 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Tighten changelog spacing and remove blank lines",
+                    "body": "Changes:\n- Reduced line-height for better text density (1.3 for subjects, 1.4 for body)\n- Added regex filter to collapse multiple newlines into single ones\n- Removes excessive blank lines between bullet points in commit messages\n- Regenerated changelog with 108 commits\nResult: Cleaner, more compact changelog display"
+                },
                 {
                     "hash": "5f11a0f94f3d16927207a50a2a6b1ff526889cee",
                     "short_hash": "5f11a0f",
                     "date": "2025-11-15 19:40:18 -0500",
-                    "date_formatted": "November 16, 2025",
-                    "time_formatted": "12:40 AM",
+                    "date_formatted": "November 15, 2025",
+                    "time_formatted": "7:40 PM",
                     "author": "Dave Shevett",
                     "subject": "Fix navigation links to work from clean URLs",
                     "body": "Issue:\n- Navigation links used relative URLs (?page=home)\n- When on /changelog, links became /changelog?page=home\n- Router didn't recognize these, so navigation broke\nSolution:\n- Changed all navigation links to absolute URLs (/?page=home)\n- Works correctly from any page including clean URLs\n- Affects: header nav, footer, login, settings, logout links\nTesting: Navigation now works from /changelog page"
@@ -21,8 +41,8 @@
                     "hash": "bdf42fd34a924c0794c15bcb742c3000ca54733e",
                     "short_hash": "bdf42fd",
                     "date": "2025-11-15 19:28:02 -0500",
-                    "date_formatted": "November 16, 2025",
-                    "time_formatted": "12:28 AM",
+                    "date_formatted": "November 15, 2025",
+                    "time_formatted": "7:28 PM",
                     "author": "Dave Shevett",
                     "subject": "Add automated changelog feature",
                     "body": "New Features:\n- Automated changelog generation from git commit history\n- Accessible at /changelog with clean URL routing\n- Displays commits grouped by date with full details\n- Shows commit hash, subject, body, author, and timestamp\n- Auto-generates during deployment via GitHub Actions\nFiles Added:\n- scripts/generate-changelog.php: Generates changelog JSON from git log\n- templates/changelog.php: Displays changelog with nice formatting\n- public/data/changelog.json: Generated changelog data (106 commits)\nUpdates:\n- .github/workflows/deploy.yml: Added changelog generation step\n- router.php: Added /changelog route mapping\n- public/index.php: Added 'changelog' to available pages & footer link\nImplementation:\n- Changelog script parses git log with formatted output\n- Groups commits by date for better organization\n- Filters out merge commits for cleaner history\n- JSON output includes full commit details\n- Template displays in card layout with hover effects\n- Runs automatically on every deployment\n- Can also be run manually: php scripts/generate-changelog.php\nUI:\n- Modern card-based layout\n- Grouped by date with collapsible sections\n- Monospace font for commit hashes\n- Shows total commit count and last update time\n- Responsive design matching site style"
@@ -31,24 +51,18 @@
                     "hash": "bf2dbeaa26a11314f476045b0766e262db81d423",
                     "short_hash": "bf2dbea",
                     "date": "2025-11-15 19:08:11 -0500",
-                    "date_formatted": "November 16, 2025",
-                    "time_formatted": "12:08 AM",
+                    "date_formatted": "November 15, 2025",
+                    "time_formatted": "7:08 PM",
                     "author": "Dave Shevett",
                     "subject": "Fix PHP 8.4 AWS SDK compatibility warnings",
                     "body": "Issue:\n- AWS SDK was trying to parse system ~/.aws/config files\n- PHP 8.4's stricter INI parser was throwing warnings about\nincompatible multi-line syntax (e.g., 's3 =' with no value)\n- Warning: 'syntax error, unexpected = in Unknown on line X'\nSolution:\n- Added 'use_aws_shared_config_files' => false to AWS client configs\n- This prevents SDK from loading ~/.aws/config and ~/.aws/credentials\n- App now only uses credentials from config/aws-credentials.php\n- Eliminates PHP 8.4 compatibility warnings completely\nAlso:\n- Updated aws/aws-sdk-php from 3.356.5 to 3.359.13\n- Better PHP 8.4 support in newer SDK version\nResult: Clean console output, no AWS warnings"
-                }
-            ]
-        },
-        {
-            "date": "2025-11-15",
-            "date_formatted": "November 15, 2025",
-            "commits": [
+                },
                 {
                     "hash": "b9156141d55cbccd2fa3f8593283ccc4f7d11306",
                     "short_hash": "b915614",
                     "date": "2025-11-15 18:39:14 -0500",
                     "date_formatted": "November 15, 2025",
-                    "time_formatted": "11:39 PM",
+                    "time_formatted": "6:39 PM",
                     "author": "Dave Shevett",
                     "subject": "Add multiple images per listing feature",
                     "body": "Major Features:\n- Support up to 10 images per listing\n- Thumbnail gallery with click-to-swap main image\n- Add/rotate/delete individual images (owners only)\n- Smart CDN cache bypass for instant updates after rotation\nFile Naming:\n- Primary image: 20251115171627-a7k3.jpg (no index)\n- Additional images: 20251115171627-a7k3-1.jpg, -2.jpg, etc.\nNew Helper Functions:\n- getItemImages() - Fetches all images for an item\n- getImageIndex() - Extracts index from filename\n- deleteImageFromS3() - Safely deletes images with validation\n- getNextImageIndex() - Gets next available slot\nNew API Endpoints:\n- upload_additional_image - Add images to existing listings\n- delete_image - Delete specific images (prevents deleting last/primary)\n- rotate_image (updated) - Now supports rotating any image by index\nUI Enhancements:\n- Thumbnail gallery below main image\n- Hover controls on thumbnails (rotate/delete buttons)\n- Click thumbnails to view in main display\n- Add Image button for owners (when < 10 images)\n- Informational note on upload form\nBug Fixes:\n- Fixed tracking number validation for new format (YmdHis-xxxx)\n- Updated both POST and GET-based request handlers\n- Fixed delete_item action mismatch in multiple templates\n- Fixed image index extraction in both PHP and JavaScript\n- Fixed thumbnail click event blocking by overlay controls\n- Fixed CloudFront CDN bypass for thumbnail images after rotation\nBackward Compatibility:\n- Old format (YmdHis) still fully supported\n- Single-image listings work as before\n- All validation handles both formats"
@@ -58,7 +72,7 @@
                     "short_hash": "24dc0f7",
                     "date": "2025-11-15 10:49:25 -0500",
                     "date_formatted": "November 15, 2025",
-                    "time_formatted": "3:49 PM",
+                    "time_formatted": "10:49 AM",
                     "author": "Dave Shevett",
                     "subject": "Add random suffix to tracking numbers to prevent upload collisions",
                     "body": "- Changed tracking number format from YmdHis to YmdHis-xxxx\n- Adds 4-character random hex suffix (65,536 combinations per second)\n- Prevents filename collisions when multiple users upload simultaneously\n- Only affects new uploads; existing files remain unchanged"
@@ -66,15 +80,15 @@
             ]
         },
         {
-            "date": "2025-10-28",
-            "date_formatted": "October 28, 2025",
+            "date": "2025-10-27",
+            "date_formatted": "October 27, 2025",
             "commits": [
                 {
                     "hash": "8261b4d5c87b103953331bb4a6991866c5ab7b6a",
                     "short_hash": "8261b4d",
                     "date": "2025-10-27 23:09:25 -0400",
-                    "date_formatted": "October 28, 2025",
-                    "time_formatted": "3:09 AM",
+                    "date_formatted": "October 27, 2025",
+                    "time_formatted": "11:09 PM",
                     "author": "Dave Shevett",
                     "subject": "Fix image rotation with CloudFront CDN caching",
                     "body": "- Add CloudFront invalidation support to clear CDN cache after image rotation\n- Implement hybrid approach: direct S3 URLs for immediate display + CloudFront invalidation\n- Add bypass_cdn flag to use presigned S3 URLs while CloudFront cache propagates\n- Fix broken cache clearing functions that weren't actually clearing PHP static caches\n- Add CloudFront distribution ID to AWS config\n- Update aws-credentials.example.php with CloudFront configuration template\nThis ensures users see rotated images immediately without cache-related delays or image 'pop-back' issues."
@@ -90,7 +104,7 @@
                     "short_hash": "2b1664f",
                     "date": "2025-10-09 11:22:24 -0400",
                     "date_formatted": "October 9, 2025",
-                    "time_formatted": "3:22 PM",
+                    "time_formatted": "11:22 AM",
                     "author": "Dave Shevett",
                     "subject": "Fix image rotation functionality",
                     "body": "- Fix image key lookup to use correct 'images/' prefix for S3 storage\n- Add cache-busting timestamp to force CloudFront refresh after rotation\n- Enhance JavaScript to immediately update image with cache-busting parameter\n- Improve user experience with better visual feedback and timing\nFixes issue where rotated images weren't displaying due to CloudFront caching."
@@ -106,7 +120,7 @@
                     "short_hash": "6871f83",
                     "date": "2025-09-29 13:42:47 -0400",
                     "date_formatted": "September 29, 2025",
-                    "time_formatted": "5:42 PM",
+                    "time_formatted": "1:42 PM",
                     "author": "Dave Shevett",
                     "subject": "Improve loading indicators and fix layout issues",
                     "body": "- Enhanced loading indicator design with rounded box and animated dots\n- Improved horizontal centering of loading indicators\n- Added smooth scaling animation for loading dots with staggered timing\n- Better typography and color contrast for loading text\n- Enhanced error message styling with helpful instructions\n- Fixed broken CSS grid layout on items and user-listings pages\n- Restored proper grid rendering after layout issues\n- Maintained improved loading indicator on home page\n- All pages now have consistent, professional loading experience"
@@ -116,7 +130,7 @@
                     "short_hash": "b30366e",
                     "date": "2025-09-29 12:23:04 -0400",
                     "date_formatted": "September 29, 2025",
-                    "time_formatted": "4:23 PM",
+                    "time_formatted": "12:23 PM",
                     "author": "Dave Shevett",
                     "subject": "Optimize user-listings page performance",
                     "body": "- Add getUserItemsEfficiently() function with batch YAML loading\n- Add getItemsClaimedByUserOptimized() function to eliminate AWS API bottlenecks\n- Replace O(n\u00d7m) image searches with O(1) lookup tables\n- Pre-process claims data to avoid redundant AWS calls\n- Add 5-minute caching for user items and claimed items\n- Reduce template rendering time from 6+ seconds to milliseconds\n- Maintain all existing functionality while dramatically improving performance\n- Add comprehensive performance logging for monitoring"
@@ -126,7 +140,7 @@
                     "short_hash": "4bcb948",
                     "date": "2025-09-29 11:31:00 -0400",
                     "date_formatted": "September 29, 2025",
-                    "time_formatted": "3:31 PM",
+                    "time_formatted": "11:31 AM",
                     "author": "Dave Shevett",
                     "subject": "Add mailto button for contacting claimants",
                     "body": "- Add email button next to each claimant on item page (only for item owners)\n- Pre-fill email with subject and body template for easy communication\n- Style both mailto and delete buttons with consistent pale green background\n- Improve button visibility with better contrast and unified design\n- Only show mailto button if claimant has email address\n- Secure implementation with proper escaping and conditional display"
@@ -142,7 +156,7 @@
                     "short_hash": "c8b7a9f",
                     "date": "2025-09-27 16:16:15 -0400",
                     "date_formatted": "September 27, 2025",
-                    "time_formatted": "8:16 PM",
+                    "time_formatted": "4:16 PM",
                     "author": "Dave Shevett",
                     "subject": "Add smtp-config.php to .gitignore",
                     "body": "- Prevent accidental commits of SMTP configuration file containing sensitive data\n- Ensures production deployments won't conflict with local SMTP config files"
@@ -158,7 +172,7 @@
                     "short_hash": "67b0e11",
                     "date": "2025-09-26 12:45:55 -0400",
                     "date_formatted": "September 26, 2025",
-                    "time_formatted": "4:45 PM",
+                    "time_formatted": "12:45 PM",
                     "author": "Dave Shevett",
                     "subject": "Add new listing notifications feature and fix image upload regression",
                     "body": "- Add 'Notify me of any new listings' checkbox to settings page (defaults to unchecked)\n- Create getUserNewListingNotifications() function to retrieve user preferences\n- Update settings save handler to include new listing notification preference\n- Add sendNewListingNotifications() method to EmailService for bulk notifications\n- Create beautiful HTML and text email templates for new listing notifications\n- Integrate email notifications when new items are posted\n- Fix image upload regression - store images in images/ subdirectory for CloudFront compatibility\n- Fix EmailService listObjects() array structure access (use 'objects' key and lowercase 'key' property)\n- Add comprehensive error handling and logging for email notifications\n- Exclude item owner from receiving notifications about their own items"
@@ -168,7 +182,7 @@
                     "short_hash": "365c8a5",
                     "date": "2025-09-26 12:09:13 -0400",
                     "date_formatted": "September 26, 2025",
-                    "time_formatted": "4:09 PM",
+                    "time_formatted": "12:09 PM",
                     "author": "Dave Shevett",
                     "subject": "Replace settings modal with dedicated settings page",
                     "body": "- Create new /settings page with modern responsive design\n- Remove settings modal from home page to improve performance\n- Update navigation to link to dedicated settings page\n- Clean up JavaScript by removing modal-related functions\n- Fix checkbox layout styling for better visual balance\n- Maintain all existing settings functionality\n- Add account information sidebar with user details\n- Improve mobile responsiveness and user experience"
@@ -184,7 +198,7 @@
                     "short_hash": "ce585e5",
                     "date": "2025-09-24 09:19:07 -0400",
                     "date_formatted": "September 24, 2025",
-                    "time_formatted": "1:19 PM",
+                    "time_formatted": "9:19 AM",
                     "author": "Dave Shevett",
                     "subject": "Implement SMTP email notifications with admin test functionality",
                     "body": "- Add email notification checkbox to user settings\n- Create EmailService class with SMTP support\n- Add administrator test email functionality\n- Support both authenticated and non-authenticated SMTP\n- Add comprehensive SMTP debugging and error handling\n- Support TLS/SSL with certificate verification options\n- Add helo_hostname configuration for proper SMTP identification\n- Include beautiful HTML and plain text email templates\n- Integrate email notifications when items are claimed"
@@ -200,7 +214,7 @@
                     "short_hash": "dadfb9e",
                     "date": "2025-09-18 19:39:14 -0400",
                     "date_formatted": "September 18, 2025",
-                    "time_formatted": "11:39 PM",
+                    "time_formatted": "7:39 PM",
                     "author": "Dave Shevett",
                     "subject": "Fix CloudFront image URLs to work with /images origin path",
                     "body": "- Updated getCloudFrontUrl() to remove /images prefix from generated URLs\n- Updated image detection logic to look for images in images/ folder in S3\n- Fixed image loading in getAllItemsEfficiently(), user-listings, and item templates\n- CloudFront now correctly maps requests to S3 images/ folder via origin path"
@@ -216,7 +230,7 @@
                     "short_hash": "efe6df4",
                     "date": "2025-09-16 18:15:26 -0400",
                     "date_formatted": "September 16, 2025",
-                    "time_formatted": "10:15 PM",
+                    "time_formatted": "6:15 PM",
                     "author": "Dave Shevett",
                     "subject": "Fix missing images on user-listings page by adding image_url generation",
                     "body": ""
@@ -226,7 +240,7 @@
                     "short_hash": "2b51d7e",
                     "date": "2025-09-16 17:50:04 -0400",
                     "date_formatted": "September 16, 2025",
-                    "time_formatted": "9:50 PM",
+                    "time_formatted": "5:50 PM",
                     "author": "Dave Shevett",
                     "subject": "Fix regression: Show claim status for logged-out users",
                     "body": "- Always compute activeClaims and primaryClaim in getAllItemsEfficiently()\n- Previously only computed claim data when user was logged in\n- Now logged-out users can see if items have been claimed\n- User-specific data (isUserClaimed, canUserClaim) still only computed for logged-in users\n- Fixes claim status display on home and items pages for anonymous users"
@@ -236,7 +250,7 @@
                     "short_hash": "9916f94",
                     "date": "2025-09-16 17:43:01 -0400",
                     "date_formatted": "September 16, 2025",
-                    "time_formatted": "9:43 PM",
+                    "time_formatted": "5:43 PM",
                     "author": "Dave Shevett",
                     "subject": "Implement CloudFront CDN integration for massive performance improvement",
                     "body": ""
@@ -246,7 +260,7 @@
                     "short_hash": "fe93ddd",
                     "date": "2025-09-16 15:56:50 -0400",
                     "date_formatted": "September 16, 2025",
-                    "time_formatted": "7:56 PM",
+                    "time_formatted": "3:56 PM",
                     "author": "Dave Shevett",
                     "subject": "Add configurable debug logging system",
                     "body": "- Add DEBUG configuration option in config.php (default: 'no')\n- Create debugLog() function that only logs when DEBUG='yes'\n- Convert all performance timing logs to use debugLog() instead of error_log()\n- Enable detailed timing logs for:\n- YAML file discovery and batch loading\n- Image URL generation (getCachedPresignedUrl)\n- YAML processing and item creation\n- AJAX request timing (getAllItemsEfficiently, template rendering)\n- Page load timing (routing, auth, Open Graph data, template rendering)\nUsage:\n- Set DEBUG='yes' in config.php to enable detailed performance logs\n- Set DEBUG='no' in config.php to suppress performance logs (default)\n- All timing logs now appear in server output when DEBUG is enabled\n- Clean server output when DEBUG is disabled"
@@ -256,36 +270,10 @@
                     "short_hash": "42f301f",
                     "date": "2025-09-16 15:45:38 -0400",
                     "date_formatted": "September 16, 2025",
-                    "time_formatted": "7:45 PM",
+                    "time_formatted": "3:45 PM",
                     "author": "Dave Shevett",
                     "subject": "Major performance optimization: pre-compute expensive operations",
                     "body": "- Pre-generate image URLs during getAllItemsEfficiently() to avoid AWS calls during template rendering\n- Pre-compute item states (isItemGone, canEditItem) to avoid function calls during template rendering\n- Pre-compute claim data (activeClaims, primaryClaim, isUserClaimed, canUserClaim) to avoid AWS calls during template rendering\n- Add comprehensive performance timing logs to identify bottlenecks\n- Add performance display in footer for monitoring\nPerformance improvements:\n- Total AJAX request time: 6.5s \u2192 3.7s (43% improvement)\n- Template rendering time: 4.5s \u2192 1.6s (64% improvement)\n- Individual item rendering: 225-265ms \u2192 75-90ms (65% improvement)\nThis eliminates the N+1 problem where expensive AWS calls were being made for each item during template rendering."
-                }
-            ]
-        },
-        {
-            "date": "2025-09-15",
-            "date_formatted": "September 15, 2025",
-            "commits": [
-                {
-                    "hash": "0d8cc08486f68c647165560d37b7c96067d42c53",
-                    "short_hash": "0d8cc08",
-                    "date": "2025-09-14 22:23:15 -0400",
-                    "date_formatted": "September 15, 2025",
-                    "time_formatted": "2:23 AM",
-                    "author": "Dave Shevett",
-                    "subject": "Fix Open Graph meta tags undefined array key errors",
-                    "body": "- Add fallback case for item pages when item data is not available\n- Add safety checks to ensure required meta tag keys always exist\n- Prevent undefined array key warnings and null parameter deprecation errors\n- Ensure graceful fallbacks for all Open Graph meta tag scenarios\n- Fix production errors: undefined 'title', 'description', 'type' keys"
-                },
-                {
-                    "hash": "85f9b7d739bba051612c0aaa68726df7a1839437",
-                    "short_hash": "85f9b7d",
-                    "date": "2025-09-14 22:20:05 -0400",
-                    "date_formatted": "September 15, 2025",
-                    "time_formatted": "2:20 AM",
-                    "author": "Dave Shevett",
-                    "subject": "Enhance Open Graph meta tags for better link unfurling",
-                    "body": "- Add item title and description to Open Graph meta tags for item pages\n- Format title as 'Item #ID - [Item Title]' for better link previews\n- Include item description and price in meta description\n- Add image detection for Open Graph image previews\n- Implement graceful fallbacks when item data unavailable\n- Improve link sharing experience in Slack, Discord, and social media\n- Single S3 call per item page for meta tag data (performance optimized)"
                 }
             ]
         },
@@ -294,11 +282,31 @@
             "date_formatted": "September 14, 2025",
             "commits": [
                 {
+                    "hash": "0d8cc08486f68c647165560d37b7c96067d42c53",
+                    "short_hash": "0d8cc08",
+                    "date": "2025-09-14 22:23:15 -0400",
+                    "date_formatted": "September 14, 2025",
+                    "time_formatted": "10:23 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Fix Open Graph meta tags undefined array key errors",
+                    "body": "- Add fallback case for item pages when item data is not available\n- Add safety checks to ensure required meta tag keys always exist\n- Prevent undefined array key warnings and null parameter deprecation errors\n- Ensure graceful fallbacks for all Open Graph meta tag scenarios\n- Fix production errors: undefined 'title', 'description', 'type' keys"
+                },
+                {
+                    "hash": "85f9b7d739bba051612c0aaa68726df7a1839437",
+                    "short_hash": "85f9b7d",
+                    "date": "2025-09-14 22:20:05 -0400",
+                    "date_formatted": "September 14, 2025",
+                    "time_formatted": "10:20 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Enhance Open Graph meta tags for better link unfurling",
+                    "body": "- Add item title and description to Open Graph meta tags for item pages\n- Format title as 'Item #ID - [Item Title]' for better link previews\n- Include item description and price in meta description\n- Add image detection for Open Graph image previews\n- Implement graceful fallbacks when item data unavailable\n- Improve link sharing experience in Slack, Discord, and social media\n- Single S3 call per item page for meta tag data (performance optimized)"
+                },
+                {
                     "hash": "f475d0484090b57d5026b118fd7de140138c6984",
                     "short_hash": "f475d04",
                     "date": "2025-09-14 12:20:12 -0400",
                     "date_formatted": "September 14, 2025",
-                    "time_formatted": "4:20 PM",
+                    "time_formatted": "12:20 PM",
                     "author": "Dave Shevett",
                     "subject": "Enhance user-listings dashboard with comprehensive stats",
                     "body": "- Rename 'Items Claimed' to 'Items I've claimed' for better clarity\n- Add 'Items people have claimed' stat showing items with active claims\n- Add 'Items gone' stat showing items marked as gone\n- Fix claims counting logic to use proper claims array structure\n- Optimize stats calculation by including claims data in item processing\n- Add responsive CSS for 6 stat cards with mobile-friendly layout\n- Support waitlist functionality with proper active/removed claim status\n- Improve dashboard visual design with hover effects and better spacing"
@@ -308,7 +316,7 @@
                     "short_hash": "57868f8",
                     "date": "2025-09-14 12:01:27 -0400",
                     "date_formatted": "September 14, 2025",
-                    "time_formatted": "4:01 PM",
+                    "time_formatted": "12:01 PM",
                     "author": "Dave Shevett",
                     "subject": "Implement batching mechanism for YAML file loading",
                     "body": "- Load all YAML files in batches of 20 to prevent performance issues\n- Users now see all items instead of being limited to first 20\n- Added detailed performance logging for batch processing\n- Maintains reasonable load times (6-7s) while showing complete catalog\n- Improved error handling for individual file failures\n- Reverted from parallel HTTP approach to optimized sequential batching"
@@ -318,40 +326,10 @@
                     "short_hash": "95feb65",
                     "date": "2025-09-14 11:18:50 -0400",
                     "date_formatted": "September 14, 2025",
-                    "time_formatted": "3:18 PM",
+                    "time_formatted": "11:18 AM",
                     "author": "Dave Shevett",
                     "subject": "Remove pagination functionality",
                     "body": "- Removed pagination parameters and logic from getAllItemsEfficiently()\n- Simplified home and items templates to show all items at once\n- Removed pagination controls and CSS styles\n- Updated AJAX endpoint to load all items without pagination\n- Simplified JavaScript fetch calls to remove pagination parameters\nPerformance impact:\n- Initial page loads remain fast (13ms for home page)\n- Item loading now takes longer (7+ seconds) but shows all items\n- Eliminates pagination-related bugs and complexity\n- All items are now visible without navigation controls"
-                },
-                {
-                    "hash": "e70e946a4f54517f0ac860b8a3de781fecea9704",
-                    "short_hash": "e70e946",
-                    "date": "2025-09-13 21:26:14 -0400",
-                    "date_formatted": "September 14, 2025",
-                    "time_formatted": "1:26 AM",
-                    "author": "Dave Shevett",
-                    "subject": "Major performance optimizations and OAuth navigation fixes",
-                    "body": "- Implemented lazy loading for AWS services to eliminate 5+ second startup delays\n- Added AJAX-based item loading for home page (2ms initial load vs 5+ seconds)\n- Fixed OAuth navigation bar authentication state display\n- Optimized static variable caching and OPcache handling\n- Added loading indicators and error handling for async operations\n- Maintained full functionality while dramatically improving performance\n- Fixed variable name conflicts in home template pagination logic\nPerformance improvements:\n- Initial page load: 5.27s \u2192 0.002s (99.96% faster)\n- Home page with items: 5.27s \u2192 0.002s + 1.09s async (instant page + deferred items)\n- Navigation bar now properly shows logged-in state on all pages\n- AWS initialization only occurs when actually needed"
-                },
-                {
-                    "hash": "f0bc951fb38142965d0e95d0fcd0ac815098f787",
-                    "short_hash": "f0bc951",
-                    "date": "2025-09-13 21:05:42 -0400",
-                    "date_formatted": "September 14, 2025",
-                    "time_formatted": "1:05 AM",
-                    "author": "Dave Shevett",
-                    "subject": "Major performance optimizations: Fix N+1 S3 API calls, add pagination, implement caching",
-                    "body": "- Fixed N+1 S3 API calls: Reduced from 200+ calls to 2-3 calls per page (95% reduction)\n- Implemented pagination: 20 items per page with navigation controls\n- Added aggressive caching: 5-minute item cache, 1-hour image URL cache\n- Optimized image loading: Cached presigned URLs to avoid repeated generation\n- Added cache invalidation: Automatic clearing when items are modified\n- Fixed layout shift: Added image dimensions and CSS aspect-ratio\n- Added performance monitoring: Built-in load time tracking\nExpected performance improvement: 20 seconds \u2192 1-2 seconds (90% faster)"
-                },
-                {
-                    "hash": "504a76bdf94da13339bb6fc5cbdba135a24af1f3",
-                    "short_hash": "504a76b",
-                    "date": "2025-09-13 20:00:33 -0400",
-                    "date_formatted": "September 14, 2025",
-                    "time_formatted": "12:00 AM",
-                    "author": "Dave Shevett",
-                    "subject": "Fix item card button positioning and centralize CSS",
-                    "body": "- Add flexbox layout to item cards to ensure buttons are always at bottom\n- Make item content and meta sections flexible to push buttons down\n- Centralize all button styling in main CSS file\n- Add complete button color schemes (primary, secondary, success, warning, danger)\n- Add hover effects and transitions for all buttons\n- Add claim status styling for consistent appearance\n- Remove duplicate CSS from item-card.php template\n- Improve responsive design with proper button stacking on mobile\n- Ensure consistent visual hierarchy across all item cards"
                 }
             ]
         },
@@ -360,11 +338,41 @@
             "date_formatted": "September 13, 2025",
             "commits": [
                 {
+                    "hash": "e70e946a4f54517f0ac860b8a3de781fecea9704",
+                    "short_hash": "e70e946",
+                    "date": "2025-09-13 21:26:14 -0400",
+                    "date_formatted": "September 13, 2025",
+                    "time_formatted": "9:26 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Major performance optimizations and OAuth navigation fixes",
+                    "body": "- Implemented lazy loading for AWS services to eliminate 5+ second startup delays\n- Added AJAX-based item loading for home page (2ms initial load vs 5+ seconds)\n- Fixed OAuth navigation bar authentication state display\n- Optimized static variable caching and OPcache handling\n- Added loading indicators and error handling for async operations\n- Maintained full functionality while dramatically improving performance\n- Fixed variable name conflicts in home template pagination logic\nPerformance improvements:\n- Initial page load: 5.27s \u2192 0.002s (99.96% faster)\n- Home page with items: 5.27s \u2192 0.002s + 1.09s async (instant page + deferred items)\n- Navigation bar now properly shows logged-in state on all pages\n- AWS initialization only occurs when actually needed"
+                },
+                {
+                    "hash": "f0bc951fb38142965d0e95d0fcd0ac815098f787",
+                    "short_hash": "f0bc951",
+                    "date": "2025-09-13 21:05:42 -0400",
+                    "date_formatted": "September 13, 2025",
+                    "time_formatted": "9:05 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Major performance optimizations: Fix N+1 S3 API calls, add pagination, implement caching",
+                    "body": "- Fixed N+1 S3 API calls: Reduced from 200+ calls to 2-3 calls per page (95% reduction)\n- Implemented pagination: 20 items per page with navigation controls\n- Added aggressive caching: 5-minute item cache, 1-hour image URL cache\n- Optimized image loading: Cached presigned URLs to avoid repeated generation\n- Added cache invalidation: Automatic clearing when items are modified\n- Fixed layout shift: Added image dimensions and CSS aspect-ratio\n- Added performance monitoring: Built-in load time tracking\nExpected performance improvement: 20 seconds \u2192 1-2 seconds (90% faster)"
+                },
+                {
+                    "hash": "504a76bdf94da13339bb6fc5cbdba135a24af1f3",
+                    "short_hash": "504a76b",
+                    "date": "2025-09-13 20:00:33 -0400",
+                    "date_formatted": "September 13, 2025",
+                    "time_formatted": "8:00 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Fix item card button positioning and centralize CSS",
+                    "body": "- Add flexbox layout to item cards to ensure buttons are always at bottom\n- Make item content and meta sections flexible to push buttons down\n- Centralize all button styling in main CSS file\n- Add complete button color schemes (primary, secondary, success, warning, danger)\n- Add hover effects and transitions for all buttons\n- Add claim status styling for consistent appearance\n- Remove duplicate CSS from item-card.php template\n- Improve responsive design with proper button stacking on mobile\n- Ensure consistent visual hierarchy across all item cards"
+                },
+                {
                     "hash": "4ae6fb308a6caa940dd1a9f930a8d2e6da215eb5",
                     "short_hash": "4ae6fb3",
                     "date": "2025-09-13 19:49:04 -0400",
                     "date_formatted": "September 13, 2025",
-                    "time_formatted": "11:49 PM",
+                    "time_formatted": "7:49 PM",
                     "author": "Dave Shevett",
                     "subject": "Add 'Gone!' functionality for item owners",
                     "body": "- Add markItemAsGone() and relistItem() functions to mark items as gone/not gone\n- Add isItemGone() function to check item status\n- Add getUserShowGoneItems() and saveUserShowGoneItems() for user preferences\n- Add AJAX handlers for mark_gone and relist_item actions\n- Add 'Gone!' and 'Re-list' buttons to item cards for owners\n- Add 'Show gone items' checkbox to user settings modal\n- Filter gone items from listings based on user preference (default: hidden)\n- Fix item data mapping to include gone fields from YAML in all templates\n- Add gone functionality to single item view, items listing, home, and user listings\n- Items marked as gone are hidden by default but can be shown via user setting"
@@ -374,7 +382,7 @@
                     "short_hash": "1120942",
                     "date": "2025-09-13 16:01:01 -0400",
                     "date_formatted": "September 13, 2025",
-                    "time_formatted": "8:01 PM",
+                    "time_formatted": "4:01 PM",
                     "author": "Dave Shevett",
                     "subject": "Add login button for non-logged-in users viewing items",
                     "body": "- Add 'Log in to claim this!' button for non-logged-in users on item cards\n- Button appears when user is not logged in and item is not their own\n- Uses same login link as toolbar login button (?page=login)\n- Styled consistently with other primary buttons\n- Improves user experience by making login requirement clear\n- Only shows in listing/home contexts where users browse items\nResolves issue where non-logged-in users couldn't easily discover they need to log in to claim items."
@@ -390,7 +398,7 @@
                     "short_hash": "d2e1185",
                     "date": "2025-09-10 17:04:15 -0400",
                     "date_formatted": "September 10, 2025",
-                    "time_formatted": "9:04 PM",
+                    "time_formatted": "5:04 PM",
                     "author": "Dave Shevett",
                     "subject": "Clean up duplicate code across templates",
                     "body": "- Remove duplicate edit modal HTML from items.php, user-listings.php, and home.php\n- Remove duplicate edit modal CSS from individual templates\n- Remove duplicate JavaScript functions from item.php and index.php\n- Remove duplicate showMessage function from index.php\n- Add centralized edit modal CSS to main stylesheet\n- Centralize all edit functionality in shared files (app.js, index.php, style.css)\nReduces codebase by ~400+ lines while maintaining full functionality.\nAll edit buttons continue to work across all pages."
@@ -400,7 +408,7 @@
                     "short_hash": "dc43dd6",
                     "date": "2025-09-10 16:49:20 -0400",
                     "date_formatted": "September 10, 2025",
-                    "time_formatted": "8:49 PM",
+                    "time_formatted": "4:49 PM",
                     "author": "Dave Shevett",
                     "subject": "Add cache-busting parameters to app.js references",
                     "body": "- Add version parameter to all app.js script tags to force browser cache refresh\n- Resolves production issue where edit buttons weren't working due to cached JavaScript\n- Ensures production site loads the latest JavaScript with openEditModalFromButton function"
@@ -410,7 +418,7 @@
                     "short_hash": "8564785",
                     "date": "2025-09-10 16:14:04 -0400",
                     "date_formatted": "September 10, 2025",
-                    "time_formatted": "8:14 PM",
+                    "time_formatted": "4:14 PM",
                     "author": "Dave Shevett",
                     "subject": "Fix edit button functionality across all pages",
                     "body": "- Add edit button to listing context in item-card.php\n- Add JavaScript file references to all templates using item cards\n- Fix JavaScript syntax errors by using data attributes instead of inline parameters\n- Add openEditModalFromButton() function for safer data handling\n- Add edit modal HTML and CSS to items.php, user-listings.php, and home.php\n- Ensure edit functionality works consistently across all item card views\nResolves edit button not working on items, user-listings, and home pages."
@@ -426,7 +434,7 @@
                     "short_hash": "c633026",
                     "date": "2025-09-09 17:08:01 -0400",
                     "date_formatted": "September 9, 2025",
-                    "time_formatted": "9:08 PM",
+                    "time_formatted": "5:08 PM",
                     "author": "Dave Shevett",
                     "subject": "Standardize button layouts across all item card views",
                     "body": "- Create consistent button layout with right-justified, same-sized buttons\n- Centralize all button styling in item-card.php template\n- Remove conflicting CSS from individual templates (items.php, user-listings.php, dashboard.php)\n- Standardize button colors: primary (blue), danger (red), secondary (gray), warning (orange)\n- Add responsive design: buttons stack vertically on mobile\n- Improve user experience with consistent button placement and sizing\n- Fix full-width delete button issue on items page\n- Ensure all contexts (listing, dashboard, claimed) use same button layout"
@@ -436,36 +444,10 @@
                     "short_hash": "eb97de1",
                     "date": "2025-09-09 16:54:34 -0400",
                     "date_formatted": "September 9, 2025",
-                    "time_formatted": "8:54 PM",
+                    "time_formatted": "4:54 PM",
                     "author": "Dave Shevett",
                     "subject": "Add image rotation feature for item owners",
                     "body": "- Add rotation button (\u21bb) to single item view for item owners\n- Implement 90-degree clockwise rotation using GD library\n- Support multiple image formats (JPEG, PNG, GIF, WebP)\n- Download image from S3, rotate, and upload back\n- Add proper error handling and user feedback\n- Fix image key detection to work with dynamic image extensions\n- Include loading states and success messages\n- Page refreshes after successful rotation to show updated image"
-                }
-            ]
-        },
-        {
-            "date": "2025-09-06",
-            "date_formatted": "September 6, 2025",
-            "commits": [
-                {
-                    "hash": "0997fcb5fbef35d02bc82287723e7bd30313f124",
-                    "short_hash": "0997fcb",
-                    "date": "2025-09-05 21:08:01 -0400",
-                    "date_formatted": "September 6, 2025",
-                    "time_formatted": "1:08 AM",
-                    "author": "Dave Shevett",
-                    "subject": "Fix admin delete button visibility and permissions",
-                    "body": "- Fix backend delete handlers to use canUserEditItem() for proper admin permissions\n- Add delete buttons for admins in all contexts (home, listing, dashboard)\n- Add complete delete functionality to home page (modal, JS, CSS)\n- Fix redirect after deletion to go to home page instead of items page\n- Ensure currentUser is properly passed to item-card template\n- Update error messages to include admin privileges\nFixes issue where administrators couldn't see delete buttons on home/items pages\nand were getting 'You can only delete your own items' warnings."
-                },
-                {
-                    "hash": "09bddac8a51ba6ea0cb0044d98a2522d06db9486",
-                    "short_hash": "09bddac",
-                    "date": "2025-09-05 20:55:31 -0400",
-                    "date_formatted": "September 6, 2025",
-                    "time_formatted": "12:55 AM",
-                    "author": "Dave Shevett",
-                    "subject": "Implement administrator functionality",
-                    "body": "- Add ADMIN_USER_ID configuration in config.php\n- Add isAdmin() and canUserEditItem() helper functions\n- Update item-card.php to show edit/delete buttons for admins\n- Update item.php to show edit/delete buttons for admins\n- Update AJAX handlers to check admin permissions for edit/delete\n- Update user-listings.php to show admin controls for all users\n- Admins can now edit and delete any item, just like item owners"
                 }
             ]
         },
@@ -474,11 +456,31 @@
             "date_formatted": "September 5, 2025",
             "commits": [
                 {
+                    "hash": "0997fcb5fbef35d02bc82287723e7bd30313f124",
+                    "short_hash": "0997fcb",
+                    "date": "2025-09-05 21:08:01 -0400",
+                    "date_formatted": "September 5, 2025",
+                    "time_formatted": "9:08 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Fix admin delete button visibility and permissions",
+                    "body": "- Fix backend delete handlers to use canUserEditItem() for proper admin permissions\n- Add delete buttons for admins in all contexts (home, listing, dashboard)\n- Add complete delete functionality to home page (modal, JS, CSS)\n- Fix redirect after deletion to go to home page instead of items page\n- Ensure currentUser is properly passed to item-card template\n- Update error messages to include admin privileges\nFixes issue where administrators couldn't see delete buttons on home/items pages\nand were getting 'You can only delete your own items' warnings."
+                },
+                {
+                    "hash": "09bddac8a51ba6ea0cb0044d98a2522d06db9486",
+                    "short_hash": "09bddac",
+                    "date": "2025-09-05 20:55:31 -0400",
+                    "date_formatted": "September 5, 2025",
+                    "time_formatted": "8:55 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Implement administrator functionality",
+                    "body": "- Add ADMIN_USER_ID configuration in config.php\n- Add isAdmin() and canUserEditItem() helper functions\n- Update item-card.php to show edit/delete buttons for admins\n- Update item.php to show edit/delete buttons for admins\n- Update AJAX handlers to check admin permissions for edit/delete\n- Update user-listings.php to show admin controls for all users\n- Admins can now edit and delete any item, just like item owners"
+                },
+                {
                     "hash": "848c778bf9f0d702e706f23ec635e3da1c5da0f1",
                     "short_hash": "848c778",
                     "date": "2025-09-05 16:35:09 -0400",
                     "date_formatted": "September 5, 2025",
-                    "time_formatted": "8:35 PM",
+                    "time_formatted": "4:35 PM",
                     "author": "Dave Shevett",
                     "subject": "Fix mobile email client URL encoding issue for Contact Seller links",
                     "body": "- Replace urlencode() with rawurlencode() in all mailto: links\n- Fixes issue where spaces appeared as + signs in mobile email clients\n- Affects Contact Seller links in item-card.php and item.php templates\n- rawurlencode() uses %20 for spaces which is more universally supported"
@@ -488,7 +490,7 @@
                     "short_hash": "4a33fd1",
                     "date": "2025-09-05 12:47:17 -0400",
                     "date_formatted": "September 5, 2025",
-                    "time_formatted": "4:47 PM",
+                    "time_formatted": "12:47 PM",
                     "author": "Dave Shevett",
                     "subject": "Remove debugging code from file upload validation",
                     "body": "- Remove DEBUG error_log statements for file upload details\n- Remove file preservation logic in /tmp/claimit_debug/\n- Clean up Apache error logs now that upload issue is resolved\n- GD extension is now installed and image resizing should work"
@@ -498,7 +500,7 @@
                     "short_hash": "ef99b87",
                     "date": "2025-09-05 12:32:04 -0400",
                     "date_formatted": "September 5, 2025",
-                    "time_formatted": "4:32 PM",
+                    "time_formatted": "12:32 PM",
                     "author": "Dave Shevett",
                     "subject": "Fix file upload limit - update MAX_FILE_SIZE to 50MB",
                     "body": "- Change HTML form MAX_FILE_SIZE from 500KB to 50MB (52428800 bytes)\n- This was causing UPLOAD_ERR_FORM_SIZE (error 2) for files > 500KB\n- Browser was rejecting uploads before they reached server validation\n- Now matches server-side 50MB limit configuration"
@@ -508,100 +510,10 @@
                     "short_hash": "a14b5c6",
                     "date": "2025-09-05 12:04:44 -0400",
                     "date_formatted": "September 5, 2025",
-                    "time_formatted": "4:04 PM",
+                    "time_formatted": "12:04 PM",
                     "author": "Dave Shevett",
                     "subject": "Add debugging for file upload issues",
                     "body": "- Add detailed logging of file upload attempts (name, size, error code, tmp path)\n- Preserve rejected files in /tmp/claimit_debug/ for inspection\n- Debug both PHP upload errors and custom size validation\n- Help diagnose 7.9MB file upload rejection despite 50MB limit"
-                },
-                {
-                    "hash": "3ccf029ea608d42665140d1d17ac15804be1e287",
-                    "short_hash": "3ccf029",
-                    "date": "2025-09-04 23:42:58 -0400",
-                    "date_formatted": "September 5, 2025",
-                    "time_formatted": "3:42 AM",
-                    "author": "Dave Shevett",
-                    "subject": "CRITICAL FIX: Update all remaining 10MB limits to 50MB",
-                    "body": "- Update ini_set() calls in public/index.php (50M/51M)\n- Update ini_set() calls in router.php (50M/51M)\n- Update php.ini file (50M/51M)\n- Update dev-php.ini file (50M/51M)\n- These ini_set() calls were overriding the server configuration\n- This should finally allow 50MB uploads to work properly"
-                },
-                {
-                    "hash": "254bdd5945c2d66d608576ba8e69c3fa618ad6c0",
-                    "short_hash": "254bdd5",
-                    "date": "2025-09-04 23:32:02 -0400",
-                    "date_formatted": "September 5, 2025",
-                    "time_formatted": "3:32 AM",
-                    "author": "Dave Shevett",
-                    "subject": "Fix remaining 10MB error message in PHP upload error handling",
-                    "body": "- Update UPLOAD_ERR_INI_SIZE and UPLOAD_ERR_FORM_SIZE error messages to show 50MB\n- This was the last remaining reference to the old 10MB limit\n- Should now show consistent 50MB limit in all error messages"
-                },
-                {
-                    "hash": "563934284297bc281a2887daaf9afff8f2ab2891",
-                    "short_hash": "5639342",
-                    "date": "2025-09-04 23:23:34 -0400",
-                    "date_formatted": "September 5, 2025",
-                    "time_formatted": "3:23 AM",
-                    "author": "Dave Shevett",
-                    "subject": "Increase upload limit from 10MB to 50MB",
-                    "body": "- Update server-side validation in templates/claim.php (50MB limit)\n- Update client-side validation in public/assets/js/app.js (50MB limit)\n- Update form help text to show 50MB limit\n- Update Apache .htaccess configuration (50M/51M)\n- Update .user.ini configuration (50M/51M)\n- This removes the hard-coded 10MB limit that was blocking larger uploads\n- Images will still be automatically resized to under 500KB after upload"
-                },
-                {
-                    "hash": "78a8cf1f80b9daad9faf993f0e5d122ab66bbabe",
-                    "short_hash": "78a8cf1",
-                    "date": "2025-09-04 23:09:46 -0400",
-                    "date_formatted": "September 5, 2025",
-                    "time_formatted": "3:09 AM",
-                    "author": "Dave Shevett",
-                    "subject": "Remove php_admin_value directives from .htaccess",
-                    "body": "- Remove php_admin_value directives that are causing Apache alerts\n- Keep only php_value directives which should be allowed\n- This should eliminate the 'php_admin_value not allowed here' errors\n- The .user.ini file should still provide alternative configuration"
-                },
-                {
-                    "hash": "d8605458029ecfbbd7d8e2e1b7df0e5e65e7508f",
-                    "short_hash": "d860545",
-                    "date": "2025-09-04 23:06:42 -0400",
-                    "date_formatted": "September 5, 2025",
-                    "time_formatted": "3:06 AM",
-                    "author": "Dave Shevett",
-                    "subject": "Remove debug logging to clean up Apache error logs",
-                    "body": "- Remove all DEBUG error_log statements from getActiveClaims() function\n- Remove all DEBUG error_log statements from isUserClaimed() function\n- Remove production debug logging from templates/claim.php\n- Keep only essential error logging for actual errors\n- This should eliminate the large array dumps in Apache error logs\n- Error logs should now be much cleaner and more manageable"
-                },
-                {
-                    "hash": "bdcafc9f4b88611141d451db7198dd14b63415d8",
-                    "short_hash": "bdcafc9",
-                    "date": "2025-09-04 23:05:11 -0400",
-                    "date_formatted": "September 5, 2025",
-                    "time_formatted": "3:05 AM",
-                    "author": "Dave Shevett",
-                    "subject": "Try multiple approaches for production upload limits",
-                    "body": "- Add .user.ini file as alternative to .htaccess for PHP config\n- Add php_admin_value directives in .htaccess (may work when php_value doesn't)\n- Add production debugging to show actual server limits\n- Try both php_value and php_admin_value approaches\n- .user.ini files are often allowed when .htaccess php_value is restricted\n- This should help identify what the actual server limits are"
-                },
-                {
-                    "hash": "70eadb476fd5096073d2cef0a61e6aa60c828b52",
-                    "short_hash": "70eadb4",
-                    "date": "2025-09-04 22:51:38 -0400",
-                    "date_formatted": "September 5, 2025",
-                    "time_formatted": "2:51 AM",
-                    "author": "Dave Shevett",
-                    "subject": "Configure production Apache upload limits for 10MB",
-                    "body": "- Update public/.htaccess with comprehensive PHP upload settings\n- Add php.ini file for production server configuration\n- Remove debugging code from templates/claim.php\n- Set upload_max_filesize=10M, post_max_size=11M\n- Add max_execution_time=300, max_input_time=300, memory_limit=256M\n- These settings should work with Apache in production environment\n- Local development server issues can be addressed separately"
-                },
-                {
-                    "hash": "ca3728c54607c0bb8e0a6c925fa8899e95104029",
-                    "short_hash": "ca3728c",
-                    "date": "2025-09-04 22:45:47 -0400",
-                    "date_formatted": "September 5, 2025",
-                    "time_formatted": "2:45 AM",
-                    "author": "Dave Shevett",
-                    "subject": "Fix PHP upload limits - ini_set() not working",
-                    "body": "- Root cause: PHP ini_set() calls were being ignored (actual limit was 2M instead of 10M)\n- Add .htaccess in root directory with php_value directives\n- Add php.ini file with upload configuration\n- Add putenv() calls as alternative approach\n- Add max_execution_time, max_input_time, and memory_limit settings\n- This should override the 2M limit that was preventing 7.9MB uploads"
-                },
-                {
-                    "hash": "8ab233c3b6400bbfc55a70d4283da17b6cbdc854",
-                    "short_hash": "8ab233c",
-                    "date": "2025-09-04 22:40:52 -0400",
-                    "date_formatted": "September 5, 2025",
-                    "time_formatted": "2:40 AM",
-                    "author": "Dave Shevett",
-                    "subject": "Add debugging for PHP upload limits",
-                    "body": "- Add error_log statements to show actual PHP upload_max_filesize and post_max_size values\n- Show file upload error code and file size in debug logs\n- Update error message to show actual PHP limit for better debugging\n- This will help identify if PHP ini_set() calls are working correctly"
                 }
             ]
         },
@@ -610,11 +522,101 @@
             "date_formatted": "September 4, 2025",
             "commits": [
                 {
+                    "hash": "3ccf029ea608d42665140d1d17ac15804be1e287",
+                    "short_hash": "3ccf029",
+                    "date": "2025-09-04 23:42:58 -0400",
+                    "date_formatted": "September 4, 2025",
+                    "time_formatted": "11:42 PM",
+                    "author": "Dave Shevett",
+                    "subject": "CRITICAL FIX: Update all remaining 10MB limits to 50MB",
+                    "body": "- Update ini_set() calls in public/index.php (50M/51M)\n- Update ini_set() calls in router.php (50M/51M)\n- Update php.ini file (50M/51M)\n- Update dev-php.ini file (50M/51M)\n- These ini_set() calls were overriding the server configuration\n- This should finally allow 50MB uploads to work properly"
+                },
+                {
+                    "hash": "254bdd5945c2d66d608576ba8e69c3fa618ad6c0",
+                    "short_hash": "254bdd5",
+                    "date": "2025-09-04 23:32:02 -0400",
+                    "date_formatted": "September 4, 2025",
+                    "time_formatted": "11:32 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Fix remaining 10MB error message in PHP upload error handling",
+                    "body": "- Update UPLOAD_ERR_INI_SIZE and UPLOAD_ERR_FORM_SIZE error messages to show 50MB\n- This was the last remaining reference to the old 10MB limit\n- Should now show consistent 50MB limit in all error messages"
+                },
+                {
+                    "hash": "563934284297bc281a2887daaf9afff8f2ab2891",
+                    "short_hash": "5639342",
+                    "date": "2025-09-04 23:23:34 -0400",
+                    "date_formatted": "September 4, 2025",
+                    "time_formatted": "11:23 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Increase upload limit from 10MB to 50MB",
+                    "body": "- Update server-side validation in templates/claim.php (50MB limit)\n- Update client-side validation in public/assets/js/app.js (50MB limit)\n- Update form help text to show 50MB limit\n- Update Apache .htaccess configuration (50M/51M)\n- Update .user.ini configuration (50M/51M)\n- This removes the hard-coded 10MB limit that was blocking larger uploads\n- Images will still be automatically resized to under 500KB after upload"
+                },
+                {
+                    "hash": "78a8cf1f80b9daad9faf993f0e5d122ab66bbabe",
+                    "short_hash": "78a8cf1",
+                    "date": "2025-09-04 23:09:46 -0400",
+                    "date_formatted": "September 4, 2025",
+                    "time_formatted": "11:09 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Remove php_admin_value directives from .htaccess",
+                    "body": "- Remove php_admin_value directives that are causing Apache alerts\n- Keep only php_value directives which should be allowed\n- This should eliminate the 'php_admin_value not allowed here' errors\n- The .user.ini file should still provide alternative configuration"
+                },
+                {
+                    "hash": "d8605458029ecfbbd7d8e2e1b7df0e5e65e7508f",
+                    "short_hash": "d860545",
+                    "date": "2025-09-04 23:06:42 -0400",
+                    "date_formatted": "September 4, 2025",
+                    "time_formatted": "11:06 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Remove debug logging to clean up Apache error logs",
+                    "body": "- Remove all DEBUG error_log statements from getActiveClaims() function\n- Remove all DEBUG error_log statements from isUserClaimed() function\n- Remove production debug logging from templates/claim.php\n- Keep only essential error logging for actual errors\n- This should eliminate the large array dumps in Apache error logs\n- Error logs should now be much cleaner and more manageable"
+                },
+                {
+                    "hash": "bdcafc9f4b88611141d451db7198dd14b63415d8",
+                    "short_hash": "bdcafc9",
+                    "date": "2025-09-04 23:05:11 -0400",
+                    "date_formatted": "September 4, 2025",
+                    "time_formatted": "11:05 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Try multiple approaches for production upload limits",
+                    "body": "- Add .user.ini file as alternative to .htaccess for PHP config\n- Add php_admin_value directives in .htaccess (may work when php_value doesn't)\n- Add production debugging to show actual server limits\n- Try both php_value and php_admin_value approaches\n- .user.ini files are often allowed when .htaccess php_value is restricted\n- This should help identify what the actual server limits are"
+                },
+                {
+                    "hash": "70eadb476fd5096073d2cef0a61e6aa60c828b52",
+                    "short_hash": "70eadb4",
+                    "date": "2025-09-04 22:51:38 -0400",
+                    "date_formatted": "September 4, 2025",
+                    "time_formatted": "10:51 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Configure production Apache upload limits for 10MB",
+                    "body": "- Update public/.htaccess with comprehensive PHP upload settings\n- Add php.ini file for production server configuration\n- Remove debugging code from templates/claim.php\n- Set upload_max_filesize=10M, post_max_size=11M\n- Add max_execution_time=300, max_input_time=300, memory_limit=256M\n- These settings should work with Apache in production environment\n- Local development server issues can be addressed separately"
+                },
+                {
+                    "hash": "ca3728c54607c0bb8e0a6c925fa8899e95104029",
+                    "short_hash": "ca3728c",
+                    "date": "2025-09-04 22:45:47 -0400",
+                    "date_formatted": "September 4, 2025",
+                    "time_formatted": "10:45 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Fix PHP upload limits - ini_set() not working",
+                    "body": "- Root cause: PHP ini_set() calls were being ignored (actual limit was 2M instead of 10M)\n- Add .htaccess in root directory with php_value directives\n- Add php.ini file with upload configuration\n- Add putenv() calls as alternative approach\n- Add max_execution_time, max_input_time, and memory_limit settings\n- This should override the 2M limit that was preventing 7.9MB uploads"
+                },
+                {
+                    "hash": "8ab233c3b6400bbfc55a70d4283da17b6cbdc854",
+                    "short_hash": "8ab233c",
+                    "date": "2025-09-04 22:40:52 -0400",
+                    "date_formatted": "September 4, 2025",
+                    "time_formatted": "10:40 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Add debugging for PHP upload limits",
+                    "body": "- Add error_log statements to show actual PHP upload_max_filesize and post_max_size values\n- Show file upload error code and file size in debug logs\n- Update error message to show actual PHP limit for better debugging\n- This will help identify if PHP ini_set() calls are working correctly"
+                },
+                {
                     "hash": "44cc716e9d12b6b60ff43f81bb53a0e04bd6894b",
                     "short_hash": "44cc716",
                     "date": "2025-09-04 18:34:08 -0400",
                     "date_formatted": "September 4, 2025",
-                    "time_formatted": "10:34 PM",
+                    "time_formatted": "6:34 PM",
                     "author": "Dave Shevett",
                     "subject": "Increase upload limit from 5MB to 10MB",
                     "body": "- Update PHP ini_set() calls in public/index.php and router.php (10M/11M)\n- Update Apache upload limits in public/.htaccess (10M/11M)\n- Update client-side JavaScript validation in public/assets/js/app.js (10MB)\n- Update server-side validation in templates/claim.php (10MB)\n- Update HTML form help text to show 10MB limit\n- Images will still be automatically resized to under 500KB after upload\n- All environments (development and production) now support 10MB uploads"
@@ -624,7 +626,7 @@
                     "short_hash": "cab4ed2",
                     "date": "2025-09-04 18:31:32 -0400",
                     "date_formatted": "September 4, 2025",
-                    "time_formatted": "10:31 PM",
+                    "time_formatted": "6:31 PM",
                     "author": "Dave Shevett",
                     "subject": "Fix JavaScript validation error message for file uploads",
                     "body": "- Change error message from 'Picture uploads are limited to 5MB' to 'File is too large. Maximum upload size is 5MB.'\n- Makes it clearer that this is an error for files exceeding the limit\n- Avoids confusion since we do allow 5MB uploads (the limit is exactly 5MB)"
@@ -634,7 +636,7 @@
                     "short_hash": "745aee1",
                     "date": "2025-09-04 18:28:04 -0400",
                     "date_formatted": "September 4, 2025",
-                    "time_formatted": "10:28 PM",
+                    "time_formatted": "6:28 PM",
                     "author": "Dave Shevett",
                     "subject": "Fix form help text to show correct 5MB upload limit",
                     "body": "- Update HTML form help text from 'max 500k' to 'max 5MB - will be automatically resized'\n- Clarifies that users can upload up to 5MB and images will be automatically resized\n- Matches the actual server-side validation limits"
@@ -644,7 +646,7 @@
                     "short_hash": "d7365d0",
                     "date": "2025-09-04 18:07:14 -0400",
                     "date_formatted": "September 4, 2025",
-                    "time_formatted": "10:07 PM",
+                    "time_formatted": "6:07 PM",
                     "author": "Dave Shevett",
                     "subject": "Implement 5MB upload limit with automatic image resizing",
                     "body": "- Raise upload limits to 5MB for both development and production\n- Add PHP ini_set() calls in public/index.php and router.php\n- Add Apache upload limits in public/.htaccess\n- Implement GD library image resizing function in includes/functions.php\n- Resize images to max 1200x1200px and under 500KB final size\n- Update server-side validation in templates/claim.php (5MB limit)\n- Update client-side validation in public/assets/js/app.js (5MB limit)\n- Add automatic image resizing before S3 upload\n- Maintain aspect ratio and preserve transparency for PNG/GIF\n- Fallback to original image if resizing fails\n- Clean up temporary files after processing"
@@ -654,7 +656,7 @@
                     "short_hash": "aceba3d",
                     "date": "2025-09-04 17:52:55 -0400",
                     "date_formatted": "September 4, 2025",
-                    "time_formatted": "9:52 PM",
+                    "time_formatted": "5:52 PM",
                     "author": "Dave Shevett",
                     "subject": "Fix mobile dropdown menu behavior",
                     "body": "- Change mobile dropdown from always-visible to proper toggle behavior\n- Use absolute positioning instead of static for mobile dropdown\n- Add proper opacity, visibility, and transform transitions\n- Dropdown now properly shows/hides on mobile when clicked\n- Maintains consistent behavior across desktop and mobile"
@@ -670,30 +672,10 @@
                     "short_hash": "77985f9",
                     "date": "2025-09-03 17:06:06 -0400",
                     "date_formatted": "September 3, 2025",
-                    "time_formatted": "9:06 PM",
+                    "time_formatted": "5:06 PM",
                     "author": "Dave Shevett",
                     "subject": "Improve Contact Seller email format",
                     "body": "- Update subject line to 'ClaimIt Interest - [Item Title]'\n- Add direct link to item in email body\n- Apply consistent formatting across all Contact Seller buttons\n- Update templates/item.php and templates/item-card.php\n- Better email experience for buyers and sellers"
-                },
-                {
-                    "hash": "71fc52d9e7a5c0e581a3790c33176ee578818188",
-                    "short_hash": "71fc52d",
-                    "date": "2025-09-02 21:18:45 -0400",
-                    "date_formatted": "September 3, 2025",
-                    "time_formatted": "1:18 AM",
-                    "author": "Dave Shevett",
-                    "subject": "Add Edit button to single item page",
-                    "body": "- Add Edit button for item owners on single item page (/?page=item&id=...)\n- Include Edit modal with form for title and description editing\n- Add JavaScript functions for modal handling and AJAX submission\n- Edit button appears alongside Delete button for item owners\n- Maintains consistency with user-listings page functionality"
-                },
-                {
-                    "hash": "91a10ef2ef76905f2b96a94b5e081920bf1e7607",
-                    "short_hash": "91a10ef",
-                    "date": "2025-09-02 21:12:14 -0400",
-                    "date_formatted": "September 3, 2025",
-                    "time_formatted": "1:12 AM",
-                    "author": "Dave Shevett",
-                    "subject": "Remove debugging from edit_item functionality",
-                    "body": "- Remove all error_log debug statements from both POST and GET edit_item handlers\n- Clean up the code while maintaining full functionality\n- Item editing is now working correctly and saving to S3"
                 }
             ]
         },
@@ -702,11 +684,31 @@
             "date_formatted": "September 2, 2025",
             "commits": [
                 {
+                    "hash": "71fc52d9e7a5c0e581a3790c33176ee578818188",
+                    "short_hash": "71fc52d",
+                    "date": "2025-09-02 21:18:45 -0400",
+                    "date_formatted": "September 2, 2025",
+                    "time_formatted": "9:18 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Add Edit button to single item page",
+                    "body": "- Add Edit button for item owners on single item page (/?page=item&id=...)\n- Include Edit modal with form for title and description editing\n- Add JavaScript functions for modal handling and AJAX submission\n- Edit button appears alongside Delete button for item owners\n- Maintains consistency with user-listings page functionality"
+                },
+                {
+                    "hash": "91a10ef2ef76905f2b96a94b5e081920bf1e7607",
+                    "short_hash": "91a10ef",
+                    "date": "2025-09-02 21:12:14 -0400",
+                    "date_formatted": "September 2, 2025",
+                    "time_formatted": "9:12 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Remove debugging from edit_item functionality",
+                    "body": "- Remove all error_log debug statements from both POST and GET edit_item handlers\n- Clean up the code while maintaining full functionality\n- Item editing is now working correctly and saving to S3"
+                },
+                {
                     "hash": "0f4bdeebd369cce70bc01cd1e5589c15ac3810e1",
                     "short_hash": "0f4bdee",
                     "date": "2025-09-02 19:07:51 -0400",
                     "date_formatted": "September 2, 2025",
-                    "time_formatted": "11:07 PM",
+                    "time_formatted": "7:07 PM",
                     "author": "Dave Shevett",
                     "subject": "Fix edit_item AJAX routing and add debugging",
                     "body": "- Fix JavaScript to send request to correct URL: ?page=claim&action=edit_item\n- Add comprehensive debugging to both POST and GET edit_item handlers\n- This should now properly route edit requests and show debug output"
@@ -716,7 +718,7 @@
                     "short_hash": "58246b1",
                     "date": "2025-09-02 18:30:39 -0400",
                     "date_formatted": "September 2, 2025",
-                    "time_formatted": "10:30 PM",
+                    "time_formatted": "6:30 PM",
                     "author": "Dave Shevett",
                     "subject": "Add debugging to edit_item functionality",
                     "body": "- Add error_log statements to track YAML conversion and S3 upload\n- This will help identify why item edits are not being saved"
@@ -726,7 +728,7 @@
                     "short_hash": "4275b0b",
                     "date": "2025-09-02 17:52:27 -0400",
                     "date_formatted": "September 2, 2025",
-                    "time_formatted": "9:52 PM",
+                    "time_formatted": "5:52 PM",
                     "author": "Dave Shevett",
                     "subject": "Fix AJAX request for item editing",
                     "body": "- Change JavaScript to send action as POST data instead of GET parameter\n- This ensures the edit_item action reaches the correct backend handler\n- Item editing should now properly save changes to S3 YAML files"
@@ -736,7 +738,7 @@
                     "short_hash": "7fa912a",
                     "date": "2025-09-02 17:49:26 -0400",
                     "date_formatted": "September 2, 2025",
-                    "time_formatted": "9:49 PM",
+                    "time_formatted": "5:49 PM",
                     "author": "Dave Shevett",
                     "subject": "Fix JavaScript syntax error in Edit button onclick",
                     "body": "- Replace json_encode() with htmlspecialchars() and addslashes() for proper escaping\n- Remove debugging alert from openEditModal function\n- Fix JavaScript syntax error that was preventing modal from opening"
@@ -746,7 +748,7 @@
                     "short_hash": "8ea3c60",
                     "date": "2025-09-02 17:45:17 -0400",
                     "date_formatted": "September 2, 2025",
-                    "time_formatted": "9:45 PM",
+                    "time_formatted": "5:45 PM",
                     "author": "Dave Shevett",
                     "subject": "Add debugging to edit modal functionality",
                     "body": "- Add console.log and alert debugging to openEditModal function\n- Verify if function is being called and modal element is found"
@@ -756,7 +758,7 @@
                     "short_hash": "d1ab536",
                     "date": "2025-09-02 17:40:08 -0400",
                     "date_formatted": "September 2, 2025",
-                    "time_formatted": "9:40 PM",
+                    "time_formatted": "5:40 PM",
                     "author": "Dave Shevett",
                     "subject": "Add item editing functionality for item owners",
                     "body": "- Add 'Edit...' button to dashboard context for own listings\n- Create edit modal dialog with title and description fields\n- Add backend AJAX handler for edit_item action in both POST and GET routes\n- Implement JavaScript functions for modal management and form submission\n- Add CSS styling for textarea elements in modal forms\n- Use JSON encoding for JavaScript parameters to handle quotes properly\n- Validate ownership before allowing edits and update S3 YAML files"
@@ -766,7 +768,7 @@
                     "short_hash": "62e1480",
                     "date": "2025-09-02 17:07:06 -0400",
                     "date_formatted": "September 2, 2025",
-                    "time_formatted": "9:07 PM",
+                    "time_formatted": "5:07 PM",
                     "author": "Dave Shevett",
                     "subject": "Fix AJAX routing for claim management functions",
                     "body": "- Add GET-based AJAX handler for ?page=claim&action=* endpoints\n- Fix mismatch between JavaScript URL parameters and PHP POST data handling\n- Ensure both POST and GET-based claim requests work properly\n- Add delete_item action to supported actions list"
@@ -776,7 +778,7 @@
                     "short_hash": "c7798d1",
                     "date": "2025-09-02 17:04:14 -0400",
                     "date_formatted": "September 2, 2025",
-                    "time_formatted": "9:04 PM",
+                    "time_formatted": "5:04 PM",
                     "author": "Dave Shevett",
                     "subject": "Add debugging to removeMyClaim functionality",
                     "body": "- Add console.log statements to JavaScript removeMyClaim function\n- Add error_log statements to PHP remove_claim action handler\n- Improve error handling and debugging for claim removal process"
@@ -786,7 +788,7 @@
                     "short_hash": "dc54cee",
                     "date": "2025-09-02 16:59:16 -0400",
                     "date_formatted": "September 2, 2025",
-                    "time_formatted": "8:59 PM",
+                    "time_formatted": "4:59 PM",
                     "author": "Dave Shevett",
                     "subject": "Fix 'Remove my claim' functionality and add missing JavaScript functions",
                     "body": "- Add missing JavaScript functions (addClaimToItem, removeMyClaim, deleteItem) to main index.php\n- Add delete_item action handler for item deletion\n- Add getItem() function to functions.php for retrieving individual items\n- Fix JavaScript function availability across all templates\n- Add showMessage() function for user feedback\n- Ensure all claim management functions work with unified item card system"
@@ -796,7 +798,7 @@
                     "short_hash": "4e7fac4",
                     "date": "2025-09-02 16:29:26 -0400",
                     "date_formatted": "September 2, 2025",
-                    "time_formatted": "8:29 PM",
+                    "time_formatted": "4:29 PM",
                     "author": "Dave Shevett",
                     "subject": "Fix remaining include path in user-listings.php",
                     "body": "- Fix the last include statement on line 290 that was still using relative path\n- This resolves the production error: 'Failed opening templates/item-card.php'"
@@ -806,7 +808,7 @@
                     "short_hash": "ec90700",
                     "date": "2025-09-02 16:19:41 -0400",
                     "date_formatted": "September 2, 2025",
-                    "time_formatted": "8:19 PM",
+                    "time_formatted": "4:19 PM",
                     "author": "Dave Shevett",
                     "subject": "Fix include paths for production environment",
                     "body": "- Change relative include paths to absolute paths using __DIR__\n- Fixes 'Failed opening templates/item-card.php' error in production\n- Affects home.php, user-listings.php, and items.php templates"
@@ -816,7 +818,7 @@
                     "short_hash": "d3576fe",
                     "date": "2025-09-02 16:15:39 -0400",
                     "date_formatted": "September 2, 2025",
-                    "time_formatted": "8:15 PM",
+                    "time_formatted": "4:15 PM",
                     "author": "Dave Shevett",
                     "subject": "Add user settings functionality with custom display names",
                     "body": "- Implement settings modal dialog accessible from user dropdown\n- Add display name field allowing users to customize their displayed name\n- Store user settings in S3 under users/{userId}.yaml\n- Integrate custom display names throughout the application\n- Update unified item card template to use custom names\n- Add comprehensive CSS styling for modal and form elements\n- Include JavaScript functions for modal handling and AJAX submission"
@@ -826,7 +828,7 @@
                     "short_hash": "02979a0",
                     "date": "2025-09-02 15:53:47 -0400",
                     "date_formatted": "September 2, 2025",
-                    "time_formatted": "7:53 PM",
+                    "time_formatted": "3:53 PM",
                     "author": "Dave Shevett",
                     "subject": "Add ClaimIt logo to header and favicon - Add claimit-logo.jpg to public/assets/images/ - Set logo as favicon in HTML head section - Display logo image next to ClaimIt text in navigation header - Add CSS styling for logo display (40x40px with rounded corners) - Logo appears in browser tabs and navigation bar for better branding",
                     "body": ""
@@ -836,7 +838,7 @@
                     "short_hash": "8d39044",
                     "date": "2025-09-02 15:34:07 -0400",
                     "date_formatted": "September 2, 2025",
-                    "time_formatted": "7:34 PM",
+                    "time_formatted": "3:34 PM",
                     "author": "Dave Shevett",
                     "subject": "Fix image display in unified item card template - Change image_file to image_key to match actual data structure - Images now display correctly across all pages using unified template - Fixes 'No Image' placeholder issue that was showing instead of actual images",
                     "body": ""
@@ -846,7 +848,7 @@
                     "short_hash": "d290c17",
                     "date": "2025-09-02 15:08:00 -0400",
                     "date_formatted": "September 2, 2025",
-                    "time_formatted": "7:08 PM",
+                    "time_formatted": "3:08 PM",
                     "author": "Dave Shevett",
                     "subject": "Implement unified item card system - Create templates/item-card.php for consistent item display across all pages - Add comprehensive CSS styles for unified item cards in style.css - Update templates/items.php to use unified template with 'listing' context - Update templates/home.php to use unified template with 'home' context - Update templates/user-listings.php to use unified template with 'dashboard' and 'claimed' contexts - Add truncateText() helper function to functions.php - Maintains all existing functionality while providing consistent UI - Supports different display contexts (listing, home, dashboard, claimed) - Includes proper action buttons based on user permissions and context",
                     "body": ""
@@ -856,7 +858,7 @@
                     "short_hash": "5c223a2",
                     "date": "2025-09-02 14:32:23 -0400",
                     "date_formatted": "September 2, 2025",
-                    "time_formatted": "6:32 PM",
+                    "time_formatted": "2:32 PM",
                     "author": "Dave Shevett",
                     "subject": "Add action buttons to posted items in user-listings template - Added Contact Seller and Delete buttons for items posted by the user - Buttons only appear when viewing own listings (isOwnListings = true) - Added CSS styling for .item-actions class with proper button layout and hover effects - Improves user experience by providing quick access to item management actions",
                     "body": ""
@@ -872,29 +874,9 @@
                     "short_hash": "6127526",
                     "date": "2025-09-01 11:51:08 -0400",
                     "date_formatted": "September 1, 2025",
-                    "time_formatted": "3:51 PM",
+                    "time_formatted": "11:51 AM",
                     "author": "Dave Shevett",
                     "subject": "Fix hardcoded localhost base URL in redirect() function - Added dynamic environment detection for base URL - Uses localhost:8000 for development and claimit.stonekeep.com for production - Fixes OAuth redirect loop when accessing production site",
-                    "body": ""
-                },
-                {
-                    "hash": "cba2a6d0e300bf7628d84d7871081ec5a8367faf",
-                    "short_hash": "cba2a6d",
-                    "date": "2025-08-31 21:02:49 -0400",
-                    "date_formatted": "September 1, 2025",
-                    "time_formatted": "1:02 AM",
-                    "author": "Dave Shevett",
-                    "subject": "Fix OAuth redirect URI for production environment - Added dynamic redirect URI detection based on HTTP_HOST - Uses localhost:8000 for development and claimit.stonekeep.com for production - Updated example configuration with proper documentation - Fixes OAuth redirect loop when accessing production site",
-                    "body": ""
-                },
-                {
-                    "hash": "efc4f37a9e381ca453046d324a9d069630fe87df",
-                    "short_hash": "efc4f37",
-                    "date": "2025-08-31 20:52:13 -0400",
-                    "date_formatted": "September 1, 2025",
-                    "time_formatted": "12:52 AM",
-                    "author": "Dave Shevett",
-                    "subject": "Add claimed items section to user listings page - Added getItemsClaimedByUser function to find items claimed by a user - Enhanced user-listings page to show claimed items when viewing own listings - Added dashboard stat showing 'Items Claimed' count - Fixed image URL generation using correct getPresignedUrl method - Improved UI to show claim status and position for claimed items - Added proper handling for users with claimed items but no posted items",
                     "body": ""
                 }
             ]
@@ -904,13 +886,23 @@
             "date_formatted": "August 31, 2025",
             "commits": [
                 {
-                    "hash": "b66d83d3a19ac5a2ffbb483ce1ae3d62e05684c2",
-                    "short_hash": "b66d83d",
-                    "date": "2025-08-30 23:02:12 -0400",
+                    "hash": "cba2a6d0e300bf7628d84d7871081ec5a8367faf",
+                    "short_hash": "cba2a6d",
+                    "date": "2025-08-31 21:02:49 -0400",
                     "date_formatted": "August 31, 2025",
-                    "time_formatted": "3:02 AM",
+                    "time_formatted": "9:02 PM",
                     "author": "Dave Shevett",
-                    "subject": "Fix YAML parser and claim system - Fixed parseSimpleYaml to handle malformed claim entries with proper indentation detection - Added multi-line value support for claimed_at fields - Improved claim status filtering (active vs removed) - Enhanced UI to show 'You! (User Name)' for current user's claims - Moved About link to footer - Added comprehensive waitlist section styling - Fixed claim button logic and AJAX handlers - All claim system functionality now working correctly",
+                    "subject": "Fix OAuth redirect URI for production environment - Added dynamic redirect URI detection based on HTTP_HOST - Uses localhost:8000 for development and claimit.stonekeep.com for production - Updated example configuration with proper documentation - Fixes OAuth redirect loop when accessing production site",
+                    "body": ""
+                },
+                {
+                    "hash": "efc4f37a9e381ca453046d324a9d069630fe87df",
+                    "short_hash": "efc4f37",
+                    "date": "2025-08-31 20:52:13 -0400",
+                    "date_formatted": "August 31, 2025",
+                    "time_formatted": "8:52 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Add claimed items section to user listings page - Added getItemsClaimedByUser function to find items claimed by a user - Enhanced user-listings page to show claimed items when viewing own listings - Added dashboard stat showing 'Items Claimed' count - Fixed image URL generation using correct getPresignedUrl method - Improved UI to show claim status and position for claimed items - Added proper handling for users with claimed items but no posted items",
                     "body": ""
                 }
             ]
@@ -920,11 +912,21 @@
             "date_formatted": "August 30, 2025",
             "commits": [
                 {
+                    "hash": "b66d83d3a19ac5a2ffbb483ce1ae3d62e05684c2",
+                    "short_hash": "b66d83d",
+                    "date": "2025-08-30 23:02:12 -0400",
+                    "date_formatted": "August 30, 2025",
+                    "time_formatted": "11:02 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Fix YAML parser and claim system - Fixed parseSimpleYaml to handle malformed claim entries with proper indentation detection - Added multi-line value support for claimed_at fields - Improved claim status filtering (active vs removed) - Enhanced UI to show 'You! (User Name)' for current user's claims - Moved About link to footer - Added comprehensive waitlist section styling - Fixed claim button logic and AJAX handlers - All claim system functionality now working correctly",
+                    "body": ""
+                },
+                {
                     "hash": "4f8f67cd47106c97f380c2403e82ce5fdcc7b4e6",
                     "short_hash": "4f8f67c",
                     "date": "2025-08-30 19:09:34 -0400",
                     "date_formatted": "August 30, 2025",
-                    "time_formatted": "11:09 PM",
+                    "time_formatted": "7:09 PM",
                     "author": "Dave Shevett",
                     "subject": "Add Open Graph meta tags for social media previews - Implement generateOpenGraphTags function for Slack/Facebook/Twitter previews - Add dynamic meta tags for individual items with thumbnails and descriptions - Add user listings previews showing item counts - Support both development and production URLs - Include Twitter Card meta tags for enhanced Twitter previews",
                     "body": ""
@@ -934,7 +936,7 @@
                     "short_hash": "c7c1dba",
                     "date": "2025-08-30 19:01:45 -0400",
                     "date_formatted": "August 30, 2025",
-                    "time_formatted": "11:01 PM",
+                    "time_formatted": "7:01 PM",
                     "author": "Dave Shevett",
                     "subject": "Make My Listings link shareable and fix dashboard styling - Update My Listings to use user-listings format with user ID for sharing - Add dashboard-style interface to user-listings when viewing own items - Move dashboard styles to main CSS file for consistency - Make stat cards more compact with tighter design",
                     "body": ""
@@ -944,7 +946,7 @@
                     "short_hash": "d82f459",
                     "date": "2025-08-30 08:04:54 -0400",
                     "date_formatted": "August 30, 2025",
-                    "time_formatted": "12:04 PM",
+                    "time_formatted": "8:04 AM",
                     "author": "Dave Shevett",
                     "subject": "Fix OAuth redirect loop by using absolute URLs in redirect function",
                     "body": ""
@@ -960,7 +962,7 @@
                     "short_hash": "1fc30df",
                     "date": "2025-08-29 17:21:25 -0400",
                     "date_formatted": "August 29, 2025",
-                    "time_formatted": "9:21 PM",
+                    "time_formatted": "5:21 PM",
                     "author": "Dave Shevett",
                     "subject": "Update deploy.yml",
                     "body": ""
@@ -970,7 +972,7 @@
                     "short_hash": "afb1538",
                     "date": "2025-08-29 16:56:32 -0400",
                     "date_formatted": "August 29, 2025",
-                    "time_formatted": "8:56 PM",
+                    "time_formatted": "4:56 PM",
                     "author": "Dave Shevett",
                     "subject": "Test deployment workflow - remove sudo commands",
                     "body": ""
@@ -980,7 +982,7 @@
                     "short_hash": "4be6930",
                     "date": "2025-08-29 16:34:22 -0400",
                     "date_formatted": "August 29, 2025",
-                    "time_formatted": "8:34 PM",
+                    "time_formatted": "4:34 PM",
                     "author": "Dave Shevett",
                     "subject": "Move contact link from navigation to footer",
                     "body": "- Remove contact link from main navigation menu\n- Add contact link to footer with separator pipe\n- Add CSS styling for footer link with hover effects\n- Cleaner navigation with contact accessible in footer\n- Footer link styled with gray color and blue hover state"
@@ -990,7 +992,7 @@
                     "short_hash": "33010f3",
                     "date": "2025-08-29 16:25:46 -0400",
                     "date_formatted": "August 29, 2025",
-                    "time_formatted": "8:25 PM",
+                    "time_formatted": "4:25 PM",
                     "author": "Dave Shevett",
                     "subject": "Add GitHub Actions deployment workflow",
                     "body": "- Create automated deployment workflow for production server\n- Triggers on push to main branch\n- Uses SSH to connect to production server\n- Pulls latest code and updates dependencies\n- Sets proper file permissions\n- Ready for GitHub Secrets configuration"
@@ -1000,7 +1002,7 @@
                     "short_hash": "4245b8a",
                     "date": "2025-08-29 12:24:27 -0400",
                     "date_formatted": "August 29, 2025",
-                    "time_formatted": "4:24 PM",
+                    "time_formatted": "12:24 PM",
                     "author": "Dave Shevett",
                     "subject": "Transform home page to show available items directly",
                     "body": "- Replace hero section with items grid display\n- Remove phone, hours, and address from contact page\n- Home page now shows all available items immediately\n- Add 'Post a New Item' button in header\n- Include empty state when no items exist\n- Maintain AWS credentials check for development\n- Users can now browse items without extra navigation steps"
@@ -1016,7 +1018,7 @@
                     "short_hash": "39e3cfe",
                     "date": "2025-08-28 17:57:24 -0400",
                     "date_formatted": "August 28, 2025",
-                    "time_formatted": "9:57 PM",
+                    "time_formatted": "5:57 PM",
                     "author": "Dave Shevett",
                     "subject": "Fix OAuth redirect URI and localhost asset serving",
                     "body": "- Update Google OAuth config to use production redirect URI\n- Add auth route rewrite rules to .htaccess for clean URLs\n- Update router.php to find assets in public/ directory for localhost dev\n- Fixes OAuth redirecting to localhost instead of production domain\n- Maintains CSS/JS functionality in both localhost and production"
@@ -1026,7 +1028,7 @@
                     "short_hash": "a88c473",
                     "date": "2025-08-28 17:29:54 -0400",
                     "date_formatted": "August 28, 2025",
-                    "time_formatted": "9:29 PM",
+                    "time_formatted": "5:29 PM",
                     "author": "Dave Shevett",
                     "subject": "Move assets directory into public/ and remove rewrite rule",
                     "body": "- Move assets/ from project root to public/assets/\n- Remove assets rewrite rule from .htaccess (no longer needed)\n- Fixes Apache security error with directory traversal (/../assets/)\n- Assets now served directly from DocumentRoot/assets/"
@@ -1036,7 +1038,7 @@
                     "short_hash": "8d83245",
                     "date": "2025-08-28 17:23:15 -0400",
                     "date_formatted": "August 28, 2025",
-                    "time_formatted": "9:23 PM",
+                    "time_formatted": "5:23 PM",
                     "author": "Dave Shevett",
                     "subject": "Fix assets loading by removing file existence check in .htaccess",
                     "body": "- Remove RewriteCond %{REQUEST_FILENAME} -f from assets rule\n- This was preventing assets from loading when DocumentRoot is set to /public\n- Assets requests now properly redirect to ../assets/ directory"
@@ -1046,7 +1048,7 @@
                     "short_hash": "e180b7d",
                     "date": "2025-08-28 14:59:14 -0400",
                     "date_formatted": "August 28, 2025",
-                    "time_formatted": "6:59 PM",
+                    "time_formatted": "2:59 PM",
                     "author": "Dave Shevett",
                     "subject": "Update claim button text and fix user-listings image scaling",
                     "body": "- Changed 'Never mind' button to 'You have claimed this!' with checkmark emoji\n- Kept mouseover tooltip as 'Unclaim this item' for clarity\n- Fixed image scaling on user-listings page to match main items display\n- Added proper CSS for item cards and grid layout consistency\n- Updated both individual item view and items grid view templates"
@@ -1056,7 +1058,7 @@
                     "short_hash": "6e8bf4e",
                     "date": "2025-08-28 14:21:57 -0400",
                     "date_formatted": "August 28, 2025",
-                    "time_formatted": "6:21 PM",
+                    "time_formatted": "2:21 PM",
                     "author": "Dave Shevett",
                     "subject": "Improve image upload error messages and reduce size limit to 500KB",
                     "body": "- Replace generic 'An error occurred' with specific 'Picture uploads are limited to under 500k'\n- Add detailed server-side error handling for different PHP upload error codes\n- Implement client-side file validation with immediate feedback\n- Reduce upload limit from 5MB to 500KB\n- Add MAX_FILE_SIZE form field for browser-level enforcement\n- Show file size and name on successful selection\n- Add success/danger color variables to CSS"
@@ -1072,7 +1074,7 @@
                     "short_hash": "ef4c5e6",
                     "date": "2025-08-27 17:47:27 -0400",
                     "date_formatted": "August 27, 2025",
-                    "time_formatted": "9:47 PM",
+                    "time_formatted": "5:47 PM",
                     "author": "Dave Shevett",
                     "subject": "Update about page and navigation improvements",
                     "body": "- Added company image to about page replacing placeholder\n- Reformatted about page content with proper paragraph breaks\n- Changed 'My Posts' to 'My Listings' in navigation menu\n- Added responsive image styling with hover effects\n- Updated documentation references to reflect 'My Listings' terminology"
@@ -1082,110 +1084,10 @@
                     "short_hash": "d7104bb",
                     "date": "2025-08-27 17:23:10 -0400",
                     "date_formatted": "August 27, 2025",
-                    "time_formatted": "9:23 PM",
+                    "time_formatted": "5:23 PM",
                     "author": "Dave Shevett",
                     "subject": "Fix navigation toolbar alignment and implement Google avatar fallback system",
                     "body": "- Fixed vertical alignment issues in navigation bar caused by user avatars\n- Added consistent min-height values for nav elements to prevent height changes\n- Implemented comprehensive Google profile picture fallback system\n- Added automatic fallback to user initials when avatar image fails to load\n- Improved Google OAuth picture URLs with proper sizing parameters\n- Added CORS handling with referrerpolicy for cross-origin images\n- Enhanced responsive design for navigation on mobile devices\n- Includes proper error handling and graceful degradation for avatars"
-                },
-                {
-                    "hash": "db3bc0b39069c357c6bb3cbaee2d221f0b25cb9e",
-                    "short_hash": "db3bc0b",
-                    "date": "2025-08-26 22:17:06 -0400",
-                    "date_formatted": "August 27, 2025",
-                    "time_formatted": "2:17 AM",
-                    "author": "Dave Shevett",
-                    "subject": "Add title field and improve UI consistency",
-                    "body": "- Add required title field to item posting form with validation\n- Update YAML data structure to include title field for all new items\n- Display item titles prominently on both listing and detail pages\n- Ensure backward compatibility: items without titles use description\n- Change Claim button color from green to blue to match Contact Seller button\n- Improve responsive design for item headers on mobile devices\n- Fix image sizing on individual item pages (max-width: 500px, max-height: 70vh)\nThis enhances the user experience by providing clearer item identification\nand consistent button styling throughout the application."
-                },
-                {
-                    "hash": "791b8f9b20dfc3fe12ca5387f9da41f220249b44",
-                    "short_hash": "791b8f9",
-                    "date": "2025-08-26 21:26:03 -0400",
-                    "date_formatted": "August 27, 2025",
-                    "time_formatted": "1:26 AM",
-                    "author": "Dave Shevett",
-                    "subject": "Implement individual item URLs and detailed view pages",
-                    "body": "- Add 'item' route to available pages for individual item viewing\n- Create templates/item.php with detailed item view including:\n* Large image display with sticky positioning\n* Prominent price display with FREE badge for /bin/zsh items\n* Full description with proper line breaks\n* Item details grid (ID, posted date, contact)\n* Action buttons (Contact Seller, Claim, Delete)\n* Back navigation to items listing\n* Mobile responsive design\n- Make item listings clickable by wrapping cards in links to individual pages\n- Add hover effects and smooth animations for better UX\n- Move parseSimpleYaml function to includes/functions.php for reuse\n- Maintain all existing functionality (delete, claim, contact) on individual pages\n- URLs: ?page=item&id=TRACKING_NUMBER (clean URLs via .htaccess on Apache)\n- Proper z-index handling to keep action buttons clickable within linked cards"
-                },
-                {
-                    "hash": "59defc7458cd84219dd7b9fd4509c8c1343f3e7f",
-                    "short_hash": "59defc7",
-                    "date": "2025-08-26 20:56:56 -0400",
-                    "date_formatted": "August 27, 2025",
-                    "time_formatted": "12:56 AM",
-                    "author": "Dave Shevett",
-                    "subject": "Change 'View items' URL from '/s3' to '/items'",
-                    "body": "- Rename templates/s3.php to templates/items.php\n- Update routing in index.php to handle 'items' instead of 's3'\n- Update all navigation links from ?page=s3 to ?page=items\n- Update home page button to link to items page\n- Update redirect after posting item to go to items page\n- Update all error redirects in items template\n- Update deployment guide with new URL structure\n- Provides more user-friendly URLs hiding implementation details"
-                },
-                {
-                    "hash": "37fa6c27d34b1ca8ebb73eff273114627d9826b4",
-                    "short_hash": "37fa6c2",
-                    "date": "2025-08-26 20:52:23 -0400",
-                    "date_formatted": "August 27, 2025",
-                    "time_formatted": "12:52 AM",
-                    "author": "Dave Shevett",
-                    "subject": "Add Apache deployment configuration and guide",
-                    "body": "- Add .htaccess for clean URLs, static asset handling, and security headers\n- Create comprehensive DEPLOYMENT.md guide for Apache hosting\n- Include virtual host configuration examples\n- Add SSL, permissions, and troubleshooting sections\n- Enable clean URLs like /claim and /s3 instead of ?page=claim"
-                },
-                {
-                    "hash": "6160afc151520456ab92bf68bbd057fcd91ffef3",
-                    "short_hash": "6160afc",
-                    "date": "2025-08-26 20:38:39 -0400",
-                    "date_formatted": "August 27, 2025",
-                    "time_formatted": "12:38 AM",
-                    "author": "Dave Shevett",
-                    "subject": "Replace 'Share image' button with 'Claim this!' button",
-                    "body": "- Remove conditional Share Image button that linked to presigned URLs\n- Add new 'Claim this!' button with success styling (green)\n- Implement claimItem() JavaScript function with placeholder functionality\n- Add CSS styling for .claim-btn with hover effects and smooth transitions\n- Button shows 'Not implemented yet' alert dialog with tracking number\n- Prepares foundation for future claiming functionality"
-                },
-                {
-                    "hash": "1d60715bbc69b3271dec9eaec64d55006326ec77",
-                    "short_hash": "1d60715",
-                    "date": "2025-08-26 20:35:58 -0400",
-                    "date_formatted": "August 27, 2025",
-                    "time_formatted": "12:35 AM",
-                    "author": "Dave Shevett",
-                    "subject": "Update text to include giveaway option alongside sales",
-                    "body": "- Change 'for sale' to 'for sale or for giveaway' across templates\n- Updated posting page subtitle to be more inclusive\n- Updated items listing page descriptions to reflect both sale and giveaway options\n- Updated 'no items available' message to include giveaway option\n- Makes the platform more welcoming for free item sharing"
-                },
-                {
-                    "hash": "01a08a3ec2f463e42ba65a92710c04431e0b7fd5",
-                    "short_hash": "01a08a3",
-                    "date": "2025-08-26 20:33:46 -0400",
-                    "date_formatted": "August 27, 2025",
-                    "time_formatted": "12:33 AM",
-                    "author": "Dave Shevett",
-                    "subject": "Replace 'Learn More' button with 'View available items' link on home page",
-                    "body": "- Remove the 'Learn More' button that linked to About page\n- Add 'View available items' button that links to marketplace (s3 page)\n- Maintains consistent navigation experience across site\n- Users can now directly access available items from the home page"
-                },
-                {
-                    "hash": "8ffbc36201e8e323810289c295b2306732c445a6",
-                    "short_hash": "8ffbc36",
-                    "date": "2025-08-26 20:26:54 -0400",
-                    "date_formatted": "August 27, 2025",
-                    "time_formatted": "12:26 AM",
-                    "author": "Dave Shevett",
-                    "subject": "Replace JavaScript confirm dialog with styled HTML modal",
-                    "body": "- Replace browser confirm() popup with custom modal dialog\n- Add proper HTML modal with header, body, and action buttons\n- Style modal to match site design with rounded corners and shadows\n- Include smooth animations for modal show/hide transitions\n- Add keyboard support (ESC key to close) for accessibility\n- Add click-outside-to-close functionality\n- Responsive design for mobile devices\n- Maintain all existing delete functionality and error handling"
-                },
-                {
-                    "hash": "f1795bf10a3797bf61782bf8120fe201d3ab0499",
-                    "short_hash": "f1795bf",
-                    "date": "2025-08-26 20:13:41 -0400",
-                    "date_formatted": "August 27, 2025",
-                    "time_formatted": "12:13 AM",
-                    "author": "Dave Shevett",
-                    "subject": "Redirect to View Available Items page after posting",
-                    "body": "- Change redirect destination from 'claim' to 's3' after successful item posting\n- Users now see their posted item immediately after submission\n- Improves user experience and confirms item was posted successfully"
-                },
-                {
-                    "hash": "1784c9fbbf0670368f02989a19ffd1cc858dca9e",
-                    "short_hash": "1784c9f",
-                    "date": "2025-08-26 20:03:22 -0400",
-                    "date_formatted": "August 27, 2025",
-                    "time_formatted": "12:03 AM",
-                    "author": "Dave Shevett",
-                    "subject": "Fix delete functionality AJAX response",
-                    "body": "- Move delete handler from s3.php template to index.php before HTML output\n- Prevents HTML headers from being sent with JSON response\n- JavaScript can now properly parse the clean JSON response\n- Resolves 'There was an error' message during item deletion"
                 }
             ]
         },
@@ -1194,11 +1096,111 @@
             "date_formatted": "August 26, 2025",
             "commits": [
                 {
+                    "hash": "db3bc0b39069c357c6bb3cbaee2d221f0b25cb9e",
+                    "short_hash": "db3bc0b",
+                    "date": "2025-08-26 22:17:06 -0400",
+                    "date_formatted": "August 26, 2025",
+                    "time_formatted": "10:17 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Add title field and improve UI consistency",
+                    "body": "- Add required title field to item posting form with validation\n- Update YAML data structure to include title field for all new items\n- Display item titles prominently on both listing and detail pages\n- Ensure backward compatibility: items without titles use description\n- Change Claim button color from green to blue to match Contact Seller button\n- Improve responsive design for item headers on mobile devices\n- Fix image sizing on individual item pages (max-width: 500px, max-height: 70vh)\nThis enhances the user experience by providing clearer item identification\nand consistent button styling throughout the application."
+                },
+                {
+                    "hash": "791b8f9b20dfc3fe12ca5387f9da41f220249b44",
+                    "short_hash": "791b8f9",
+                    "date": "2025-08-26 21:26:03 -0400",
+                    "date_formatted": "August 26, 2025",
+                    "time_formatted": "9:26 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Implement individual item URLs and detailed view pages",
+                    "body": "- Add 'item' route to available pages for individual item viewing\n- Create templates/item.php with detailed item view including:\n* Large image display with sticky positioning\n* Prominent price display with FREE badge for /bin/zsh items\n* Full description with proper line breaks\n* Item details grid (ID, posted date, contact)\n* Action buttons (Contact Seller, Claim, Delete)\n* Back navigation to items listing\n* Mobile responsive design\n- Make item listings clickable by wrapping cards in links to individual pages\n- Add hover effects and smooth animations for better UX\n- Move parseSimpleYaml function to includes/functions.php for reuse\n- Maintain all existing functionality (delete, claim, contact) on individual pages\n- URLs: ?page=item&id=TRACKING_NUMBER (clean URLs via .htaccess on Apache)\n- Proper z-index handling to keep action buttons clickable within linked cards"
+                },
+                {
+                    "hash": "59defc7458cd84219dd7b9fd4509c8c1343f3e7f",
+                    "short_hash": "59defc7",
+                    "date": "2025-08-26 20:56:56 -0400",
+                    "date_formatted": "August 26, 2025",
+                    "time_formatted": "8:56 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Change 'View items' URL from '/s3' to '/items'",
+                    "body": "- Rename templates/s3.php to templates/items.php\n- Update routing in index.php to handle 'items' instead of 's3'\n- Update all navigation links from ?page=s3 to ?page=items\n- Update home page button to link to items page\n- Update redirect after posting item to go to items page\n- Update all error redirects in items template\n- Update deployment guide with new URL structure\n- Provides more user-friendly URLs hiding implementation details"
+                },
+                {
+                    "hash": "37fa6c27d34b1ca8ebb73eff273114627d9826b4",
+                    "short_hash": "37fa6c2",
+                    "date": "2025-08-26 20:52:23 -0400",
+                    "date_formatted": "August 26, 2025",
+                    "time_formatted": "8:52 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Add Apache deployment configuration and guide",
+                    "body": "- Add .htaccess for clean URLs, static asset handling, and security headers\n- Create comprehensive DEPLOYMENT.md guide for Apache hosting\n- Include virtual host configuration examples\n- Add SSL, permissions, and troubleshooting sections\n- Enable clean URLs like /claim and /s3 instead of ?page=claim"
+                },
+                {
+                    "hash": "6160afc151520456ab92bf68bbd057fcd91ffef3",
+                    "short_hash": "6160afc",
+                    "date": "2025-08-26 20:38:39 -0400",
+                    "date_formatted": "August 26, 2025",
+                    "time_formatted": "8:38 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Replace 'Share image' button with 'Claim this!' button",
+                    "body": "- Remove conditional Share Image button that linked to presigned URLs\n- Add new 'Claim this!' button with success styling (green)\n- Implement claimItem() JavaScript function with placeholder functionality\n- Add CSS styling for .claim-btn with hover effects and smooth transitions\n- Button shows 'Not implemented yet' alert dialog with tracking number\n- Prepares foundation for future claiming functionality"
+                },
+                {
+                    "hash": "1d60715bbc69b3271dec9eaec64d55006326ec77",
+                    "short_hash": "1d60715",
+                    "date": "2025-08-26 20:35:58 -0400",
+                    "date_formatted": "August 26, 2025",
+                    "time_formatted": "8:35 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Update text to include giveaway option alongside sales",
+                    "body": "- Change 'for sale' to 'for sale or for giveaway' across templates\n- Updated posting page subtitle to be more inclusive\n- Updated items listing page descriptions to reflect both sale and giveaway options\n- Updated 'no items available' message to include giveaway option\n- Makes the platform more welcoming for free item sharing"
+                },
+                {
+                    "hash": "01a08a3ec2f463e42ba65a92710c04431e0b7fd5",
+                    "short_hash": "01a08a3",
+                    "date": "2025-08-26 20:33:46 -0400",
+                    "date_formatted": "August 26, 2025",
+                    "time_formatted": "8:33 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Replace 'Learn More' button with 'View available items' link on home page",
+                    "body": "- Remove the 'Learn More' button that linked to About page\n- Add 'View available items' button that links to marketplace (s3 page)\n- Maintains consistent navigation experience across site\n- Users can now directly access available items from the home page"
+                },
+                {
+                    "hash": "8ffbc36201e8e323810289c295b2306732c445a6",
+                    "short_hash": "8ffbc36",
+                    "date": "2025-08-26 20:26:54 -0400",
+                    "date_formatted": "August 26, 2025",
+                    "time_formatted": "8:26 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Replace JavaScript confirm dialog with styled HTML modal",
+                    "body": "- Replace browser confirm() popup with custom modal dialog\n- Add proper HTML modal with header, body, and action buttons\n- Style modal to match site design with rounded corners and shadows\n- Include smooth animations for modal show/hide transitions\n- Add keyboard support (ESC key to close) for accessibility\n- Add click-outside-to-close functionality\n- Responsive design for mobile devices\n- Maintain all existing delete functionality and error handling"
+                },
+                {
+                    "hash": "f1795bf10a3797bf61782bf8120fe201d3ab0499",
+                    "short_hash": "f1795bf",
+                    "date": "2025-08-26 20:13:41 -0400",
+                    "date_formatted": "August 26, 2025",
+                    "time_formatted": "8:13 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Redirect to View Available Items page after posting",
+                    "body": "- Change redirect destination from 'claim' to 's3' after successful item posting\n- Users now see their posted item immediately after submission\n- Improves user experience and confirms item was posted successfully"
+                },
+                {
+                    "hash": "1784c9fbbf0670368f02989a19ffd1cc858dca9e",
+                    "short_hash": "1784c9f",
+                    "date": "2025-08-26 20:03:22 -0400",
+                    "date_formatted": "August 26, 2025",
+                    "time_formatted": "8:03 PM",
+                    "author": "Dave Shevett",
+                    "subject": "Fix delete functionality AJAX response",
+                    "body": "- Move delete handler from s3.php template to index.php before HTML output\n- Prevents HTML headers from being sent with JSON response\n- JavaScript can now properly parse the clean JSON response\n- Resolves 'There was an error' message during item deletion"
+                },
+                {
                     "hash": "4756c6fd4dcf761b52c1a7eac0a7519b110be5f9",
                     "short_hash": "4756c6f",
                     "date": "2025-08-26 19:58:54 -0400",
                     "date_formatted": "August 26, 2025",
-                    "time_formatted": "11:58 PM",
+                    "time_formatted": "7:58 PM",
                     "author": "Dave Shevett",
                     "subject": "Simplify page title to just 'ClaimIt'",
                     "body": "- Remove dynamic page names from browser title\n- Change from '[Page] - ClaimIt' format to simply 'ClaimIt'\n- Provides consistent branding across all pages"
@@ -1208,7 +1210,7 @@
                     "short_hash": "4f79e56",
                     "date": "2025-08-26 19:54:55 -0400",
                     "date_formatted": "August 26, 2025",
-                    "time_formatted": "11:54 PM",
+                    "time_formatted": "7:54 PM",
                     "author": "Dave Shevett",
                     "subject": "Add delete functionality with trash can icon for marketplace items",
                     "body": "- Add deleteObject method to AwsService.php for S3 object deletion\n- Implement AJAX-based delete functionality in s3.php template\n- Add trash can icon (\ud83d\uddd1\ufe0f) button to each item card with confirmation dialog\n- Include smooth fade-out animation when items are deleted\n- Add proper error handling and user feedback with floating notifications\n- Style delete button with red danger styling and hover effects\n- Handle both YAML metadata and image file deletion\n- Update item count and show 'no items' message when all items deleted\n- Add responsive styling for mobile devices"
@@ -1218,7 +1220,7 @@
                     "short_hash": "7476063",
                     "date": "2025-08-26 19:50:17 -0400",
                     "date_formatted": "August 26, 2025",
-                    "time_formatted": "11:50 PM",
+                    "time_formatted": "7:50 PM",
                     "author": "Dave Shevett",
                     "subject": "Implement comprehensive error handling and logging system",
                     "body": "- Add custom error handler to suppress AWS SDK PHP 8.4 compatibility warnings from browser display while preserving them in environment logs\n- Update router.php and public/index.php with environment-appropriate error logging\n- Configure clean user experience with professional error suppression\n- Maintain developer debugging capabilities through proper log routing\n- Ensure compatibility with both development server and production deployment (Apache/nginx)\n- Error logs now automatically route to appropriate environment logs (console for dev, web server logs for production)"
@@ -1228,7 +1230,7 @@
                     "short_hash": "4094897",
                     "date": "2025-08-26 17:29:31 -0400",
                     "date_formatted": "August 26, 2025",
-                    "time_formatted": "9:29 PM",
+                    "time_formatted": "5:29 PM",
                     "author": "Dave Shevett",
                     "subject": "Implement complete marketplace functionality with modern UI",
                     "body": "Major Features Added:\n- \ud83c\udfa8 Modern UI with Inter fonts, gradients, and glass-morphism effects\n- \ud83d\udcf1 Fully responsive design with hover animations and card layouts\n- \ud83d\udecd\ufe0f Complete marketplace functionality for posting and browsing items\n- \ud83d\udcf8 Photo upload support with S3 storage integration\n- \ud83d\udcb0 Support for /bin/zsh (free) item pricing\n- \ud83d\udce7 Direct email contact integration with pre-filled subjects\nAWS S3 Integration:\n- Automatic tracking number generation (reverse datestamp)\n- Image upload to S3 bucket with tracking number naming\n- YAML metadata files for item details (description, price, email)\n- Presigned URL generation for secure image access\n- Complete S3 bucket scanning and YAML parsing\nUI/UX Improvements:\n- ClaimIt logo now serves as home navigation link\n- Removed redundant Home link from navigation\n- Beautiful item cards with image placeholders when no photo available\n- Modern gradient hero sections and smooth transitions\n- Professional marketplace layout with grid display\nTechnical Enhancements:\n- Custom router.php for proper static file serving\n- PHP 8.4 compatibility with deprecation warning suppression\n- Form validation improvements (allows /bin/zsh values)\n- CSRF protection and secure file handling\n- Comprehensive error handling and user feedback\nThe application now functions as a complete online marketplace where users can post items for sale (including free items) and browse available listings with modern, professional UI."
@@ -1238,7 +1240,7 @@
                     "short_hash": "512113a",
                     "date": "2025-08-26 15:59:05 -0400",
                     "date_formatted": "August 26, 2025",
-                    "time_formatted": "7:59 PM",
+                    "time_formatted": "3:59 PM",
                     "author": "Dave Shevett",
                     "subject": "Initial commit: ClaimIt web application",
                     "body": "- Complete PHP web application for claims management\n- Modern responsive design with professional UI/UX\n- Form validation and CSRF protection\n- Multiple pages: Home, About, Claims, Contact\n- Built with PHP 8.4, HTML5, CSS3, JavaScript\n- Composer dependency management\n- Security features and error handling"

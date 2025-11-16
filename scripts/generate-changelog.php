@@ -8,6 +8,9 @@
  * Usage: php scripts/generate-changelog.php
  */
 
+// Set timezone to Eastern Time (handles EDT/EST automatically)
+date_default_timezone_set('America/New_York');
+
 // Determine the project root directory
 $projectRoot = dirname(__DIR__);
 $outputFile = $projectRoot . '/public/data/changelog.json';
