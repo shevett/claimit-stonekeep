@@ -1168,15 +1168,15 @@ $performanceData = [
     <header>
         <nav class="navbar">
             <div class="nav-container">
-                <a href="?page=home" class="nav-logo">
+                <a href="/?page=home" class="nav-logo">
                     <img src="/assets/images/claimit-logo.jpg" alt="ClaimIt Logo" class="nav-logo-image">
                     <span>ClaimIt</span>
                 </a>
                 <ul class="nav-menu">
-                    <li><a href="?page=items" class="nav-link <?php echo $page === 'items' ? 'active' : ''; ?>">View available items</a></li>
+                    <li><a href="/?page=items" class="nav-link <?php echo $page === 'items' ? 'active' : ''; ?>">View available items</a></li>
                     <?php if ($isLoggedIn): ?>
-                        <li><a href="?page=claim" class="nav-link <?php echo $page === 'claim' ? 'active' : ''; ?>">Make a new posting</a></li>
-                        <li><a href="?page=user-listings&id=<?php echo escape($currentUser['id']); ?>" class="nav-link <?php echo $page === 'user-listings' ? 'active' : ''; ?>">My Listings</a></li>
+                        <li><a href="/?page=claim" class="nav-link <?php echo $page === 'claim' ? 'active' : ''; ?>">Make a new posting</a></li>
+                        <li><a href="/?page=user-listings&id=<?php echo escape($currentUser['id']); ?>" class="nav-link <?php echo $page === 'user-listings' ? 'active' : ''; ?>">My Listings</a></li>
                         <li class="nav-user-menu">
                             <div class="nav-user-dropdown">
                                 <button class="nav-user-trigger" onclick="toggleUserDropdown()">
@@ -1198,11 +1198,11 @@ $performanceData = [
                                     <span class="nav-user-arrow">▼</span>
                                 </button>
                                 <div class="nav-user-dropdown-menu" id="userDropdown">
-                                    <a href="?page=settings" class="nav-dropdown-item">
+                                    <a href="/?page=settings" class="nav-dropdown-item">
                                         <span class="nav-dropdown-icon">⚙️</span>
                                         Settings
                                     </a>
-                                    <a href="?page=auth&action=logout" class="nav-dropdown-item">
+                                    <a href="/?page=auth&action=logout" class="nav-dropdown-item">
                                         <span class="nav-dropdown-icon">🚪</span>
                                         Log out
                                     </a>
@@ -1210,7 +1210,7 @@ $performanceData = [
                             </div>
                         </li>
                     <?php else: ?>
-                        <li><a href="?page=login" class="nav-link <?php echo $page === 'login' ? 'active' : ''; ?>">Login</a></li>
+                        <li><a href="/?page=login" class="nav-link <?php echo $page === 'login' ? 'active' : ''; ?>">Login</a></li>
                     <?php endif; ?>
                 </ul>
             </div>
@@ -1239,7 +1239,7 @@ $performanceData = [
 
     <footer>
         <div class="footer-content">
-            <p>&copy; <?php echo date('Y'); ?> ClaimIt by Stonekeep.com. All rights reserved. | <a href="?page=about" class="footer-link">About</a> | <a href="?page=contact" class="footer-link">Contact</a> | <a href="/changelog" class="footer-link">Changelog</a></p>
+            <p>&copy; <?php echo date('Y'); ?> ClaimIt by Stonekeep.com. All rights reserved. | <a href="/?page=about" class="footer-link">About</a> | <a href="/?page=contact" class="footer-link">Contact</a> | <a href="/changelog" class="footer-link">Changelog</a></p>
             <?php if (isset($performanceData)): ?>
             <div style="font-size: 12px; color: #666; margin-top: 10px;">
                 Performance: Total: <?php echo $performanceData['total_time']; ?>ms | 
