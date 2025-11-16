@@ -49,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             switch ($uploadedFile['error']) {
                 case UPLOAD_ERR_INI_SIZE:
                 case UPLOAD_ERR_FORM_SIZE:
-                    $errors[] = 'Picture uploads are limited to 50MB';
+                    $errors[] = 'Picture uploads are limited to 8MB';
                     break;
                 case UPLOAD_ERR_PARTIAL:
                     $errors[] = 'File upload was interrupted. Please try again.';
@@ -66,8 +66,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 default:
                     $errors[] = 'Error uploading file. Please try again.';
             }
-        } elseif ($uploadedFile['size'] > 52428800) { // 50MB limit (52428800 bytes)
-            $errors[] = 'Picture uploads are limited to 50MB';
+        } elseif ($uploadedFile['size'] > 8388608) { // 8MB limit (8388608 bytes)
+            $errors[] = 'Picture uploads are limited to 8MB';
         } elseif (!in_array(strtolower(pathinfo($uploadedFile['name'], PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'gif'])) {
             $errors[] = 'File must be a valid image (JPG, PNG, GIF)';
         }
@@ -258,12 +258,15 @@ $flashMessage = showFlashMessage();
             <div class="form-group">
                 <label for="item_photo">Upload a picture of your item</label>
                 <input type="file" name="item_photo" id="item_photo" accept="image/*">
-                <small style="color: var(--gray-500); font-size: 0.875rem;">Accepted formats: JPG, PNG, GIF (max 50MB - will be automatically resized)</small>
+                <small style="color: var(--gray-500); font-size: 0.875rem;">Accepted formats: JPG, PNG, GIF (max 8MB - will be automatically resized)</small>
                 <small style="color: var(--primary-600); font-size: 0.875rem; display: block; margin-top: 0.25rem;">💡 You can add more images later (up to 10 total)</small>
                 <small style="color: var(--primary-600); font-size: 0.875rem; display: block; margin-top: 0.25rem;">📋 Pro tip: Press Ctrl+V (or Cmd+V) to paste an image from your clipboard!</small>
                 <div id="pastePreview" style="display: none; margin-top: 1rem; padding: 1rem; background: var(--success-50); border: 2px solid var(--success-300); border-radius: 8px;">
                     <p style="color: var(--success-700); margin: 0; font-weight: 500;">✅ Image pasted successfully!</p>
                     <img id="pastePreviewImg" style="max-width: 300px; max-height: 200px; margin-top: 0.5rem; border-radius: 4px; border: 1px solid var(--gray-200);" alt="Pasted image preview">
+                </div>
+                <div id="pasteError" style="display: none; margin-top: 1rem; padding: 1rem; background: var(--error-50); border: 2px solid var(--error-300); border-radius: 8px;">
+                    <p style="color: var(--error-700); margin: 0; font-weight: 500;">⚠️ <span id="pasteErrorMsg"></span></p>
                 </div>
             </div>
 
@@ -278,12 +281,31 @@ $flashMessage = showFlashMessage();
             </div>
 
             <div class="form-group">
-                <button type="submit" class="btn btn-primary">Post Item</button>
+                <button type="submit" class="btn btn-primary" id="submitBtn">Post Item</button>
                 <a href="?page=home" class="btn btn-secondary">Cancel</a>
             </div>
         </form>
     </div>
 </div>
+
+<!-- Loading overlay -->
+<div id="uploadingOverlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); z-index: 9999; align-items: center; justify-content: center;">
+    <div style="background: white; padding: 3rem; border-radius: 12px; text-align: center; max-width: 400px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);">
+        <div style="margin-bottom: 1.5rem;">
+            <div class="spinner" style="width: 60px; height: 60px; border: 4px solid var(--gray-200); border-top: 4px solid var(--primary-600); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+        </div>
+        <h2 style="color: var(--gray-900); margin-bottom: 0.5rem; font-size: 1.5rem;">Posting Your Listing...</h2>
+        <p style="color: var(--gray-600); margin: 0; font-size: 0.95rem;">Please wait while we upload your item and image.</p>
+        <p style="color: var(--gray-500); margin-top: 0.5rem; font-size: 0.85rem;">This may take a few moments.</p>
+    </div>
+</div>
+
+<style>
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+</style>
 
 <script>
 // Handle paste events to allow pasting images directly
@@ -306,6 +328,26 @@ document.addEventListener('paste', function(event) {
             const blob = item.getAsFile();
             
             if (blob) {
+                const maxSize = 8388608; // 8MB in bytes (PHP limit)
+                const preview = document.getElementById('pastePreview');
+                const previewImg = document.getElementById('pastePreviewImg');
+                const errorDiv = document.getElementById('pasteError');
+                const errorMsg = document.getElementById('pasteErrorMsg');
+                
+                // Check file size
+                if (blob.size > maxSize) {
+                    const sizeMB = (blob.size / 1048576).toFixed(2); // Convert to MB
+                    errorMsg.textContent = `Image is too large (${sizeMB}MB). Maximum size is 8MB. Try taking a screenshot or using a smaller image.`;
+                    errorDiv.style.display = 'block';
+                    preview.style.display = 'none';
+                    fileInput.value = ''; // Clear the file input
+                    console.log('Image too large:', sizeMB + 'MB');
+                    break;
+                }
+                
+                // Hide error if previously shown
+                errorDiv.style.display = 'none';
+                
                 // Create a DataTransfer object to set the file input value
                 const dataTransfer = new DataTransfer();
                 
@@ -319,10 +361,6 @@ document.addEventListener('paste', function(event) {
                 // Set the file input's files property
                 fileInput.files = dataTransfer.files;
                 
-                // Show preview
-                const preview = document.getElementById('pastePreview');
-                const previewImg = document.getElementById('pastePreviewImg');
-                
                 // Create a URL for the blob to display as preview
                 const imageUrl = URL.createObjectURL(blob);
                 previewImg.src = imageUrl;
@@ -333,7 +371,8 @@ document.addEventListener('paste', function(event) {
                     URL.revokeObjectURL(imageUrl);
                 };
                 
-                console.log('Image pasted successfully:', fileName);
+                const sizeKB = (blob.size / 1024).toFixed(2);
+                console.log('Image pasted successfully:', fileName, '(' + sizeKB + 'KB)');
             }
             
             break; // Only handle the first image
@@ -345,10 +384,27 @@ document.addEventListener('paste', function(event) {
 document.getElementById('item_photo').addEventListener('change', function(event) {
     const preview = document.getElementById('pastePreview');
     const previewImg = document.getElementById('pastePreviewImg');
+    const errorDiv = document.getElementById('pasteError');
+    const errorMsg = document.getElementById('pasteErrorMsg');
+    const maxSize = 8388608; // 8MB in bytes (PHP limit)
     
     if (event.target.files && event.target.files[0]) {
-        // Show preview for manually selected files too
         const file = event.target.files[0];
+        
+        // Check file size
+        if (file.size > maxSize) {
+            const sizeMB = (file.size / 1048576).toFixed(2); // Convert to MB
+            errorMsg.textContent = `Image is too large (${sizeMB}MB). Maximum size is 8MB. Please select a smaller image.`;
+            errorDiv.style.display = 'block';
+            preview.style.display = 'none';
+            event.target.value = ''; // Clear the file input
+            return;
+        }
+        
+        // Hide error if previously shown
+        errorDiv.style.display = 'none';
+        
+        // Show preview for manually selected files
         const imageUrl = URL.createObjectURL(file);
         previewImg.src = imageUrl;
         preview.style.display = 'block';
@@ -357,8 +413,27 @@ document.getElementById('item_photo').addEventListener('change', function(event)
             URL.revokeObjectURL(imageUrl);
         };
     } else {
-        // Hide preview if file is cleared
+        // Hide preview and error if file is cleared
         preview.style.display = 'none';
+        errorDiv.style.display = 'none';
     }
+});
+
+// Show loading overlay when form is submitted
+document.querySelector('form').addEventListener('submit', function(event) {
+    // Validate required fields first
+    const title = document.querySelector('input[name="title"]').value.trim();
+    const description = document.querySelector('textarea[name="description"]').value.trim();
+    const amount = document.querySelector('input[name="amount"]').value;
+    const email = document.querySelector('input[name="contact_email"]').value.trim();
+    
+    // Only show overlay if form is valid
+    if (title && description && amount !== '' && email) {
+        const overlay = document.getElementById('uploadingOverlay');
+        overlay.style.display = 'flex';
+        // Disable the submit button to prevent double submission
+        document.getElementById('submitBtn').disabled = true;
+    }
+    // Let the form submit normally (don't prevent default)
 });
 </script> 

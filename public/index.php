@@ -32,6 +32,9 @@ set_error_handler(function($errno, $errstr, $errfile, $errline) {
     return false;
 });
 
+// Start output buffering to allow redirects from templates
+ob_start();
+
 // Start performance monitoring
 $startTime = microtime(true);
 $timingLogs = [];

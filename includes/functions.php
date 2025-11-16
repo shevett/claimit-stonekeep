@@ -24,6 +24,11 @@ function redirect($page = 'home') {
         ? 'http://localhost:8000/'
         : 'https://claimit.stonekeep.com/';
     
+    // Discard any output buffer to allow redirect
+    if (ob_get_level()) {
+        ob_end_clean();
+    }
+    
     header('Location: ' . $baseUrl . '?page=' . urlencode($page));
     exit;
 }
@@ -2761,5 +2766,3 @@ function getNextImageIndex($trackingNumber) {
     
     return $maxIndex + 1;
 }
-
-?> 
