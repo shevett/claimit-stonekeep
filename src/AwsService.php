@@ -60,7 +60,8 @@ class AwsService
             $clientConfig = [
                 'version' => $this->config['version'],
                 'region'  => $this->config['region'],
-                'credentials' => $this->config['credentials']
+                'credentials' => $this->config['credentials'],
+                'use_aws_shared_config_files' => false  // Don't load ~/.aws/config and ~/.aws/credentials
             ];
             
             $this->s3Client = new S3Client($clientConfig);
@@ -80,7 +81,8 @@ class AwsService
                 $clientConfig = [
                     'version' => $this->config['version'],
                     'region'  => $this->config['region'],
-                    'credentials' => $this->config['credentials']
+                    'credentials' => $this->config['credentials'],
+                    'use_aws_shared_config_files' => false  // Don't load ~/.aws/config and ~/.aws/credentials
                 ];
                 
                 $this->cloudFrontClient = new CloudFrontClient($clientConfig);
