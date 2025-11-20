@@ -134,6 +134,79 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1' && $_GET['page'] === 'home') {
     exit;
 }
 
+// Handle AJAX search requests
+if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['query'])) {
+    // Clear any output and set JSON header
+    if (ob_get_level()) {
+        ob_clean();
+    }
+    header('Content-Type: application/json');
+    
+    $searchQuery = trim($_GET['query']);
+    
+    if (empty($searchQuery)) {
+        echo json_encode(['success' => true, 'items' => []]);
+        exit;
+    }
+    
+    try {
+        $awsService = getAwsService();
+        if (!$awsService) {
+            throw new Exception('AWS service not available');
+        }
+        
+        // Get current user's settings for showing gone items
+        $currentUser = getCurrentUser();
+        $userId = $currentUser ? $currentUser['id'] : '';
+        $showGone = $userId ? getUserShowGoneItems($userId) : false;
+        
+        // Get all YAML files
+        $result = $awsService->listObjects('');
+        $allObjects = $result['objects'] ?? [];
+        
+        $matchingItems = [];
+        
+        foreach ($allObjects as $object) {
+            $key = $object['key'];
+            
+            // Only process YAML files (not in users/ or images/ directories)
+            if (strpos($key, '.yaml') !== false && 
+                strpos($key, 'users/') !== 0 && 
+                strpos($key, 'images/') !== 0) {
+                
+                try {
+                    // Get the YAML content
+                    $yamlObject = $awsService->getObject($key);
+                    $yamlContent = $yamlObject['content'];
+                    
+                    // Search within the entire YAML content (case-insensitive)
+                    if (stripos($yamlContent, $searchQuery) !== false) {
+                        $itemData = parseSimpleYaml($yamlContent);
+                        
+                        // Only include items that aren't marked as gone (unless user wants to see them)
+                        if (!isset($itemData['status']) || $itemData['status'] !== 'gone' || $showGone) {
+                            $itemData['tracking_number'] = str_replace('.yaml', '', $key);
+                            $matchingItems[] = $itemData;
+                        }
+                    }
+                } catch (Exception $e) {
+                    // Skip this item if there's an error reading it
+                    error_log("Search: Error processing item {$key}: " . $e->getMessage());
+                    continue;
+                }
+            }
+        }
+        
+        echo json_encode(['success' => true, 'items' => $matchingItems, 'count' => count($matchingItems)]);
+        
+    } catch (Exception $e) {
+        error_log("Search error: " . $e->getMessage());
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    
+    exit;
+}
+
 // Handle AJAX delete requests before any HTML output
 if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['tracking_number'])) {
     header('Content-Type: application/json');
@@ -1175,6 +1248,13 @@ $performanceData = [
                     <img src="/assets/images/claimit-logo.jpg" alt="ClaimIt Logo" class="nav-logo-image">
                     <span>ClaimIt</span>
                 </a>
+                
+                <!-- Search Box -->
+                <div class="nav-search">
+                    <input type="text" id="searchInput" placeholder="Search items..." autocomplete="off">
+                    <button id="clearSearch" style="display: none;" title="Clear search">&times;</button>
+                </div>
+                
                 <ul class="nav-menu">
                     <li><a href="/?page=items" class="nav-link <?php echo $page === 'items' ? 'active' : ''; ?>">View available items</a></li>
                     <?php if ($isLoggedIn): ?>
@@ -1455,5 +1535,154 @@ $performanceData = [
         });
     </script>
     <?php endif; ?>
+    
+    <!-- Search functionality -->
+    <script>
+    (function() {
+        const searchInput = document.getElementById('searchInput');
+        const clearBtn = document.getElementById('clearSearch');
+        const mainContent = document.querySelector('.main-content');
+        
+        if (!searchInput || !mainContent) return;
+        
+        let searchTimeout;
+        let originalContent = null;
+        let isSearching = false;
+        
+        // Handle search input
+        searchInput.addEventListener('input', function() {
+            const query = this.value.trim();
+            
+            // Show/hide clear button
+            if (query) {
+                clearBtn.style.display = 'flex';
+            } else {
+                clearBtn.style.display = 'none';
+                restoreOriginalView();
+                return;
+            }
+        });
+        
+        // Handle Enter key
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                performSearch();
+            }
+        });
+        
+        // Handle clear button
+        clearBtn.addEventListener('click', function() {
+            searchInput.value = '';
+            clearBtn.style.display = 'none';
+            restoreOriginalView();
+            searchInput.focus();
+        });
+        
+        function performSearch() {
+            const query = searchInput.value.trim();
+            
+            if (!query) {
+                restoreOriginalView();
+                return;
+            }
+            
+            // Save original content if not already saved
+            if (!isSearching) {
+                originalContent = mainContent.innerHTML;
+                isSearching = true;
+            }
+            
+            // Show loading state
+            mainContent.innerHTML = '<div class="loading-search" style="text-align: center; padding: 3rem;"><p style="color: var(--gray-600); font-size: 1.1rem;">🔍 Searching...</p></div>';
+            
+            // Perform search
+            fetch('/?action=search&query=' + encodeURIComponent(query))
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displaySearchResults(data.items, query);
+                    } else {
+                        mainContent.innerHTML = '<div class="error-message" style="text-align: center; padding: 3rem;"><p style="color: var(--error-600);">Error: ' + (data.error || 'Search failed') + '</p></div>';
+                    }
+                })
+                .catch(error => {
+                    mainContent.innerHTML = '<div class="error-message" style="text-align: center; padding: 3rem;"><p style="color: var(--error-600);">Error performing search. Please try again.</p></div>';
+                    console.error('Search error:', error);
+                });
+        }
+        
+        function displaySearchResults(items, query) {
+            if (items.length === 0) {
+                mainContent.innerHTML = `
+                    <div class="search-results">
+                        <div class="search-header" style="text-align: center; padding: 2rem 1rem 1rem;">
+                            <h2 style="color: var(--gray-700); margin-bottom: 0.5rem;">No results found for "${escapeHtml(query)}"</h2>
+                            <p style="color: var(--gray-500);">Try a different search term</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = `
+                <div class="search-results">
+                    <div class="search-header" style="padding: 1rem 0 2rem; text-align: center;">
+                        <h2 style="color: var(--gray-700); margin-bottom: 0.5rem;">Found ${items.length} result${items.length !== 1 ? 's' : ''} for "${escapeHtml(query)}"</h2>
+                    </div>
+                    <div class="items-grid">
+            `;
+            
+            items.forEach(item => {
+                html += generateItemCard(item);
+            });
+            
+            html += '</div></div>';
+            mainContent.innerHTML = html;
+        }
+        
+        function generateItemCard(item) {
+            const imageUrl = item.image_file ? 
+                'https://dpwmq6brmwcyc.cloudfront.net/' + item.image_file.replace('images/', '') :
+                '/assets/images/placeholder.jpg';
+            
+            const itemUrl = '/?page=item&id=' + encodeURIComponent(item.tracking_number);
+            const statusClass = item.status === 'gone' ? 'status-gone' : '';
+            const statusBadge = item.status === 'gone' ? '<span class="gone-badge">GONE</span>' : '';
+            
+            return `
+                <div class="item-card ${statusClass}">
+                    <a href="${itemUrl}" class="item-link">
+                        <div class="item-image-container">
+                            <img src="${imageUrl}" alt="${escapeHtml(item.title || 'Item')}" class="item-image" loading="lazy">
+                            ${statusBadge}
+                        </div>
+                        <div class="item-content">
+                            <h3 class="item-title">${escapeHtml(item.title || 'Untitled')}</h3>
+                            <p class="item-description">${escapeHtml(item.description || '').substring(0, 100)}${(item.description || '').length > 100 ? '...' : ''}</p>
+                            <div class="item-meta">
+                                <span class="item-price">${parseFloat(item.price || 0) > 0 ? '$' + parseFloat(item.price || 0).toFixed(2) : 'Free'}</span>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            `;
+        }
+        
+        function restoreOriginalView() {
+            if (isSearching && originalContent) {
+                mainContent.innerHTML = originalContent;
+                originalContent = null;
+                isSearching = false;
+            }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    })();
+    </script>
 </body>
 </html> 
