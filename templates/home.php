@@ -343,6 +343,12 @@ function showMessage(message, type) {
     margin-top: 2rem;
 }
 
+/* Center loading indicator when it's the only child */
+.items-grid > .loading-indicator:only-child {
+    grid-column: 1 / -1;
+    justify-self: center;
+}
+
 .item-card {
     background: white;
     border-radius: 12px;
