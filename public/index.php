@@ -956,10 +956,10 @@ if (isset($_GET['page']) && $_GET['page'] === 'settings' && isset($_GET['action'
         }
         
         $displayName = trim($_POST['display_name'] ?? '');
+        $zipcode = trim($_POST['zipcode'] ?? '');
         $showGoneItems = isset($_POST['show_gone_items']) && $_POST['show_gone_items'] === 'on';
         $emailNotifications = isset($_POST['email_notifications']) && $_POST['email_notifications'] === 'on';
         $newListingNotifications = isset($_POST['new_listing_notifications']) && $_POST['new_listing_notifications'] === 'on';
-        $sendTestEmail = isset($_POST['send_test_email']) && $_POST['send_test_email'] === 'on';
         
         if (empty($displayName)) {
             echo json_encode(['success' => false, 'message' => 'Display name is required']);
@@ -977,6 +977,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'settings' && isset($_GET['action'
                 'user_id' => $currentUser['id'],
                 'google_name' => $currentUser['name'],
                 'display_name' => $displayName,
+                'zipcode' => $zipcode,
                 'show_gone_items' => $showGoneItems ? 'yes' : 'no',
                 'email_notifications' => $emailNotifications ? 'yes' : 'no',
                 'new_listing_notifications' => $newListingNotifications ? 'yes' : 'no',
@@ -992,28 +993,73 @@ if (isset($_GET['page']) && $_GET['page'] === 'settings' && isset($_GET['action'
             $yamlKey = 'users/' . $currentUser['id'] . '.yaml';
             $awsService->putObject($yamlKey, $yamlContent);
             
-            // Send test email if requested and user is admin
-            $testEmailSent = false;
-            if ($sendTestEmail && isAdmin()) {
+            echo json_encode(['success' => true, 'message' => 'Settings saved successfully']);
+            
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Failed to save settings: ' . $e->getMessage()]);
+        }
+        
+        exit;
+    }
+    
+    echo json_encode(['success' => false, 'message' => 'Invalid action']);
+    exit;
+}
+
+// Handle admin AJAX requests before any HTML output
+if (isset($_GET['page']) && $_GET['page'] === 'admin' && isset($_GET['action'])) {
+    header('Content-Type: application/json');
+    
+    if (!isLoggedIn()) {
+        echo json_encode(['success' => false, 'message' => 'Authentication required']);
+        exit;
+    }
+    
+    if (!isAdmin()) {
+        echo json_encode(['success' => false, 'message' => 'Administrator privileges required']);
+        exit;
+    }
+    
+    $currentUser = getCurrentUser();
+    if (!$currentUser) {
+        echo json_encode(['success' => false, 'message' => 'User information not available']);
+        exit;
+    }
+    
+    $action = $_GET['action'];
+    
+    if ($action === 'execute') {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['success' => false, 'message' => 'Invalid request method']);
+            exit;
+        }
+        
+        $sendTestEmail = isset($_POST['send_test_email']) && $_POST['send_test_email'] === 'on';
+        
+        try {
+            $messages = [];
+            
+            // Send test email if requested
+            if ($sendTestEmail) {
                 try {
                     $emailService = getEmailService();
                     if ($emailService) {
                         $testEmailSent = $emailService->sendTestEmail($currentUser);
+                        $messages[] = $testEmailSent ? 'Test email sent successfully' : 'Test email failed to send';
+                    } else {
+                        $messages[] = 'Email service not available';
                     }
                 } catch (Exception $e) {
                     error_log("Failed to send test email: " . $e->getMessage());
+                    $messages[] = 'Test email failed: ' . $e->getMessage();
                 }
             }
             
-            $message = 'Settings saved successfully';
-            if ($sendTestEmail && isAdmin()) {
-                $message .= $testEmailSent ? '. Test email sent!' : '. Test email failed to send.';
-            }
-            
+            $message = empty($messages) ? 'No actions performed' : implode('. ', $messages);
             echo json_encode(['success' => true, 'message' => $message]);
             
         } catch (Exception $e) {
-            echo json_encode(['success' => false, 'message' => 'Failed to save settings: ' . $e->getMessage()]);
+            echo json_encode(['success' => false, 'message' => 'Failed to execute admin action: ' . $e->getMessage()]);
         }
         
         exit;
@@ -1040,6 +1086,8 @@ if (isset($_GET['page']) && $_GET['page'] === 'auth' && isset($_GET['action'])) 
                 redirect('login');
             }
         } catch (Exception $e) {
+            // Log authentication errors for debugging
+            error_log('Authentication Error: ' . $e->getMessage());
             setFlashMessage('Authentication error: ' . $e->getMessage(), 'error');
             redirect('login');
         }
@@ -1061,6 +1109,8 @@ if (isset($_GET['page']) && $_GET['page'] === 'auth' && isset($_GET['action'])) 
                 throw new Exception('No authorization code received');
             }
         } catch (Exception $e) {
+            // Log authentication errors for debugging
+            error_log('Authentication Error: ' . $e->getMessage());
             setFlashMessage('Login failed: ' . $e->getMessage(), 'error');
             redirect('login');
         }
@@ -1089,7 +1139,7 @@ $page = $_GET['page'] ?? 'home';
 $page = preg_replace('/[^a-zA-Z0-9\-]/', '', $page);
 
 // Define available pages
-$availablePages = ['home', 'about', 'contact', 'claim', 'items', 'item', 'login', 'dashboard', 'user-listings', 'settings', 'changelog'];
+$availablePages = ['home', 'about', 'contact', 'claim', 'items', 'item', 'login', 'dashboard', 'user-listings', 'settings', 'admin', 'changelog'];
 
 if (!in_array($page, $availablePages)) {
     $page = 'home';
@@ -1107,7 +1157,7 @@ $isLoggedIn = false;
 // Check authentication for navigation (but don't initialize AWS unless needed)
 if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['authenticated']) && $_SESSION['authenticated']) {
     // Only initialize AWS if we actually need it for this page
-    $authRequiredPages = ['dashboard', 'claim', 'settings'];
+    $authRequiredPages = ['dashboard', 'claim', 'settings', 'admin'];
     if (in_array($page, $authRequiredPages)) {
         $currentUser = getCurrentUser();
         $isLoggedIn = isLoggedIn();
@@ -1285,6 +1335,12 @@ $performanceData = [
                                         <span class="nav-dropdown-icon">⚙️</span>
                                         Settings
                                     </a>
+                                    <?php if (isAdmin()): ?>
+                                    <a href="/?page=admin" class="nav-dropdown-item">
+                                        <span class="nav-dropdown-icon">👑</span>
+                                        Admin
+                                    </a>
+                                    <?php endif; ?>
                                     <a href="/?page=auth&action=logout" class="nav-dropdown-item">
                                         <span class="nav-dropdown-icon">🚪</span>
                                         Log out
@@ -1685,4 +1741,5 @@ $performanceData = [
     })();
     </script>
 </body>
+</html> 
 </html> 

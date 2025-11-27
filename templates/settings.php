@@ -47,6 +47,12 @@ $flashMessage = showFlashMessage();
                     </div>
 
                     <div class="form-group">
+                        <label for="zipcode">Zip Code</label>
+                        <input type="text" id="zipcode" name="zipcode" value="<?php echo escape(getUserZipcode($currentUser['id'])); ?>" maxlength="10" pattern="[0-9]{5}(-[0-9]{4})?" placeholder="12345">
+                        <small class="form-help">Your zip code helps show items near you (optional)</small>
+                    </div>
+
+                    <div class="form-group">
                         <label class="checkbox-label">
                             <input type="checkbox" id="showGoneItems" name="showGoneItems" <?php 
                                 if (getUserShowGoneItems($currentUser['id'])) {
@@ -82,20 +88,6 @@ $flashMessage = showFlashMessage();
                         <small class="form-help">When enabled, you'll receive email notifications whenever anyone posts a new item</small>
                     </div>
 
-                    <?php if (isAdmin()): ?>
-                    <div class="form-group admin-section">
-                        <div class="admin-badge">
-                            <span class="admin-icon">👑</span>
-                            <span class="admin-text">Administrator Options</span>
-                        </div>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="sendTestEmail" name="sendTestEmail">
-                            <span class="checkbox-text">Send a test email to me</span>
-                        </label>
-                        <small class="form-help">Send a test email to verify SMTP configuration is working</small>
-                    </div>
-                    <?php endif; ?>
-
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary">
                             <span class="btn-text">Save Changes</span>
@@ -116,6 +108,13 @@ $flashMessage = showFlashMessage();
                     <div class="info-item">
                         <label>Name:</label>
                         <span><?php echo escape($currentUser['name']); ?></span>
+                    </div>
+                    <div class="info-item">
+                        <label>Zip Code:</label>
+                        <span><?php 
+                            $zipcode = getUserZipcode($currentUser['id']);
+                            echo $zipcode ? escape($zipcode) : '<em style="color: #999;">Not set</em>';
+                        ?></span>
                     </div>
                     <div class="info-item">
                         <label>Member since:</label>
@@ -213,27 +212,6 @@ $flashMessage = showFlashMessage();
     font-size: 0.875rem;
     margin-top: 0.25rem;
     line-height: 1.4;
-}
-
-.admin-section {
-    background: #fff3cd;
-    border: 1px solid #ffeaa7;
-    border-radius: 8px;
-    padding: 1.5rem;
-    margin-top: 1rem;
-}
-
-.admin-badge {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-    font-weight: 600;
-    color: #856404;
-}
-
-.admin-icon {
-    font-size: 1.2rem;
 }
 
 .form-actions {
@@ -371,10 +349,10 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         
         const displayName = document.getElementById('displayName').value.trim();
+        const zipcode = document.getElementById('zipcode').value.trim();
         const showGoneItems = document.getElementById('showGoneItems').checked;
         const emailNotifications = document.getElementById('emailNotifications').checked;
         const newListingNotifications = document.getElementById('newListingNotifications').checked;
-        const sendTestEmail = document.getElementById('sendTestEmail') ? document.getElementById('sendTestEmail').checked : false;
         
         if (!displayName) {
             showMessage('Display name is required', 'error');
@@ -393,10 +371,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
             body: 'display_name=' + encodeURIComponent(displayName) + 
+                  '&zipcode=' + encodeURIComponent(zipcode) +
                   (showGoneItems ? '&show_gone_items=on' : '') +
                   (emailNotifications ? '&email_notifications=on' : '') +
-                  (newListingNotifications ? '&new_listing_notifications=on' : '') +
-                  (sendTestEmail ? '&send_test_email=on' : '')
+                  (newListingNotifications ? '&new_listing_notifications=on' : '')
         })
         .then(response => response.json())
         .then(data => {

@@ -17,11 +17,13 @@ function redirect($page = 'home') {
     // Determine the correct base URL based on the environment
     $isLocalhost = isset($_SERVER['HTTP_HOST']) && (
         $_SERVER['HTTP_HOST'] === 'localhost:8000' || 
-        $_SERVER['HTTP_HOST'] === '127.0.0.1:8000'
+        $_SERVER['HTTP_HOST'] === '127.0.0.1:8000' ||
+        $_SERVER['HTTP_HOST'] === 'localhost:8080' || 
+        $_SERVER['HTTP_HOST'] === '127.0.0.1:8080'
     );
     
     $baseUrl = $isLocalhost 
-        ? 'http://localhost:8000/'
+        ? 'http://' . $_SERVER['HTTP_HOST'] . '/'
         : 'https://claimit.stonekeep.com/';
     
     // Discard any output buffer to allow redirect
@@ -2032,6 +2034,45 @@ function getUserDisplayName($userId, $defaultName = '') {
         // Log error but don't break the application
         error_log("Error getting user display name for user $userId: " . $e->getMessage());
         return $defaultName;
+    }
+}
+
+/**
+ * Get user's zip code from settings
+ *
+ * @param string $userId The Google user ID
+ * @return string The user's zip code or empty string if not set
+ */
+function getUserZipcode($userId) {
+    try {
+        $awsService = getAwsService();
+        if (!$awsService) {
+            return '';
+        }
+        
+        $yamlKey = 'users/' . $userId . '.yaml';
+        
+        // Check if user settings file exists
+        if (!$awsService->objectExists($yamlKey)) {
+            return '';
+        }
+        
+        // Get user settings
+        $yamlObject = $awsService->getObject($yamlKey);
+        $yamlContent = $yamlObject['content'];
+        $userSettings = parseSimpleYaml($yamlContent);
+        
+        // Return zipcode if set, otherwise empty string
+        if (isset($userSettings['zipcode']) && !empty($userSettings['zipcode'])) {
+            return $userSettings['zipcode'];
+        }
+        
+        return '';
+        
+    } catch (Exception $e) {
+        // Log error but don't break the application
+        error_log("Error getting user zipcode for user $userId: " . $e->getMessage());
+        return '';
     }
 }
 
