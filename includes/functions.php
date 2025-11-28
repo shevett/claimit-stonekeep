@@ -2634,7 +2634,7 @@ function saveUserShowGoneItems($userId, $showGoneItems) {
  * Returns array of image keys sorted by index (primary first, then -1, -2, etc.)
  * 
  * @param string $trackingNumber The tracking number of the item
- * @return array Array of image keys (without 'images/' prefix) or empty array
+ * @return array Array of image keys (with full S3 path including 'images/' prefix) or empty array
  */
 function getItemImages($trackingNumber) {
     try {
@@ -2659,9 +2659,8 @@ function getItemImages($trackingNumber) {
                 // Match primary image: images/TRACKINGNUM.ext
                 if ($key === "images/{$trackingNumber}.{$ext}") {
                     $images[] = [
-                        'key' => str_replace('images/', '', $key),
+                        'key' => $key, // Store full S3 path with images/ prefix
                         'index' => null, // Primary image has no index
-                        'full_key' => $key
                     ];
                     break;
                 }
@@ -2670,9 +2669,8 @@ function getItemImages($trackingNumber) {
                 $pattern = "/^images\/" . preg_quote($trackingNumber, '/') . "-(\d+)\.{$ext}$/";
                 if (preg_match($pattern, $key, $matches)) {
                     $images[] = [
-                        'key' => str_replace('images/', '', $key),
+                        'key' => $key, // Store full S3 path with images/ prefix
                         'index' => (int)$matches[1],
-                        'full_key' => $key
                     ];
                     break;
                 }
@@ -2686,7 +2684,7 @@ function getItemImages($trackingNumber) {
             return $a['index'] - $b['index'];
         });
         
-        // Return just the keys (without 'images/' prefix)
+        // Return just the keys (with full S3 path)
         return array_map(function($img) {
             return $img['key'];
         }, $images);

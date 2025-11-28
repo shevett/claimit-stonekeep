@@ -37,7 +37,7 @@ try {
                     $possibleImageKey = 'images/' . $itemId . '.' . $ext;
                     try {
                         if ($awsService->objectExists($possibleImageKey)) {
-                            $imageKey = $itemId . '.' . $ext; // Store without images/ prefix for getCloudFrontUrl
+                            $imageKey = $possibleImageKey; // Store full S3 path with images/ prefix
                             break;
                         }
                     } catch (Exception $e) {
@@ -128,8 +128,7 @@ $flashMessage = showFlashMessage();
                         // Use direct S3 URL if bypass_cdn flag is set (after image rotation)
                         if (isset($_GET['bypass_cdn']) && $_GET['bypass_cdn'] === '1') {
                             $awsService = getAwsService();
-                            $s3ImageKey = 'images/' . $currentImageKey;
-                            $imageUrl = $awsService->getPresignedUrl($s3ImageKey, 3600);
+                            $imageUrl = $awsService->getPresignedUrl($currentImageKey, 3600);
                         } else {
                             $imageUrl = getCloudFrontUrl($currentImageKey);
                         }
@@ -167,8 +166,7 @@ $flashMessage = showFlashMessage();
                                 // Use direct S3 URL if bypass_cdn flag is set (after image rotation)
                                 if (isset($_GET['bypass_cdn']) && $_GET['bypass_cdn'] === '1') {
                                     $awsService = getAwsService();
-                                    $s3ThumbKey = 'images/' . $imageKey;
-                                    $thumbUrl = $awsService->getPresignedUrl($s3ThumbKey, 3600);
+                                    $thumbUrl = $awsService->getPresignedUrl($imageKey, 3600);
                                 } else {
                                     $thumbUrl = getCloudFrontUrl($imageKey);
                                 }

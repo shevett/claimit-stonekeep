@@ -359,7 +359,7 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                 $allImages = getItemImages($trackingNumber);
                 foreach ($allImages as $imageKey) {
                     try {
-                        $awsService->deleteObject('images/' . $imageKey);
+                        $awsService->deleteObject($imageKey);
                     } catch (Exception $e) {
                         error_log("Failed to delete image {$imageKey}: " . $e->getMessage());
                     }
@@ -450,12 +450,12 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                 
                 if ($imageIndex === null) {
                     // Rotate primary image (first in the array)
-                    $imageKey = 'images/' . $allImages[0];
+                    $imageKey = $allImages[0];
                 } else {
                     // Rotate specific indexed image
                     foreach ($allImages as $img) {
                         if (getImageIndex($img) === $imageIndex) {
-                            $imageKey = 'images/' . $img;
+                            $imageKey = $img;
                             break;
                         }
                     }
@@ -594,7 +594,7 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                     echo json_encode([
                         'success' => true,
                         'message' => 'Image uploaded successfully',
-                        'image_key' => str_replace('images/', '', $imageKey)
+                        'image_key' => $imageKey
                     ]);
                     
                 } catch (Exception $e) {
@@ -752,7 +752,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
                 $allImages = getItemImages($trackingNumber);
                 foreach ($allImages as $imageKey) {
                     try {
-                        $awsService->deleteObject('images/' . $imageKey);
+                        $awsService->deleteObject($imageKey);
                     } catch (Exception $e) {
                         error_log("Failed to delete image {$imageKey}: " . $e->getMessage());
                     }
@@ -838,12 +838,12 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
                 
                 if ($imageIndex === null) {
                     // Rotate primary image (first in the array)
-                    $imageKey = 'images/' . $allImages[0];
+                    $imageKey = $allImages[0];
                 } else {
                     // Rotate specific indexed image
                     foreach ($allImages as $img) {
                         if (getImageIndex($img) === $imageIndex) {
-                            $imageKey = 'images/' . $img;
+                            $imageKey = $img;
                             break;
                         }
                     }
