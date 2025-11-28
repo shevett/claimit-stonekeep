@@ -541,11 +541,13 @@ You can disable these notifications anytime in your account settings.
     {
         $isLocalhost = isset($_SERVER['HTTP_HOST']) && (
             $_SERVER['HTTP_HOST'] === 'localhost:8000' || 
-            $_SERVER['HTTP_HOST'] === '127.0.0.1:8000'
+            $_SERVER['HTTP_HOST'] === '127.0.0.1:8000' ||
+            $_SERVER['HTTP_HOST'] === 'localhost:8080' || 
+            $_SERVER['HTTP_HOST'] === '127.0.0.1:8080'
         );
         
         $baseUrl = $isLocalhost 
-            ? 'http://localhost:8000/'
+            ? 'http://' . $_SERVER['HTTP_HOST'] . '/'
             : 'https://claimit.stonekeep.com/';
             
         return $baseUrl . '?page=item&id=' . urlencode($trackingNumber);

@@ -411,7 +411,7 @@ function getAllItemsEfficiently($includeGoneItems = false) {
                         foreach ($imageExtensions as $ext) {
                             $possibleImageKey = $trackingNumber . '.' . $ext;
                             if (isset($imageLookup[$possibleImageKey])) {
-                                $imageKey = $possibleImageKey; // Store without images/ prefix for getCloudFrontUrl
+                                $imageKey = $imageLookup[$possibleImageKey]; // Get full S3 path with images/ prefix
                                 break;
                             }
                         }
@@ -673,17 +673,25 @@ function debugLog($message) {
  * Get CloudFront URL for an image
  * 
  * @param string $imageKey The S3 object key for the image
- * @return string CloudFront URL or empty string if not configured
+ * @return string CloudFront URL or presigned URL in development mode
  */
 function getCloudFrontUrl($imageKey) {
+    // In development mode, always use presigned URLs to bypass CloudFront cache
+    if (defined('DEVELOPMENT_MODE') && DEVELOPMENT_MODE) {
+        debugLog("Development mode: using presigned URL for: {$imageKey}");
+        return getCachedPresignedUrl($imageKey);
+    }
+    
     if (!defined('CLOUDFRONT_DOMAIN') || empty(CLOUDFRONT_DOMAIN)) {
         // Fallback to presigned URL if CloudFront not configured
         debugLog("CloudFront not configured, using presigned URL for: {$imageKey}");
         return getCachedPresignedUrl($imageKey);
     }
     
-    debugLog("Using CloudFront URL for: {$imageKey}");
-    return 'https://' . CLOUDFRONT_DOMAIN . '/' . $imageKey;
+    // CloudFront origin path is /images, so strip the images/ prefix from the key
+    $cloudFrontPath = str_replace('images/', '', $imageKey);
+    debugLog("Using CloudFront URL for: {$imageKey} (CloudFront path: {$cloudFrontPath})");
+    return 'https://' . CLOUDFRONT_DOMAIN . '/' . $cloudFrontPath;
 }
 
 /**
@@ -1557,7 +1565,7 @@ function getUserItemsEfficiently($userId, $includeGoneItems = false) {
                     foreach ($imageExtensions as $ext) {
                         $possibleImageKey = $trackingNumber . '.' . $ext;
                         if (isset($imageLookup[$possibleImageKey])) {
-                            $imageKey = $possibleImageKey; // Store without images/ prefix for getCloudFrontUrl
+                            $imageKey = $imageLookup[$possibleImageKey]; // Get full S3 path with images/ prefix
                             break;
                         }
                     }
@@ -1801,7 +1809,7 @@ function getItemsClaimedByUserOptimized($userId) {
                     foreach ($imageExtensions as $ext) {
                         $possibleImageKey = $trackingNumber . '.' . $ext;
                         if (isset($imageLookup[$possibleImageKey])) {
-                            $imageKey = $possibleImageKey;
+                            $imageKey = $imageLookup[$possibleImageKey]; // Get full S3 path with images/ prefix
                             break;
                         }
                     }
@@ -1915,10 +1923,10 @@ function getItemsClaimedByUser($userId) {
                     $imageKey = null;
                     $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
                     foreach ($imageExtensions as $ext) {
-                        $possibleImageKey = $trackingNumber . '.' . $ext;
+                        $possibleImageKey = 'images/' . $trackingNumber . '.' . $ext;
                         foreach ($objects as $imgObj) {
                             if ($imgObj['key'] === $possibleImageKey) {
-                                $imageKey = $possibleImageKey;
+                                $imageKey = $possibleImageKey; // Full S3 path with images/ prefix
                                 break 2;
                             }
                         }
