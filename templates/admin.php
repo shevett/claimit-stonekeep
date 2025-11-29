@@ -48,6 +48,14 @@ $flashMessage = showFlashMessage();
                 <form id="adminForm" class="admin-form">
                     <div class="form-group">
                         <label class="checkbox-label">
+                            <input type="checkbox" id="testDatabase" name="testDatabase">
+                            <span class="checkbox-text">Test database connection</span>
+                        </label>
+                        <small class="form-help">Test connection to RDS MySQL database and show details</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
                             <input type="checkbox" id="sendTestEmail" name="sendTestEmail">
                             <span class="checkbox-text">Send a test email to me</span>
                         </label>
@@ -81,6 +89,14 @@ $flashMessage = showFlashMessage();
                             $awsService = getAwsService();
                             echo $awsService ? escape($awsService->getBucketName()) : '<em style="color: #999;">Not configured</em>';
                         ?></span>
+                    </div>
+                    <div class="info-item">
+                        <label>Database:</label>
+                        <span><?php echo defined('DB_NAME') ? escape(DB_NAME) : '<em style="color: #999;">Not configured</em>'; ?></span>
+                    </div>
+                    <div class="info-item">
+                        <label>Environment:</label>
+                        <span><?php echo DEVELOPMENT_MODE ? 'Development' : 'Production'; ?></span>
                     </div>
                 </div>
 
@@ -325,9 +341,10 @@ document.addEventListener('DOMContentLoaded', function() {
     form.addEventListener('submit', function(e) {
         e.preventDefault();
         
+        const testDatabase = document.getElementById('testDatabase').checked;
         const sendTestEmail = document.getElementById('sendTestEmail').checked;
         
-        if (!sendTestEmail) {
+        if (!testDatabase && !sendTestEmail) {
             showMessage('Please select at least one action to perform', 'error');
             return;
         }
@@ -337,19 +354,30 @@ document.addEventListener('DOMContentLoaded', function() {
         btnText.style.display = 'none';
         btnLoading.style.display = 'inline';
         
+        // Build request body
+        let body = '';
+        if (testDatabase) body += 'test_database=on&';
+        if (sendTestEmail) body += 'send_test_email=on&';
+        
         // Send AJAX request to execute admin actions
         fetch('/?page=admin&action=execute', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: (sendTestEmail ? '&send_test_email=on' : '')
+            body: body
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                showMessage(data.message || 'Action completed successfully!', 'success');
+                let message = data.message || 'Action completed successfully!';
+                // Add details if available
+                if (data.details) {
+                    message += '\n\nDetails:\n' + JSON.stringify(data.details, null, 2);
+                }
+                showMessage(message, 'success');
                 // Reset form
+                document.getElementById('testDatabase').checked = false;
                 document.getElementById('sendTestEmail').checked = false;
             } else {
                 showMessage('Error: ' + (data.message || 'Unknown error'), 'error');

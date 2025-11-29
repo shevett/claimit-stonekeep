@@ -49,6 +49,7 @@ uploads/
 # Configuration files with sensitive data
 config/database.php
 config/secrets.php
+config/config.php
 
 # AWS credentials and environment files
 .env

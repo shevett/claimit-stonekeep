@@ -1034,10 +1034,23 @@ if (isset($_GET['page']) && $_GET['page'] === 'admin' && isset($_GET['action']))
             exit;
         }
         
+        $testDatabase = isset($_POST['test_database']) && $_POST['test_database'] === 'on';
         $sendTestEmail = isset($_POST['send_test_email']) && $_POST['send_test_email'] === 'on';
         
         try {
             $messages = [];
+            $details = null;
+            
+            // Test database connection if requested
+            if ($testDatabase) {
+                $dbTest = testDbConnection();
+                if ($dbTest['success']) {
+                    $messages[] = $dbTest['message'];
+                    $details = $dbTest['details'] ?? null;
+                } else {
+                    $messages[] = $dbTest['message'];
+                }
+            }
             
             // Send test email if requested
             if ($sendTestEmail) {
@@ -1056,7 +1069,11 @@ if (isset($_GET['page']) && $_GET['page'] === 'admin' && isset($_GET['action']))
             }
             
             $message = empty($messages) ? 'No actions performed' : implode('. ', $messages);
-            echo json_encode(['success' => true, 'message' => $message]);
+            $response = ['success' => true, 'message' => $message];
+            if ($details) {
+                $response['details'] = $details;
+            }
+            echo json_encode($response);
             
         } catch (Exception $e) {
             echo json_encode(['success' => false, 'message' => 'Failed to execute admin action: ' . $e->getMessage()]);
