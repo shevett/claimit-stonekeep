@@ -32,6 +32,9 @@ jobs:
           # Install/update Composer dependencies
           composer install --no-dev --optimize-autoloader
           
+          # Run database migrations
+          vendor/bin/phinx migrate -e production
+          
           # Generate changelog from git history
           php scripts/generate-changelog.php
           
