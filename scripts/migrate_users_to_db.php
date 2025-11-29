@@ -86,7 +86,7 @@ foreach ($userFiles as $index => $object) {
     echo "[$progress] Processing user: $userId ... ";
     
     try {
-        // Download and parse JSON file
+        // Download and parse JSON file (account data)
         $result = $awsService->getObject($key);
         
         $jsonContent = $result['content'];
@@ -94,6 +94,30 @@ foreach ($userFiles as $index => $object) {
         
         if ($userData === null && json_last_error() !== JSON_ERROR_NONE) {
             throw new Exception("Failed to parse JSON: " . json_last_error_msg());
+        }
+        
+        // Check for corresponding YAML file (user preferences)
+        $yamlKey = 'users/' . $userId . '.yaml';
+        try {
+            $yamlResult = $awsService->getObject($yamlKey);
+            $yamlContent = $yamlResult['content'];
+            $preferences = yaml_parse($yamlContent);
+            
+            if ($preferences !== false) {
+                // Merge preferences into userData
+                $userData['display_name'] = $preferences['display_name'] ?? null;
+                $userData['zipcode'] = $preferences['zipcode'] ?? null;
+                $userData['show_gone_items'] = isset($preferences['show_gone_items']) && $preferences['show_gone_items'] === 'yes';
+                $userData['email_notifications'] = isset($preferences['email_notifications']) && $preferences['email_notifications'] === 'yes';
+                $userData['new_listing_notifications'] = isset($preferences['new_listing_notifications']) && $preferences['new_listing_notifications'] === 'yes';
+            }
+        } catch (Exception $e) {
+            // No YAML file - use defaults
+            $userData['display_name'] = null;
+            $userData['zipcode'] = null;
+            $userData['show_gone_items'] = true;
+            $userData['email_notifications'] = true;
+            $userData['new_listing_notifications'] = true;
         }
         
         // Check if user already exists

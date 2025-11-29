@@ -84,6 +84,145 @@ function testDbConnection() {
 }
 
 /**
+ * Get user by ID from database
+ * Returns user array or null if not found
+ */
+function getUserById($userId) {
+    try {
+        $pdo = getDbConnection();
+        if ($pdo === null) {
+            return null;
+        }
+        
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch();
+        
+        if ($user === false) {
+            return null;
+        }
+        
+        // Convert database fields to match existing format
+        return [
+            'id' => $user['id'],
+            'email' => $user['email'],
+            'name' => $user['name'],
+            'picture' => $user['picture'],
+            'verified_email' => (bool)$user['verified_email'],
+            'locale' => $user['locale'],
+            'last_login' => $user['last_login'],
+            'created_at' => $user['created_at'],
+            'display_name' => $user['display_name'],
+            'zipcode' => $user['zipcode'],
+            'show_gone_items' => (bool)$user['show_gone_items'],
+            'email_notifications' => (bool)$user['email_notifications'],
+            'new_listing_notifications' => (bool)$user['new_listing_notifications']
+        ];
+        
+    } catch (Exception $e) {
+        error_log("Error getting user by ID: " . $e->getMessage());
+        return null;
+    }
+}
+
+/**
+ * Create a new user in database
+ * Returns true on success, false on failure
+ */
+function createUser($userData) {
+    try {
+        $pdo = getDbConnection();
+        if ($pdo === null) {
+            return false;
+        }
+        
+        $sql = "INSERT INTO users (
+            id, email, name, picture, verified_email, locale,
+            last_login, created_at, display_name, zipcode,
+            show_gone_items, email_notifications, new_listing_notifications,
+            updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        
+        $stmt = $pdo->prepare($sql);
+        return $stmt->execute([
+            $userData['id'],
+            $userData['email'] ?? null,
+            $userData['name'] ?? null,
+            $userData['picture'] ?? null,
+            isset($userData['verified_email']) ? (int)$userData['verified_email'] : null,
+            $userData['locale'] ?? null,
+            $userData['last_login'] ?? date('Y-m-d H:i:s'),
+            $userData['created_at'] ?? date('Y-m-d H:i:s'),
+            $userData['display_name'] ?? null,
+            $userData['zipcode'] ?? null,
+            isset($userData['show_gone_items']) ? (int)$userData['show_gone_items'] : 1,
+            isset($userData['email_notifications']) ? (int)$userData['email_notifications'] : 1,
+            isset($userData['new_listing_notifications']) ? (int)$userData['new_listing_notifications'] : 1,
+            date('Y-m-d H:i:s')
+        ]);
+        
+    } catch (Exception $e) {
+        error_log("Error creating user: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Update an existing user in database
+ * Returns true on success, false on failure
+ */
+function updateUser($userId, $userData) {
+    try {
+        $pdo = getDbConnection();
+        if ($pdo === null) {
+            return false;
+        }
+        
+        $sql = "UPDATE users SET 
+            email = ?, name = ?, picture = ?, verified_email = ?, locale = ?,
+            last_login = ?, display_name = ?, zipcode = ?,
+            show_gone_items = ?, email_notifications = ?, new_listing_notifications = ?,
+            updated_at = ?
+        WHERE id = ?";
+        
+        $stmt = $pdo->prepare($sql);
+        return $stmt->execute([
+            $userData['email'] ?? null,
+            $userData['name'] ?? null,
+            $userData['picture'] ?? null,
+            isset($userData['verified_email']) ? (int)$userData['verified_email'] : null,
+            $userData['locale'] ?? null,
+            $userData['last_login'] ?? date('Y-m-d H:i:s'),
+            $userData['display_name'] ?? null,
+            $userData['zipcode'] ?? null,
+            isset($userData['show_gone_items']) ? (int)$userData['show_gone_items'] : 1,
+            isset($userData['email_notifications']) ? (int)$userData['email_notifications'] : 1,
+            isset($userData['new_listing_notifications']) ? (int)$userData['new_listing_notifications'] : 1,
+            date('Y-m-d H:i:s'),
+            $userId
+        ]);
+        
+    } catch (Exception $e) {
+        error_log("Error updating user: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Save or update user (upsert operation)
+ * Returns true on success, false on failure
+ */
+function saveUser($userData) {
+    $existingUser = getUserById($userData['id']);
+    
+    if ($existingUser) {
+        return updateUser($userData['id'], $userData);
+    } else {
+        return createUser($userData);
+    }
+}
+
+/**
  * Redirect to a specific page
  */
 function redirect($page = 'home') {
@@ -2087,26 +2226,15 @@ function truncateText($text, $length = 100) {
  */
 function getUserDisplayName($userId, $defaultName = '') {
     try {
-        $awsService = getAwsService();
-        if (!$awsService) {
+        $user = getUserById($userId);
+        
+        if (!$user) {
             return $defaultName;
         }
-        
-        $yamlKey = 'users/' . $userId . '.yaml';
-        
-        // Check if user settings file exists
-        if (!$awsService->objectExists($yamlKey)) {
-            return $defaultName;
-        }
-        
-        // Get user settings
-        $yamlObject = $awsService->getObject($yamlKey);
-        $yamlContent = $yamlObject['content'];
-        $userSettings = parseSimpleYaml($yamlContent);
         
         // Return custom display name if set, otherwise default
-        if (isset($userSettings['display_name']) && !empty($userSettings['display_name'])) {
-            return $userSettings['display_name'];
+        if (isset($user['display_name']) && !empty($user['display_name'])) {
+            return $user['display_name'];
         }
         
         return $defaultName;
@@ -2126,26 +2254,15 @@ function getUserDisplayName($userId, $defaultName = '') {
  */
 function getUserZipcode($userId) {
     try {
-        $awsService = getAwsService();
-        if (!$awsService) {
+        $user = getUserById($userId);
+        
+        if (!$user) {
             return '';
         }
-        
-        $yamlKey = 'users/' . $userId . '.yaml';
-        
-        // Check if user settings file exists
-        if (!$awsService->objectExists($yamlKey)) {
-            return '';
-        }
-        
-        // Get user settings
-        $yamlObject = $awsService->getObject($yamlKey);
-        $yamlContent = $yamlObject['content'];
-        $userSettings = parseSimpleYaml($yamlContent);
         
         // Return zipcode if set, otherwise empty string
-        if (isset($userSettings['zipcode']) && !empty($userSettings['zipcode'])) {
-            return $userSettings['zipcode'];
+        if (isset($user['zipcode']) && !empty($user['zipcode'])) {
+            return $user['zipcode'];
         }
         
         return '';
@@ -2533,29 +2650,16 @@ function getUserEmailNotifications($userId) {
     }
     
     try {
-        $awsService = getAwsService();
-        if (!$awsService) {
+        $user = getUserById($userId);
+        
+        if (!$user) {
             $result = false; // Default to no email notifications
             setUserSettingsCache($userId, $result, 'email_notifications');
             return $result;
         }
         
-        $yamlKey = 'users/' . $userId . '.yaml';
-        
-        // Check if user settings file exists
-        if (!$awsService->objectExists($yamlKey)) {
-            $result = false; // Default to no email notifications
-            setUserSettingsCache($userId, $result, 'email_notifications');
-            return $result;
-        }
-        
-        // Get user settings
-        $yamlObject = $awsService->getObject($yamlKey);
-        $yamlContent = $yamlObject['content'];
-        $userSettings = parseSimpleYaml($yamlContent);
-        
-        // Return setting if set, otherwise default to false
-        $result = isset($userSettings['email_notifications']) && $userSettings['email_notifications'] === 'yes';
+        // Return setting from database
+        $result = $user['email_notifications'] ?? false;
         setUserSettingsCache($userId, $result, 'email_notifications');
         return $result;
         
@@ -2579,29 +2683,16 @@ function getUserNewListingNotifications($userId) {
     }
     
     try {
-        $awsService = getAwsService();
-        if (!$awsService) {
+        $user = getUserById($userId);
+        
+        if (!$user) {
             $result = false; // Default to no new listing notifications
             setUserSettingsCache($userId, $result, 'new_listing_notifications');
             return $result;
         }
         
-        $yamlKey = 'users/' . $userId . '.yaml';
-        
-        // Check if user settings file exists
-        if (!$awsService->objectExists($yamlKey)) {
-            $result = false; // Default to no new listing notifications
-            setUserSettingsCache($userId, $result, 'new_listing_notifications');
-            return $result;
-        }
-        
-        // Get user settings
-        $yamlObject = $awsService->getObject($yamlKey);
-        $yamlContent = $yamlObject['content'];
-        $userSettings = parseSimpleYaml($yamlContent);
-        
-        // Return setting if set, otherwise default to false
-        $result = isset($userSettings['new_listing_notifications']) && $userSettings['new_listing_notifications'] === 'yes';
+        // Return setting from database
+        $result = $user['new_listing_notifications'] ?? false;
         setUserSettingsCache($userId, $result, 'new_listing_notifications');
         return $result;
         
@@ -2628,29 +2719,16 @@ function getUserShowGoneItems($userId) {
     }
     
     try {
-        $awsService = getAwsService();
-        if (!$awsService) {
+        $user = getUserById($userId);
+        
+        if (!$user) {
             $result = false; // Default to not showing gone items
             setUserSettingsCache($userId, $result, 'show_gone_items');
             return $result;
         }
         
-        $yamlKey = 'users/' . $userId . '.yaml';
-        
-        // Check if user settings file exists
-        if (!$awsService->objectExists($yamlKey)) {
-            $result = false; // Default to not showing gone items
-            setUserSettingsCache($userId, $result, 'show_gone_items');
-            return $result;
-        }
-        
-        // Get user settings
-        $yamlObject = $awsService->getObject($yamlKey);
-        $yamlContent = $yamlObject['content'];
-        $userSettings = parseSimpleYaml($yamlContent);
-        
-        // Return setting if set, otherwise default to false
-        $result = isset($userSettings['show_gone_items']) && $userSettings['show_gone_items'] === 'yes';
+        // Return setting from database
+        $result = $user['show_gone_items'] ?? false;
         setUserSettingsCache($userId, $result, 'show_gone_items');
         return $result;
         
@@ -2672,29 +2750,15 @@ function getUserShowGoneItems($userId) {
  */
 function saveUserShowGoneItems($userId, $showGoneItems) {
     try {
-        $awsService = getAwsService();
-        if (!$awsService) {
-            throw new Exception('AWS service not available');
+        $user = getUserById($userId);
+        if (!$user) {
+            throw new Exception('User not found');
         }
         
-        $yamlKey = 'users/' . $userId . '.yaml';
+        // Update the setting in database
+        $user['show_gone_items'] = $showGoneItems;
         
-        // Get existing user settings or create new
-        $userSettings = [];
-        if ($awsService->objectExists($yamlKey)) {
-            $yamlObject = $awsService->getObject($yamlKey);
-            $yamlContent = $yamlObject['content'];
-            $userSettings = parseSimpleYaml($yamlContent);
-        }
-        
-        // Update the setting
-        $userSettings['show_gone_items'] = $showGoneItems ? 'yes' : 'no';
-        
-        // Convert back to YAML and save
-        $newYamlContent = convertToYaml($userSettings);
-        $awsService->putObject($yamlKey, $newYamlContent, 'text/yaml');
-        
-        return true;
+        return updateUser($userId, $user);
         
     } catch (Exception $e) {
         error_log("Error saving user show gone items setting for user $userId: " . $e->getMessage());

@@ -967,31 +967,32 @@ if (isset($_GET['page']) && $_GET['page'] === 'settings' && isset($_GET['action'
         }
         
         try {
-            $awsService = getAwsService();
-            if (!$awsService) {
-                throw new Exception('AWS service not available');
-            }
-            
-            // Create user settings data
-            $userSettings = [
-                'user_id' => $currentUser['id'],
-                'google_name' => $currentUser['name'],
+            // Update user in database
+            $userData = [
+                'id' => $currentUser['id'],
+                'email' => $currentUser['email'],
+                'name' => $currentUser['name'],
+                'picture' => $currentUser['picture'],
+                'verified_email' => $currentUser['verified_email'],
+                'locale' => $currentUser['locale'],
+                'last_login' => $currentUser['last_login'],
                 'display_name' => $displayName,
                 'zipcode' => $zipcode,
-                'show_gone_items' => $showGoneItems ? 'yes' : 'no',
-                'email_notifications' => $emailNotifications ? 'yes' : 'no',
-                'new_listing_notifications' => $newListingNotifications ? 'yes' : 'no',
-                'email' => $currentUser['email'],
-                'updated_at' => date('Y-m-d H:i:s'),
-                'updated_timestamp' => time()
+                'show_gone_items' => $showGoneItems,
+                'email_notifications' => $emailNotifications,
+                'new_listing_notifications' => $newListingNotifications
             ];
             
-            // Convert to YAML
-            $yamlContent = convertToYaml($userSettings);
+            if (!updateUser($currentUser['id'], $userData)) {
+                throw new Exception('Failed to update user in database');
+            }
             
-            // Save to S3 in users/ directory
-            $yamlKey = 'users/' . $currentUser['id'] . '.yaml';
-            $awsService->putObject($yamlKey, $yamlContent);
+            // Update session with new values
+            $_SESSION['user']['display_name'] = $displayName;
+            $_SESSION['user']['zipcode'] = $zipcode;
+            $_SESSION['user']['show_gone_items'] = $showGoneItems;
+            $_SESSION['user']['email_notifications'] = $emailNotifications;
+            $_SESSION['user']['new_listing_notifications'] = $newListingNotifications;
             
             echo json_encode(['success' => true, 'message' => 'Settings saved successfully']);
             

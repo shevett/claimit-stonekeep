@@ -80,15 +80,20 @@ class AuthService
 
 
             // Load existing user profile if it exists
-            $existingUser = $this->loadUserProfile($user['id']);
+            $existingUser = getUserById($user['id']);
             if ($existingUser) {
                 // Update last login and merge any new info
                 $user['created_at'] = $existingUser['created_at'];
-                $user = array_merge($existingUser, $user);
+                // Preserve user preferences from database
+                $user['display_name'] = $existingUser['display_name'] ?? null;
+                $user['zipcode'] = $existingUser['zipcode'] ?? null;
+                $user['show_gone_items'] = $existingUser['show_gone_items'] ?? true;
+                $user['email_notifications'] = $existingUser['email_notifications'] ?? true;
+                $user['new_listing_notifications'] = $existingUser['new_listing_notifications'] ?? true;
             }
 
-            // Save user profile to S3
-            $this->saveUserProfile($user);
+            // Save user profile to database
+            saveUser($user);
 
             // Store user in session
             $this->loginUser($user);
@@ -163,6 +168,7 @@ class AuthService
 
     /**
      * Save user profile to S3
+     * @deprecated Now using database (saveUser function)
      */
     private function saveUserProfile(array $user): void
     {
@@ -174,6 +180,7 @@ class AuthService
 
     /**
      * Load user profile from S3
+     * @deprecated Now using database (getUserById function)
      */
     private function loadUserProfile(string $userId): ?array
     {
