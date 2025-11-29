@@ -20,22 +20,38 @@ jobs:
         key: ${{ secrets.SSH_KEY }}
         port: ${{ secrets.PORT }}
         script: |
+          set -e  # Exit on error
+          
+          echo "========================================="
+          echo "Starting deployment to production"
+          echo "========================================="
+          
           # Navigate to the project directory
           cd /var/www/claimit.stonekeep.com
           
           # Stash any local changes to avoid conflicts
+          echo "Stashing local changes..."
           git stash
           
           # Pull the latest changes
+          echo "Pulling latest code from GitHub..."
           GIT_SSH_COMMAND="ssh -i /var/www/.ssh/github" git pull origin main
           
           # Install/update Composer dependencies
+          echo "Installing/updating Composer dependencies..."
           composer install --no-dev --optimize-autoloader
           
           # Run database migrations
+          echo "========================================="
+          echo "Running database migrations..."
+          echo "========================================="
           vendor/bin/phinx migrate -e production
+          echo "Migrations completed"
           
           # Generate changelog from git history
+          echo "Generating changelog..."
           php scripts/generate-changelog.php
           
+          echo "========================================="
           echo "Deployment completed successfully!"
+          echo "========================================="
