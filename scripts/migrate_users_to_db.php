@@ -13,6 +13,10 @@
  *   - Uses existing AWS credentials from config
  */
 
+// Enable error reporting for debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 // Bootstrap the application
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../config/config.php';
@@ -101,15 +105,22 @@ foreach ($userFiles as $index => $object) {
         try {
             $yamlResult = $awsService->getObject($yamlKey);
             $yamlContent = $yamlResult['content'];
-            $preferences = yaml_parse($yamlContent);
+            $preferences = parseSimpleYaml($yamlContent);
             
-            if ($preferences !== false) {
+            if ($preferences !== false && is_array($preferences)) {
                 // Merge preferences into userData
                 $userData['display_name'] = $preferences['display_name'] ?? null;
                 $userData['zipcode'] = $preferences['zipcode'] ?? null;
                 $userData['show_gone_items'] = isset($preferences['show_gone_items']) && $preferences['show_gone_items'] === 'yes';
                 $userData['email_notifications'] = isset($preferences['email_notifications']) && $preferences['email_notifications'] === 'yes';
                 $userData['new_listing_notifications'] = isset($preferences['new_listing_notifications']) && $preferences['new_listing_notifications'] === 'yes';
+            } else {
+                // Failed to parse YAML - use defaults
+                $userData['display_name'] = null;
+                $userData['zipcode'] = null;
+                $userData['show_gone_items'] = true;
+                $userData['email_notifications'] = true;
+                $userData['new_listing_notifications'] = true;
             }
         } catch (Exception $e) {
             // No YAML file - use defaults
@@ -170,11 +181,12 @@ foreach ($userFiles as $index => $object) {
         $stats['inserted']++;
         
     } catch (Exception $e) {
-        echo "ERROR\n";
+        echo "ERROR: " . $e->getMessage() . "\n";
         $stats['errors']++;
         $errors[] = [
             'user_id' => $userId,
-            'error' => $e->getMessage()
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
         ];
     }
 }
@@ -197,6 +209,11 @@ if (!empty($errors)) {
     echo str_repeat('-', 80) . "\n";
     foreach ($errors as $error) {
         echo "User {$error['user_id']}: {$error['error']}\n";
+        if (isset($error['trace'])) {
+            echo "Stack trace:\n";
+            echo $error['trace'] . "\n";
+            echo str_repeat('-', 40) . "\n";
+        }
     }
     echo str_repeat('-', 80) . "\n";
 }
