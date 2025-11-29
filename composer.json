@@ -5,11 +5,11 @@
     "require": {
         "php": ">=8.0",
         "aws/aws-sdk-php": "^3.356",
-        "google/apiclient": "^2.15"
+        "google/apiclient": "^2.15",
+        "robmorgan/phinx": "^0.16.10"
     },
     "require-dev": {
-        "phpunit/phpunit": "^10.0",
-        "robmorgan/phinx": "^0.16.10"
+        "phpunit/phpunit": "^10.0"
     },
     "autoload": {
         "psr-4": {
