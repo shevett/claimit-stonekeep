@@ -428,20 +428,13 @@ class EmailService
     
     /**
      * Check if user has email notifications enabled
+     * Now uses MySQL database instead of YAML files
      */
     private function isEmailNotificationsEnabled(string $userId): bool
     {
         try {
-            $yamlKey = 'users/' . $userId . '.yaml';
-            
-            if (!$this->awsService->objectExists($yamlKey)) {
-                return false; // Default to no notifications
-            }
-            
-            $yamlObject = $this->awsService->getObject($yamlKey);
-            $userSettings = parseSimpleYaml($yamlObject['content']);
-            
-            return isset($userSettings['email_notifications']) && $userSettings['email_notifications'] === 'yes';
+            // Use database function to get email notifications preference
+            return getUserEmailNotifications($userId);
             
         } catch (\Exception $e) {
             error_log("Error checking email notifications for user $userId: " . $e->getMessage());
@@ -671,48 +664,37 @@ This test email was sent from ClaimIt Email Service
     
     /**
      * Get all users who have new listing notifications enabled
+     * Now uses MySQL database instead of YAML files
      */
     private function getUsersWithNewListingNotifications(): array
     {
         try {
-            $awsService = getAwsService();
-            if (!$awsService) {
+            $pdo = getDbConnection();
+            if ($pdo === null) {
+                error_log("Error: Unable to get database connection for new listing notifications");
                 return [];
             }
             
-            // Get all user files from S3
-            $result = $awsService->listObjects('users/');
-            $userFiles = $result['objects'] ?? [];
-            $usersToNotify = [];
+            // Query database for users with new listing notifications enabled
+            $sql = "SELECT id, email, name, display_name 
+                    FROM users 
+                    WHERE new_listing_notifications = 1 
+                    AND email IS NOT NULL 
+                    AND email != ''";
             
-            foreach ($userFiles as $file) {
-                if (strpos($file['key'], '.yaml') === false) {
-                    continue; // Skip non-YAML files
-                }
-                
-                try {
-                    $yamlObject = $awsService->getObject($file['key']);
-                    $yamlContent = $yamlObject['content'];
-                    $userSettings = parseSimpleYaml($yamlContent);
-                    
-                    // Check if user has new listing notifications enabled
-                    if (isset($userSettings['new_listing_notifications']) && 
-                        $userSettings['new_listing_notifications'] === 'yes' &&
-                        !empty($userSettings['email'])) {
-                        
-                        $usersToNotify[] = [
-                            'id' => $userSettings['user_id'] ?? '',
-                            'name' => $userSettings['display_name'] ?? $userSettings['google_name'] ?? 'Unknown',
-                            'email' => $userSettings['email']
-                        ];
-                    }
-                    
-                } catch (\Exception $e) {
-                    error_log("Error reading user settings from {$file['key']}: " . $e->getMessage());
-                    continue;
-                }
+            $stmt = $pdo->query($sql);
+            $users = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+            
+            $usersToNotify = [];
+            foreach ($users as $user) {
+                $usersToNotify[] = [
+                    'id' => $user['id'],
+                    'name' => $user['display_name'] ?? $user['name'] ?? 'Unknown',
+                    'email' => $user['email']
+                ];
             }
             
+            error_log("Found " . count($usersToNotify) . " users with new listing notifications enabled");
             return $usersToNotify;
             
         } catch (\Exception $e) {

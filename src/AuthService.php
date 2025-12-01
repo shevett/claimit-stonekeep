@@ -167,34 +167,6 @@ class AuthService
     }
 
     /**
-     * Save user profile to S3
-     * @deprecated Now using database (saveUser function)
-     */
-    private function saveUserProfile(array $user): void
-    {
-        $userKey = 'users/' . $user['id'] . '.json';
-        $userData = json_encode($user, JSON_PRETTY_PRINT);
-        
-        $this->awsService->putObject($userKey, $userData, 'application/json');
-    }
-
-    /**
-     * Load user profile from S3
-     * @deprecated Now using database (getUserById function)
-     */
-    private function loadUserProfile(string $userId): ?array
-    {
-        try {
-            $userKey = 'users/' . $userId . '.json';
-            $objectData = $this->awsService->getObject($userKey);
-            $userData = $objectData['content']; // Extract content from the result array
-            return json_decode($userData, true);
-        } catch (\Exception $e) {
-            return null; // User doesn't exist yet
-        }
-    }
-
-    /**
      * Get user's posted items
      */
     public function getUserItems(string $userId): array
