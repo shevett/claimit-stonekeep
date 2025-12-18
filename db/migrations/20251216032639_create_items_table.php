@@ -19,6 +19,21 @@ final class CreateItemsTable extends AbstractMigration
      */
     public function change(): void
     {
-
+        $table = $this->table('items');
+        $table->addColumn('tracking_number', 'string', ['limit' => 19])
+              ->addColumn('user_id', 'string', ['limit' => 255])
+              ->addColumn('title', 'string', ['limit' => 255])
+              ->addColumn('description', 'text', ['null' => true])
+              ->addColumn('price', 'decimal', ['precision' => 10, 'scale' => 2, 'default' => '0.00'])
+              ->addColumn('status', 'string', ['limit' => 50, 'default' => 'available'])
+              ->addColumn('image_file', 'string', ['limit' => 255, 'null' => true])
+              ->addColumn('additional_images', 'text', ['null' => true])
+              ->addColumn('created_at', 'datetime', ['default' => 'CURRENT_TIMESTAMP'])
+              ->addColumn('updated_at', 'datetime', ['default' => 'CURRENT_TIMESTAMP', 'update' => 'CURRENT_TIMESTAMP'])
+              ->addIndex(['tracking_number'], ['unique' => true])
+              ->addIndex(['user_id'])
+              ->addIndex(['status'])
+              ->addIndex(['created_at'])
+              ->create();
     }
 }
