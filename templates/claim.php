@@ -133,8 +133,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $awsService->putObject($imageKey, $imageContent, $mimeType);
             }
             
-            // Create YAML content
-            $yamlData = [
+            // Create item data for database
+            $itemData = [
                 'tracking_number' => $trackingNumber,
                 'title' => $title,
                 'description' => $description,
@@ -150,28 +150,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'submitted_timestamp' => time()
             ];
             
-            // Convert to YAML format
-            $yamlContent = "# Item Posting Data\n";
-            $yamlContent .= "tracking_number: '" . $yamlData['tracking_number'] . "'\n";
-            $yamlContent .= "title: '" . str_replace("'", "''", $yamlData['title']) . "'\n";
-            $yamlContent .= "description: |\n";
-            $yamlContent .= "  " . str_replace("\n", "\n  ", $yamlData['description']) . "\n";
-            $yamlContent .= "price: " . $yamlData['price'] . "\n";
-            $yamlContent .= "contact_email: '" . $yamlData['contact_email'] . "'\n";
-            $yamlContent .= "image_file: " . ($yamlData['image_file'] ? "'" . $yamlData['image_file'] . "'" : "null") . "\n";
-            if ($yamlData['image_width'] && $yamlData['image_height']) {
-                $yamlContent .= "image_width: " . $yamlData['image_width'] . "\n";
-                $yamlContent .= "image_height: " . $yamlData['image_height'] . "\n";
+            // Save item to database
+            if (!createItemInDb($itemData)) {
+                throw new Exception('Failed to save item to database');
             }
-            $yamlContent .= "user_id: '" . $yamlData['user_id'] . "'\n";
-            $yamlContent .= "user_name: '" . str_replace("'", "''", $yamlData['user_name']) . "'\n";
-            $yamlContent .= "user_email: '" . $yamlData['user_email'] . "'\n";
-            $yamlContent .= "submitted_at: '" . $yamlData['submitted_at'] . "'\n";
-            $yamlContent .= "submitted_timestamp: " . $yamlData['submitted_timestamp'] . "\n";
-            
-            // Upload YAML file
-            $yamlKey = $trackingNumber . '.yaml';
-            $awsService->putObject($yamlKey, $yamlContent, 'text/plain');
             
             // Clear items cache since we added a new item
             clearItemsCache();

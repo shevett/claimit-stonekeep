@@ -373,9 +373,8 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                 break;
                 
             case 'edit_item':
-                error_log("DEBUG: edit_item case entered for tracking number: " . $trackingNumber);
                 // Check if the current user can edit this item (owner or admin)
-                $item = getItem($trackingNumber);
+                $item = getItemFromDb($trackingNumber);
                 if (!$item || !canUserEditItem($item['user_id'] ?? null)) {
                     echo json_encode(['success' => false, 'message' => 'You can only edit your own items or be an administrator']);
                     exit;
@@ -395,23 +394,16 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                     exit;
                 }
                 
-                // Update the item data
-                $item['title'] = $title;
-                $item['description'] = $description;
+                // Update the item in database
+                $updates = [
+                    'title' => $title,
+                    'description' => $description
+                ];
                 
-                // Convert to YAML and save back to S3
-                error_log("DEBUG: edit_item - About to convert item to YAML: " . print_r($item, true));
-                $awsService = getAwsService();
-                if (!$awsService) {
-                    throw new Exception('AWS service not available');
+                if (!updateItemInDb($trackingNumber, $updates)) {
+                    echo json_encode(['success' => false, 'message' => 'Failed to update item in database']);
+                    exit;
                 }
-                
-                $yamlContent = convertToYaml($item);
-                error_log("DEBUG: edit_item - Generated YAML content: " . $yamlContent);
-                $yamlKey = $trackingNumber . '.yaml';
-                error_log("DEBUG: edit_item - Saving to S3 key: " . $yamlKey);
-                $result = $awsService->putObject($yamlKey, $yamlContent);
-                error_log("DEBUG: edit_item - S3 putObject result: " . print_r($result, true));
                 
                 // Clear items cache since we updated an item
                 clearItemsCache();
@@ -767,7 +759,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
                 
             case 'edit_item':
                 // Check if the current user can edit this item (owner or admin)
-                $item = getItem($trackingNumber);
+                $item = getItemFromDb($trackingNumber);
                 if (!$item || !canUserEditItem($item['user_id'] ?? null)) {
                     echo json_encode(['success' => false, 'message' => 'You can only edit your own items or be an administrator']);
                     exit;
@@ -787,19 +779,16 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
                     exit;
                 }
                 
-                // Update the item data
-                $item['title'] = $title;
-                $item['description'] = $description;
+                // Update the item in database
+                $updates = [
+                    'title' => $title,
+                    'description' => $description
+                ];
                 
-                // Convert to YAML and save back to S3
-                $awsService = getAwsService();
-                if (!$awsService) {
-                    throw new Exception('AWS service not available');
+                if (!updateItemInDb($trackingNumber, $updates)) {
+                    echo json_encode(['success' => false, 'message' => 'Failed to update item in database']);
+                    exit;
                 }
-                
-                $yamlContent = convertToYaml($item);
-                $yamlKey = $trackingNumber . '.yaml';
-                $awsService->putObject($yamlKey, $yamlContent);
                 
                 // Clear items cache since we updated an item
                 clearItemsCache();
@@ -1204,56 +1193,28 @@ if ($page === 'item' && isset($_GET['id'])) {
     
     // For item pages, we need the actual title and description for proper link unfurling
     try {
-        $awsService = getAwsService();
-        if ($awsService) {
-            $yamlKey = $trackingNumber . '.yaml';
-            $yamlObject = $awsService->getObject($yamlKey);
-            $yamlContent = $yamlObject['content'];
-            $data = parseSimpleYaml($yamlContent);
+        $dbItem = getItemFromDb($trackingNumber);
+        
+        if ($dbItem) {
+            $title = $dbItem['title'];
+            $description = $dbItem['description'];
+            $price = $dbItem['price'] ?? 0;
+            $imageKey = $dbItem['image_file'];
             
-            if ($data && isset($data['description'])) {
-                $title = $data['title'] ?? $data['description'];
-                $description = $data['description'];
-                $price = $data['price'] ?? 0;
-                
-                // Check for image
-                $imageKey = null;
-                $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
-                foreach ($imageExtensions as $ext) {
-                    $possibleImageKey = 'images/' . $trackingNumber . '.' . $ext;
-                    try {
-                        if ($awsService->objectExists($possibleImageKey)) {
-                            $imageKey = $possibleImageKey;
-                            break;
-                        }
-                    } catch (Exception $e) {
-                        // Continue to next extension
-                    }
-                }
-                
-                $ogData['item'] = [
-                    'tracking_number' => $trackingNumber,
-                    'title' => 'Item #' . $trackingNumber . ' - ' . $title,
-                    'description' => $description . ($price > 0 ? ' - $' . $price : ' - Free'),
-                    'image_key' => $imageKey
-                ];
-            } else {
-                // Fallback if YAML parsing fails
-                $ogData['item'] = [
-                    'tracking_number' => $trackingNumber,
-                    'title' => 'Item #' . $trackingNumber . ' - View on ClaimIt',
-                    'description' => 'View this item on ClaimIt',
-                    'image_key' => null
-                ];
-            }
+            $ogData['item'] = [
+                'tracking_number' => $trackingNumber,
+                'title' => 'Item #' . $trackingNumber . ' - ' . $title,
+                'description' => $description . ($price > 0 ? ' - $' . $price : ' - Free'),
+                'image_key' => $imageKey
+            ];
         } else {
-        // Fallback if AWS service unavailable
-        $ogData['item'] = [
-            'tracking_number' => $trackingNumber,
-            'title' => 'Item #' . $trackingNumber . ' - View on ClaimIt',
-            'description' => 'View this item on ClaimIt',
-            'image_key' => null
-        ];
+            // Fallback if item not found
+            $ogData['item'] = [
+                'tracking_number' => $trackingNumber,
+                'title' => 'Item #' . $trackingNumber . ' - View on ClaimIt',
+                'description' => 'View this item on ClaimIt',
+                'image_key' => null
+            ];
         }
     } catch (Exception $e) {
         // Fallback on any error
@@ -1759,5 +1720,4 @@ $performanceData = [
     })();
     </script>
 </body>
-</html> 
 </html> 

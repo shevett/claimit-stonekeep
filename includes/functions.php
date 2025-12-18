@@ -504,218 +504,96 @@ function getAllItemsEfficiently($includeGoneItems = false) {
         // Use cached data
     } else {
         try {
-            // Initialize AWS service only when actually needed
-            $awsService = getAwsService();
-            if (!$awsService) {
-                throw new Exception('AWS service not available');
+            $startTime = microtime(true);
+            
+            // Get items from database
+            $dbItems = getAllItemsFromDb($includeGoneItems);
+            debugLog("Loaded " . count($dbItems) . " items from database");
+            
+            // Get all claims from database in one query for efficiency
+            $pdo = getDbConnection();
+            $claimsStmt = $pdo->query("SELECT * FROM claims WHERE status = 'active' ORDER BY claimed_at ASC");
+            $allClaims = $claimsStmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Group claims by item
+            $claimsByItem = [];
+            foreach ($allClaims as $claim) {
+                $trackingNumber = $claim['item_tracking_number'];
+                if (!isset($claimsByItem[$trackingNumber])) {
+                    $claimsByItem[$trackingNumber] = [];
+                }
+                $claimsByItem[$trackingNumber][] = $claim;
             }
             
-            // Single API call to get all objects
-            $result = $awsService->listObjects('', 1000);
-            $objects = $result['objects'] ?? [];
+            debugLog("Loaded claims for " . count($claimsByItem) . " items");
             
+            // Process each item
             $items = [];
-            $yamlObjects = [];
+            $currentUser = getCurrentUser();
             
-            // Create image lookup table for O(1) access instead of O(n) searches
-            $lookupStartTime = microtime(true);
-            $imageLookup = [];
-            foreach ($objects as $object) {
-                if (str_starts_with($object['key'], 'images/') && !str_ends_with($object['key'], '.yaml')) {
-                    // Store image key without 'images/' prefix for easy lookup
-                    $imageKey = str_replace('images/', '', $object['key']);
-                    $imageLookup[$imageKey] = $object['key'];
-                }
-            }
-            
-            $lookupEndTime = microtime(true);
-            $lookupTime = round(($lookupEndTime - $lookupStartTime) * 1000, 2);
-            debugLog("Created image lookup table with " . count($imageLookup) . " images in {$lookupTime}ms");
-            
-            // Filter YAML files first
-            foreach ($objects as $object) {
-                if (str_ends_with($object['key'], '.yaml')) {
-                    $yamlObjects[] = $object;
-                }
-            }
-            
-            debugLog("Found " . count($yamlObjects) . " YAML files to process");
-            
-            // Load YAML files in batches of 20 for better performance
-            $yamlContents = [];
-            $loadStartTime = microtime(true);
-            $batchSize = 20;
-            $totalBatches = ceil(count($yamlObjects) / $batchSize);
-            
-            for ($batch = 0; $batch < $totalBatches; $batch++) {
-                $batchStart = $batch * $batchSize;
-                $batchEnd = min($batchStart + $batchSize, count($yamlObjects));
-                $batchObjects = array_slice($yamlObjects, $batchStart, $batchEnd - $batchStart);
+            foreach ($dbItems as $dbItem) {
+                $trackingNumber = $dbItem['tracking_number'];
                 
-                $batchStartTime = microtime(true);
-                foreach ($batchObjects as $object) {
-                    try {
-                        $yamlObject = $awsService->getObject($object['key']);
-                        $yamlContents[$object['key']] = $yamlObject['content'];
-                    } catch (Exception $e) {
-                        error_log("Failed to load YAML file {$object['key']}: " . $e->getMessage());
-                        $yamlContents[$object['key']] = null;
-                    }
+                // Get image key and URL
+                $imageKey = $dbItem['image_file'];
+                $imageUrl = null;
+                if ($imageKey) {
+                    $imageUrl = getCloudFrontUrl($imageKey);
                 }
-                $batchEndTime = microtime(true);
-                $batchTime = round(($batchEndTime - $batchStartTime) * 1000, 2);
-                debugLog("Batch " . ($batch + 1) . "/{$totalBatches}: Loaded " . count($batchObjects) . " files in {$batchTime}ms");
+                
+                // Pre-compute item states
+                $isItemGone = (bool)$dbItem['gone'];
+                $canEditItem = canUserEditItem($dbItem['user_id']);
+                
+                // Get claims for this item
+                $activeClaims = $claimsByItem[$trackingNumber] ?? [];
+                $primaryClaim = !empty($activeClaims) ? $activeClaims[0] : null;
+                
+                // User-specific claim data
+                $isUserClaimed = false;
+                $canUserClaim = false;
+                if ($currentUser) {
+                    foreach ($activeClaims as $claim) {
+                        if ($claim['user_id'] === $currentUser['id']) {
+                            $isUserClaimed = true;
+                            break;
+                        }
+                    }
+                    $canUserClaim = !$isItemGone && !$isUserClaimed;
+                }
+                
+                $items[] = [
+                    'tracking_number' => $trackingNumber,
+                    'title' => $dbItem['title'],
+                    'description' => $dbItem['description'],
+                    'price' => $dbItem['price'],
+                    'contact_email' => $dbItem['contact_email'],
+                    'image_key' => $imageKey,
+                    'image_url' => $imageUrl,
+                    'image_width' => $dbItem['image_width'],
+                    'image_height' => $dbItem['image_height'],
+                    'posted_date' => $dbItem['submitted_at'],
+                    'submitted_timestamp' => $dbItem['submitted_timestamp'],
+                    'user_id' => $dbItem['user_id'],
+                    'user_name' => $dbItem['user_name'],
+                    'user_email' => $dbItem['user_email'],
+                    'gone' => $dbItem['gone'],
+                    'gone_at' => $dbItem['gone_at'],
+                    'gone_by' => $dbItem['gone_by'],
+                    'relisted_at' => $dbItem['relisted_at'],
+                    'relisted_by' => $dbItem['relisted_by'],
+                    'is_item_gone' => $isItemGone,
+                    'can_edit_item' => $canEditItem,
+                    'active_claims' => $activeClaims,
+                    'primary_claim' => $primaryClaim,
+                    'is_user_claimed' => $isUserClaimed,
+                    'can_user_claim' => $canUserClaim
+                ];
             }
             
-            $loadEndTime = microtime(true);
-            $totalLoadTime = round(($loadEndTime - $loadStartTime) * 1000, 2);
-            debugLog("Total: Loaded " . count($yamlContents) . " YAML files in {$totalLoadTime}ms across {$totalBatches} batches");
-            
-            // Process all YAML files
-            $processStartTime = microtime(true);
-            debugLog("Performance: Starting YAML processing for " . count($yamlObjects) . " files");
-            
-            // Pre-process all YAML data to extract claims information
-            $claimsData = [];
-            foreach ($yamlObjects as $object) {
-                $trackingNumber = basename($object['key'], '.yaml');
-                $yamlContent = $yamlContents[$object['key']] ?? null;
-                if ($yamlContent) {
-                    $data = parseSimpleYaml($yamlContent);
-                    if ($data && isset($data['claims'])) {
-                        $claimsData[$trackingNumber] = $data['claims'];
-                    } else {
-                        $claimsData[$trackingNumber] = [];
-                    }
-                } else {
-                    $claimsData[$trackingNumber] = [];
-                }
-            }
-            debugLog("Pre-processed claims data for " . count($claimsData) . " items");
-            
-            foreach ($yamlObjects as $object) {
-                try {
-                    // Extract tracking number from filename
-                    $trackingNumber = basename($object['key'], '.yaml');
-                    
-                    // Get YAML content from bulk loaded data
-                    $yamlContent = $yamlContents[$object['key']] ?? null;
-                    if (!$yamlContent) {
-                        continue; // Skip if failed to load
-                    }
-                    
-                    // Parse YAML content
-                    $data = parseSimpleYaml($yamlContent);
-                    if ($data && isset($data['description']) && isset($data['price']) && isset($data['contact_email'])) {
-                        
-                        // Check if item is gone and should be filtered
-                        if (!$includeGoneItems && isItemGone($data)) {
-                            continue;
-                        }
-                        
-                        // Handle backward compatibility
-                        $title = $data['title'] ?? $data['description'];
-                        $description = $data['description'];
-                        
-                        // Check for image using fast O(1) lookup instead of O(n) search
-                        $imageKey = null;
-                        $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
-                        foreach ($imageExtensions as $ext) {
-                            $possibleImageKey = $trackingNumber . '.' . $ext;
-                            if (isset($imageLookup[$possibleImageKey])) {
-                                $imageKey = $imageLookup[$possibleImageKey]; // Get full S3 path with images/ prefix
-                                break;
-                            }
-                        }
-                        
-                        // Pre-generate image URL using CloudFront (much faster than presigned URLs)
-                        $imageUrl = null;
-                        if ($imageKey) {
-                            $imageUrl = getCloudFrontUrl($imageKey);
-                        }
-                        
-                        // Pre-compute item states to avoid expensive function calls during template rendering
-                        $isItemGone = isItemGone($data);
-                        $canEditItem = canUserEditItem($data['user_id'] ?? null);
-                        
-                        // Pre-compute claim data using pre-processed data (no AWS calls!)
-                        // Always compute claim data so logged-out users can see claim status
-                        $allClaims = $claimsData[$trackingNumber] ?? [];
-                        $activeClaims = [];
-                        foreach ($allClaims as $claim) {
-                            $status = $claim['status'] ?? 'active';
-                            if ($status === 'active') {
-                                $activeClaims[] = $claim;
-                            }
-                        }
-                        // Sort by claim date (oldest first)
-                        usort($activeClaims, function($a, $b) {
-                            $aDate = $a['claimed_at'] ?? '';
-                            $bDate = $b['claimed_at'] ?? '';
-                            return strcmp($aDate, $bDate);
-                        });
-                        $primaryClaim = !empty($activeClaims) ? $activeClaims[0] : null;
-                        
-                        // User-specific claim data (only for logged-in users)
-                        $isUserClaimed = false;
-                        $canUserClaim = false;
-                        $currentUser = getCurrentUser();
-                        if ($currentUser) {
-                            // Check if user has claimed this item using pre-processed data
-                            foreach ($activeClaims as $claim) {
-                                if ($claim['user_id'] === $currentUser['id']) {
-                                    $isUserClaimed = true;
-                                    break;
-                                }
-                            }
-                            // User can claim if item is not gone and they haven't claimed it
-                            $canUserClaim = !$isItemGone && !$isUserClaimed;
-                        }
-                        
-                        $items[] = [
-                            'tracking_number' => $trackingNumber,
-                            'title' => $title,
-                            'description' => $description,
-                            'price' => $data['price'],
-                            'contact_email' => $data['contact_email'],
-                            'image_key' => $imageKey,
-                            'image_url' => $imageUrl,
-                            'image_width' => $data['image_width'] ?? null,
-                            'image_height' => $data['image_height'] ?? null,
-                            'posted_date' => $data['submitted_at'] ?? 'Unknown',
-                            'submitted_timestamp' => $data['submitted_timestamp'] ?? null,
-                            'yaml_key' => $object['key'],
-                            'user_id' => $data['user_id'] ?? 'legacy_user',
-                            'user_name' => $data['user_name'] ?? 'Legacy User',
-                            'user_email' => $data['user_email'] ?? $data['contact_email'] ?? '',
-                            'gone' => $data['gone'] ?? null,
-                            'gone_at' => $data['gone_at'] ?? null,
-                            'gone_by' => $data['gone_by'] ?? null,
-                            'relisted_at' => $data['relisted_at'] ?? null,
-                            'relisted_by' => $data['relisted_by'] ?? null,
-                            'is_item_gone' => $isItemGone,
-                            'can_edit_item' => $canEditItem,
-                            'active_claims' => $activeClaims,
-                            'primary_claim' => $primaryClaim,
-                            'is_user_claimed' => $isUserClaimed,
-                            'can_user_claim' => $canUserClaim
-                        ];
-                    }
-                } catch (Exception $e) {
-                    // Skip invalid YAML files
-                    continue;
-                }
-            }
-            
-            // Log YAML processing completion
-            $processEndTime = microtime(true);
-            $processTime = round(($processEndTime - $processStartTime) * 1000, 2);
-            debugLog("Performance: YAML processing completed in {$processTime}ms, processed " . count($items) . " items");
-            
-            // Sort by tracking number (newest first)
-            usort($items, function($a, $b) {
-                return strcmp($b['tracking_number'], $a['tracking_number']);
-            });
+            $endTime = microtime(true);
+            $totalTime = round(($endTime - $startTime) * 1000, 2);
+            debugLog("Performance: Loaded " . count($items) . " items from database in {$totalTime}ms");
             
             // Cache the results
             $itemsCache = $items;
@@ -1315,21 +1193,12 @@ function addClaimToItem($trackingNumber) {
         throw new Exception('You cannot claim this item');
     }
     
-    $awsService = getAwsService();
-    if (!$awsService) {
-        throw new Exception('AWS service not available');
+    // Get current item data from database
+    $item = getItemFromDb($trackingNumber);
+    if (!$item) {
+        throw new Exception('Item not found');
     }
-    
-    // Get current item data
-    $yamlKey = $trackingNumber . '.yaml';
-    $yamlObject = $awsService->getObject($yamlKey);
-    $yamlContent = $yamlObject['content'];
-    $data = parseSimpleYaml($yamlContent);
-    
-    // Initialize claims array if not present
-    if (!isset($data['claims'])) {
-        $data['claims'] = [];
-    }
+    $data = $item; // For compatibility with email code below
     
     // Create new claim
     $newClaim = [
@@ -1340,12 +1209,10 @@ function addClaimToItem($trackingNumber) {
         'status' => 'active'
     ];
     
-    // Add to claims array
-    $data['claims'][] = $newClaim;
-    
-    // Convert back to YAML and save
-    $newYamlContent = convertToYaml($data);
-    $awsService->putObject($yamlKey, $newYamlContent, 'text/yaml');
+    // Save claim to database
+    if (!createClaimInDb($trackingNumber, $newClaim)) {
+        throw new Exception('Failed to save claim to database');
+    }
     
     // Send email notification to item owner (if different from claimer)
     try {
@@ -1395,43 +1262,23 @@ function removeClaimFromItem($trackingNumber, $claimUserId) {
         throw new Exception('Only the item owner can remove claims');
     }
     
-    $awsService = getAwsService();
-    if (!$awsService) {
-        throw new Exception('AWS service not available');
+    // Find the claim in database
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        throw new Exception('Database connection failed');
     }
     
-    // Get current item data
-    $yamlKey = $trackingNumber . '.yaml';
-    $yamlObject = $awsService->getObject($yamlKey);
-    $yamlContent = $yamlObject['content'];
-    $data = parseSimpleYaml($yamlContent);
+    $stmt = $pdo->prepare("
+        UPDATE claims 
+        SET status = 'removed', updated_at = ?
+        WHERE item_tracking_number = ? AND user_id = ? AND status = 'active'
+    ");
     
-    // Find and remove the claim
-    $claims = $data['claims'] ?? [];
-    $updatedClaims = [];
-    $found = false;
+    $stmt->execute([date('Y-m-d H:i:s'), $trackingNumber, $claimUserId]);
     
-    foreach ($claims as $claim) {
-        $status = $claim['status'] ?? 'active'; // Default to active for legacy claims
-        if ($claim['user_id'] === $claimUserId && $status === 'active') {
-            $found = true;
-            // Mark as removed instead of deleting
-            $claim['status'] = 'removed';
-            $claim['removed_at'] = date('Y-m-d H:i:s');
-            $claim['removed_by'] = $currentUser['id'];
-        }
-        $updatedClaims[] = $claim;
-    }
-    
-    if (!$found) {
+    if ($stmt->rowCount() === 0) {
         throw new Exception('Claim not found or already removed');
     }
-    
-    $data['claims'] = $updatedClaims;
-    
-    // Convert back to YAML and save
-    $newYamlContent = convertToYaml($data);
-    $awsService->putObject($yamlKey, $newYamlContent, 'text/yaml');
     
     return true;
 }
@@ -1445,43 +1292,23 @@ function removeMyClaim($trackingNumber) {
         throw new Exception('User must be logged in');
     }
     
-    $awsService = getAwsService();
-    if (!$awsService) {
-        throw new Exception('AWS service not available');
+    // Remove claim from database
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        throw new Exception('Database connection failed');
     }
     
-    // Get current item data
-    $yamlKey = $trackingNumber . '.yaml';
-    $yamlObject = $awsService->getObject($yamlKey);
-    $yamlContent = $yamlObject['content'];
-    $data = parseSimpleYaml($yamlContent);
+    $stmt = $pdo->prepare("
+        UPDATE claims 
+        SET status = 'removed', updated_at = ?
+        WHERE item_tracking_number = ? AND user_id = ? AND status = 'active'
+    ");
     
-    // Find and remove the user's claim
-    $claims = $data['claims'] ?? [];
-    $updatedClaims = [];
-    $found = false;
+    $stmt->execute([date('Y-m-d H:i:s'), $trackingNumber, $currentUser['id']]);
     
-    foreach ($claims as $claim) {
-        $status = $claim['status'] ?? 'active'; // Default to active for legacy claims
-        if ($claim['user_id'] === $currentUser['id'] && $status === 'active') {
-            $found = true;
-            // Mark as removed
-            $claim['status'] = 'removed';
-            $claim['removed_at'] = date('Y-m-d H:i:s');
-            $claim['removed_by'] = $currentUser['id'];
-        }
-        $updatedClaims[] = $claim;
-    }
-    
-    if (!$found) {
+    if ($stmt->rowCount() === 0) {
         throw new Exception('You do not have an active claim on this item');
     }
-    
-    $data['claims'] = $updatedClaims;
-    
-    // Convert back to YAML and save
-    $newYamlContent = convertToYaml($data);
-    $awsService->putObject($yamlKey, $newYamlContent, 'text/yaml');
     
     return true;
 }
@@ -1490,42 +1317,8 @@ function removeMyClaim($trackingNumber) {
  * Get all active claims for an item in chronological order
  */
 function getActiveClaims($trackingNumber) {
-    $awsService = getAwsService();
-    if (!$awsService) {
-        return [];
-    }
-    
-    try {
-        $yamlKey = $trackingNumber . '.yaml';
-        $yamlObject = $awsService->getObject($yamlKey);
-        $yamlContent = $yamlObject['content'];
-        $data = parseSimpleYaml($yamlContent);
-        
-        $claims = $data['claims'] ?? [];
-        
-        $activeClaims = [];
-        
-        foreach ($claims as $claim) {
-            // Consider claims active if they have no status field (legacy) or status is 'active'
-            // Exclude claims with status 'removed'
-            $status = $claim['status'] ?? 'active'; // Default to active for legacy claims
-            if ($status === 'active') {
-                $activeClaims[] = $claim;
-            }
-        }
-        
-        // Sort by claim date (oldest first)
-        usort($activeClaims, function($a, $b) {
-            $aDate = $a['claimed_at'] ?? '';
-            $bDate = $b['claimed_at'] ?? '';
-            return strcmp($aDate, $bDate);
-        });
-        
-        return $activeClaims;
-    } catch (Exception $e) {
-        error_log("Error in getActiveClaims for $trackingNumber: " . $e->getMessage());
-        return [];
-    }
+    // Get claims from database - already uses the helper function
+    return getClaimsForItem($trackingNumber);
 }
 
 /**
@@ -1652,229 +1445,101 @@ function getUserItemsEfficiently($userId, $includeGoneItems = false) {
     }
     
     try {
-        // Initialize AWS service only when actually needed
-        $awsService = getAwsService();
-        if (!$awsService) {
-            throw new Exception('AWS service not available');
+        $startTime = microtime(true);
+        
+        // Get user's items from database
+        $dbItems = getUserItemsFromDb($userId, $includeGoneItems);
+        debugLog("Loaded " . count($dbItems) . " items for user {$userId} from database");
+        
+        // Get all claims for these items
+        $trackingNumbers = array_column($dbItems, 'tracking_number');
+        if (!empty($trackingNumbers)) {
+            $pdo = getDbConnection();
+            $placeholders = implode(',', array_fill(0, count($trackingNumbers), '?'));
+            $stmt = $pdo->prepare("SELECT * FROM claims WHERE item_tracking_number IN ($placeholders) AND status = 'active' ORDER BY claimed_at ASC");
+            $stmt->execute($trackingNumbers);
+            $allClaims = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } else {
+            $allClaims = [];
         }
         
-        // Single API call to get all objects
-        $result = $awsService->listObjects('', 1000);
-        $objects = $result['objects'] ?? [];
+        // Group claims by item
+        $claimsByItem = [];
+        foreach ($allClaims as $claim) {
+            $trackingNumber = $claim['item_tracking_number'];
+            if (!isset($claimsByItem[$trackingNumber])) {
+                $claimsByItem[$trackingNumber] = [];
+            }
+            $claimsByItem[$trackingNumber][] = $claim;
+        }
         
+        // Process each item
         $items = [];
-        $yamlObjects = [];
+        $currentUser = getCurrentUser();
         
-        // Create image lookup table for O(1) access instead of O(n) searches
-        $lookupStartTime = microtime(true);
-        $imageLookup = [];
-        foreach ($objects as $object) {
-            if (str_starts_with($object['key'], 'images/') && !str_ends_with($object['key'], '.yaml')) {
-                // Store image key without 'images/' prefix for easy lookup
-                $imageKey = str_replace('images/', '', $object['key']);
-                $imageLookup[$imageKey] = $object['key'];
-            }
-        }
-        
-        $lookupEndTime = microtime(true);
-        $lookupTime = round(($lookupEndTime - $lookupStartTime) * 1000, 2);
-        debugLog("Created image lookup table with " . count($imageLookup) . " images in {$lookupTime}ms");
-        
-        // Filter YAML files for this user
-        foreach ($objects as $object) {
-            if (str_ends_with($object['key'], '.yaml')) {
-                $yamlObjects[] = $object;
-            }
-        }
-        
-        debugLog("Found " . count($yamlObjects) . " YAML files to process for user {$userId}");
-        
-        // Load YAML files in batches of 20 for better performance
-        $yamlContents = [];
-        $loadStartTime = microtime(true);
-        $batchSize = 20;
-        $totalBatches = ceil(count($yamlObjects) / $batchSize);
-        
-        for ($batch = 0; $batch < $totalBatches; $batch++) {
-            $batchStart = $batch * $batchSize;
-            $batchEnd = min($batchStart + $batchSize, count($yamlObjects));
-            $batchObjects = array_slice($yamlObjects, $batchStart, $batchEnd - $batchStart);
+        foreach ($dbItems as $dbItem) {
+            $trackingNumber = $dbItem['tracking_number'];
             
-            $batchStartTime = microtime(true);
-            foreach ($batchObjects as $object) {
-                try {
-                    $yamlObject = $awsService->getObject($object['key']);
-                    $yamlContents[$object['key']] = $yamlObject['content'];
-                } catch (Exception $e) {
-                    error_log("Failed to load YAML file {$object['key']}: " . $e->getMessage());
-                    $yamlContents[$object['key']] = null;
-                }
+            // Get image key and URL
+            $imageKey = $dbItem['image_file'];
+            $imageUrl = null;
+            if ($imageKey) {
+                $imageUrl = getCloudFrontUrl($imageKey);
             }
-            $batchEndTime = microtime(true);
-            $batchTime = round(($batchEndTime - $batchStartTime) * 1000, 2);
-            debugLog("Batch " . ($batch + 1) . "/{$totalBatches}: Loaded " . count($batchObjects) . " files in {$batchTime}ms");
+            
+            // Pre-compute item states
+            $isItemGone = (bool)$dbItem['gone'];
+            $canEditItem = canUserEditItem($dbItem['user_id']);
+            
+            // Get claims for this item
+            $activeClaims = $claimsByItem[$trackingNumber] ?? [];
+            $primaryClaim = !empty($activeClaims) ? $activeClaims[0] : null;
+            
+            // User-specific claim data
+            $isUserClaimed = false;
+            $canUserClaim = false;
+            if ($currentUser) {
+                foreach ($activeClaims as $claim) {
+                    if ($claim['user_id'] === $currentUser['id']) {
+                        $isUserClaimed = true;
+                        break;
+                    }
+                }
+                $canUserClaim = !$isItemGone && !$isUserClaimed;
+            }
+            
+            $items[] = [
+                'tracking_number' => $trackingNumber,
+                'title' => $dbItem['title'],
+                'description' => $dbItem['description'],
+                'price' => $dbItem['price'],
+                'contact_email' => $dbItem['contact_email'],
+                'image_key' => $imageKey,
+                'image_url' => $imageUrl,
+                'image_width' => $dbItem['image_width'],
+                'image_height' => $dbItem['image_height'],
+                'posted_date' => $dbItem['submitted_at'],
+                'submitted_timestamp' => $dbItem['submitted_timestamp'],
+                'user_id' => $dbItem['user_id'],
+                'user_name' => $dbItem['user_name'],
+                'user_email' => $dbItem['user_email'],
+                'gone' => $dbItem['gone'],
+                'gone_at' => $dbItem['gone_at'],
+                'gone_by' => $dbItem['gone_by'],
+                'relisted_at' => $dbItem['relisted_at'],
+                'relisted_by' => $dbItem['relisted_by'],
+                'is_item_gone' => $isItemGone,
+                'can_edit_item' => $canEditItem,
+                'active_claims' => $activeClaims,
+                'primary_claim' => $primaryClaim,
+                'is_user_claimed' => $isUserClaimed,
+                'can_user_claim' => $canUserClaim
+            ];
         }
         
-        $loadEndTime = microtime(true);
-        $totalLoadTime = round(($loadEndTime - $loadStartTime) * 1000, 2);
-        debugLog("Total: Loaded " . count($yamlContents) . " YAML files in {$totalLoadTime}ms across {$totalBatches} batches");
-        
-        // Process all YAML files
-        $processStartTime = microtime(true);
-        debugLog("Performance: Starting YAML processing for " . count($yamlObjects) . " files");
-        
-        // Pre-process all YAML data to extract claims information
-        $claimsData = [];
-        foreach ($yamlObjects as $object) {
-            $trackingNumber = basename($object['key'], '.yaml');
-            $yamlContent = $yamlContents[$object['key']] ?? null;
-            if ($yamlContent) {
-                $data = parseSimpleYaml($yamlContent);
-                if ($data && isset($data['claims'])) {
-                    $claimsData[$trackingNumber] = $data['claims'];
-                } else {
-                    $claimsData[$trackingNumber] = [];
-                }
-            } else {
-                $claimsData[$trackingNumber] = [];
-            }
-        }
-        debugLog("Pre-processed claims data for " . count($claimsData) . " items");
-        
-        foreach ($yamlObjects as $object) {
-            try {
-                // Extract tracking number from filename
-                $trackingNumber = basename($object['key'], '.yaml');
-                
-                // Get YAML content from bulk loaded data
-                $yamlContent = $yamlContents[$object['key']] ?? null;
-                if (!$yamlContent) {
-                    continue; // Skip if failed to load
-                }
-                
-                // Parse YAML content
-                $data = parseSimpleYaml($yamlContent);
-                if ($data && isset($data['description']) && isset($data['price']) && isset($data['contact_email'])) {
-                    
-                    // Only include items by this user
-                    $itemUserId = $data['user_id'] ?? 'legacy_user';
-                    if ($itemUserId !== $userId) {
-                        continue;
-                    }
-                    
-                    // Check if item is gone and should be filtered
-                    if (!$includeGoneItems && isItemGone($data)) {
-                        continue;
-                    }
-                    
-                    // Handle backward compatibility
-                    $title = $data['title'] ?? $data['description'];
-                    $description = $data['description'];
-                    
-                    // Check for image using fast O(1) lookup instead of O(n) search
-                    $imageKey = null;
-                    $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
-                    foreach ($imageExtensions as $ext) {
-                        $possibleImageKey = $trackingNumber . '.' . $ext;
-                        if (isset($imageLookup[$possibleImageKey])) {
-                            $imageKey = $imageLookup[$possibleImageKey]; // Get full S3 path with images/ prefix
-                            break;
-                        }
-                    }
-                    
-                    // Pre-generate image URL using CloudFront (much faster than presigned URLs)
-                    $imageUrl = null;
-                    if ($imageKey) {
-                        $imageUrl = getCloudFrontUrl($imageKey);
-                    }
-                    
-                    // Pre-compute item states to avoid expensive function calls during template rendering
-                    $isItemGone = isItemGone($data);
-                    $canEditItem = canUserEditItem($data['user_id'] ?? null);
-                    
-                    // Pre-compute claim data using pre-processed data (no AWS calls!)
-                    $allClaims = $claimsData[$trackingNumber] ?? [];
-                    $activeClaims = [];
-                    foreach ($allClaims as $claim) {
-                        $status = $claim['status'] ?? 'active';
-                        if ($status === 'active') {
-                            $activeClaims[] = $claim;
-                        }
-                    }
-                    // Sort by claim date (oldest first)
-                    usort($activeClaims, function($a, $b) {
-                        $aDate = $a['claimed_at'] ?? '';
-                        $bDate = $b['claimed_at'] ?? '';
-                        return strcmp($aDate, $bDate);
-                    });
-                    $primaryClaim = !empty($activeClaims) ? $activeClaims[0] : null;
-                    
-                    // User-specific claim data (only for logged-in users)
-                    $isUserClaimed = false;
-                    $canUserClaim = false;
-                    $currentUser = getCurrentUser();
-                    if ($currentUser) {
-                        // Check if user has claimed this item using pre-processed data
-                        foreach ($activeClaims as $claim) {
-                            if ($claim['user_id'] === $currentUser['id']) {
-                                $isUserClaimed = true;
-                                break;
-                            }
-                        }
-                        // User can claim if item is not gone and they haven't claimed it
-                        $canUserClaim = !$isItemGone && !$isUserClaimed;
-                    }
-                    
-                    $items[] = [
-                        'tracking_number' => $trackingNumber,
-                        'title' => $title,
-                        'description' => $description,
-                        'price' => $data['price'],
-                        'contact_email' => $data['contact_email'],
-                        'image_key' => $imageKey,
-                        'image_url' => $imageUrl,
-                        'image_width' => $data['image_width'] ?? null,
-                        'image_height' => $data['image_height'] ?? null,
-                        'posted_date' => $data['submitted_at'] ?? 'Unknown',
-                        'yaml_key' => $object['key'],
-                        'claimed_by' => $data['claimed_by'] ?? null,
-                        'claimed_by_name' => $data['claimed_by_name'] ?? null,
-                        'claimed_at' => $data['claimed_at'] ?? null,
-                        'user_id' => $itemUserId,
-                        'user_name' => $data['user_name'] ?? 'Legacy User',
-                        'user_email' => $data['user_email'] ?? $data['contact_email'] ?? '',
-                        // Include all YAML fields
-                        'gone' => $data['gone'] ?? null,
-                        'gone_at' => $data['gone_at'] ?? null,
-                        'gone_by' => $data['gone_by'] ?? null,
-                        'relisted_at' => $data['relisted_at'] ?? null,
-                        'relisted_by' => $data['relisted_by'] ?? null,
-                        // Pre-computed claim data
-                        'active_claims' => $activeClaims,
-                        'primary_claim' => $primaryClaim,
-                        'is_user_claimed' => $isUserClaimed,
-                        'can_user_claim' => $canUserClaim,
-                        'is_item_gone' => $isItemGone,
-                        'can_edit_item' => $canEditItem,
-                        // Add claims data for stats
-                        'has_active_claims' => !empty($activeClaims),
-                        'claims_count' => count($activeClaims)
-                    ];
-                }
-            } catch (Exception $e) {
-                error_log("Error processing YAML file {$object['key']}: " . $e->getMessage());
-                continue;
-            }
-        }
-        
-        $processEndTime = microtime(true);
-        $processTime = round(($processEndTime - $processStartTime) * 1000, 2);
-        debugLog("Performance: Processed " . count($items) . " user items in {$processTime}ms");
-        
-        // Sort items by tracking number (newest first)
-        usort($items, function($a, $b) {
-            return strcmp($b['tracking_number'], $a['tracking_number']);
-        });
+        $endTime = microtime(true);
+        $totalTime = round(($endTime - $startTime) * 1000, 2);
+        debugLog("Performance: Loaded user items from database in {$totalTime}ms");
         
         // Cache the results
         $userItemsCache[$currentCacheKey] = $items;
@@ -1883,7 +1548,7 @@ function getUserItemsEfficiently($userId, $includeGoneItems = false) {
         return $items;
         
     } catch (Exception $e) {
-        error_log('Error in getUserItemsEfficiently: ' . $e->getMessage());
+        error_log('Error loading user items efficiently: ' . $e->getMessage());
         return [];
     }
 }
@@ -1895,181 +1560,97 @@ function getUserItemsEfficiently($userId, $includeGoneItems = false) {
 function getItemsClaimedByUserOptimized($userId) {
     static $claimedItemsCache = [];
     static $cacheTime = [];
-    static $cacheKey = null;
     
-    // Create cache key based on user ID
-    $currentCacheKey = md5('claimed_' . $userId);
+    // Create cache key
+    $currentCacheKey = md5($userId . '_claimed');
     
-    // Use longer cache for better performance (5 minutes)
-    $cacheExpiry = 300; // 5 minutes cache for claimed items
+    // Use longer cache (5 minutes)
+    $cacheExpiry = 300;
     
-    // Check cache first (only if cache key matches)
+    // Check cache first
     if (isset($claimedItemsCache[$currentCacheKey]) && isset($cacheTime[$currentCacheKey]) && (time() - $cacheTime[$currentCacheKey]) < $cacheExpiry) {
         return $claimedItemsCache[$currentCacheKey];
     }
     
     try {
-        // Initialize AWS service only when actually needed
-        $awsService = getAwsService();
-        if (!$awsService) {
-            throw new Exception('AWS service not available');
+        $startTime = microtime(true);
+        
+        // Get claimed items from database
+        $dbItems = getClaimedItemsByUser($userId);
+        debugLog("Loaded " . count($dbItems) . " claimed items for user {$userId} from database");
+        
+        // Get all claims for these items  to determine position
+        $trackingNumbers = array_column($dbItems, 'tracking_number');
+        if (!empty($trackingNumbers)) {
+            $pdo = getDbConnection();
+            $placeholders = implode(',', array_fill(0, count($trackingNumbers), '?'));
+            $stmt = $pdo->prepare("SELECT * FROM claims WHERE item_tracking_number IN ($placeholders) AND status = 'active' ORDER BY claimed_at ASC");
+            $stmt->execute($trackingNumbers);
+            $allClaims = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } else {
+            $allClaims = [];
         }
         
-        // Single API call to get all objects
-        $result = $awsService->listObjects('', 1000);
-        $objects = $result['objects'] ?? [];
+        // Group claims by item
+        $claimsByItem = [];
+        foreach ($allClaims as $claim) {
+            $trackingNumber = $claim['item_tracking_number'];
+            if (!isset($claimsByItem[$trackingNumber])) {
+                $claimsByItem[$trackingNumber] = [];
+            }
+            $claimsByItem[$trackingNumber][] = $claim;
+        }
         
+        // Process each item
         $claimedItems = [];
-        $yamlObjects = [];
         
-        // Create image lookup table for O(1) access instead of O(n) searches
-        $lookupStartTime = microtime(true);
-        $imageLookup = [];
-        foreach ($objects as $object) {
-            if (str_starts_with($object['key'], 'images/') && !str_ends_with($object['key'], '.yaml')) {
-                // Store image key without 'images/' prefix for easy lookup
-                $imageKey = str_replace('images/', '', $object['key']);
-                $imageLookup[$imageKey] = $object['key'];
-            }
-        }
-        
-        $lookupEndTime = microtime(true);
-        $lookupTime = round(($lookupEndTime - $lookupStartTime) * 1000, 2);
-        debugLog("Created image lookup table with " . count($imageLookup) . " images in {$lookupTime}ms");
-        
-        // Filter YAML files
-        foreach ($objects as $object) {
-            if (str_ends_with($object['key'], '.yaml')) {
-                $yamlObjects[] = $object;
-            }
-        }
-        
-        debugLog("Found " . count($yamlObjects) . " YAML files to process for claimed items by user {$userId}");
-        
-        // Load YAML files in batches of 20 for better performance
-        $yamlContents = [];
-        $loadStartTime = microtime(true);
-        $batchSize = 20;
-        $totalBatches = ceil(count($yamlObjects) / $batchSize);
-        
-        for ($batch = 0; $batch < $totalBatches; $batch++) {
-            $batchStart = $batch * $batchSize;
-            $batchEnd = min($batchStart + $batchSize, count($yamlObjects));
-            $batchObjects = array_slice($yamlObjects, $batchStart, $batchEnd - $batchStart);
+        foreach ($dbItems as $dbItem) {
+            $trackingNumber = $dbItem['tracking_number'];
             
-            $batchStartTime = microtime(true);
-            foreach ($batchObjects as $object) {
-                try {
-                    $yamlObject = $awsService->getObject($object['key']);
-                    $yamlContents[$object['key']] = $yamlObject['content'];
-                } catch (Exception $e) {
-                    error_log("Failed to load YAML file {$object['key']}: " . $e->getMessage());
-                    $yamlContents[$object['key']] = null;
+            // Get image key and URL
+            $imageKey = $dbItem['image_file'];
+            $imageUrl = null;
+            if ($imageKey) {
+                $imageUrl = getCloudFrontUrl($imageKey);
+            }
+            
+            // Find user's claim and position
+            $activeClaims = $claimsByItem[$trackingNumber] ?? [];
+            $userClaim = null;
+            $claimPosition = 0;
+            
+            foreach ($activeClaims as $index => $claim) {
+                if ($claim['user_id'] === $userId) {
+                    $userClaim = $claim;
+                    $claimPosition = $index + 1;
+                    break;
                 }
             }
-            $batchEndTime = microtime(true);
-            $batchTime = round(($batchEndTime - $batchStartTime) * 1000, 2);
-            debugLog("Batch " . ($batch + 1) . "/{$totalBatches}: Loaded " . count($batchObjects) . " files in {$batchTime}ms");
+            
+            $claimedItems[] = [
+                'tracking_number' => $trackingNumber,
+                'title' => $dbItem['title'],
+                'description' => $dbItem['description'],
+                'price' => $dbItem['price'],
+                'contact_email' => $dbItem['contact_email'],
+                'image_key' => $imageKey,
+                'image_url' => $imageUrl,
+                'image_width' => $dbItem['image_width'],
+                'image_height' => $dbItem['image_height'],
+                'posted_date' => $dbItem['submitted_at'],
+                'user_id' => $dbItem['user_id'],
+                'user_name' => $dbItem['user_name'],
+                'user_email' => $dbItem['user_email'],
+                'claim' => $userClaim,
+                'claim_position' => $claimPosition,
+                'is_primary_claim' => $claimPosition === 1,
+                'total_claims' => count($activeClaims)
+            ];
         }
         
-        $loadEndTime = microtime(true);
-        $totalLoadTime = round(($loadEndTime - $loadStartTime) * 1000, 2);
-        debugLog("Total: Loaded " . count($yamlContents) . " YAML files in {$totalLoadTime}ms across {$totalBatches} batches");
-        
-        // Process all YAML files
-        $processStartTime = microtime(true);
-        debugLog("Performance: Starting YAML processing for claimed items");
-        
-        foreach ($yamlObjects as $object) {
-            try {
-                // Extract tracking number from filename
-                $trackingNumber = basename($object['key'], '.yaml');
-                
-                // Get YAML content from bulk loaded data
-                $yamlContent = $yamlContents[$object['key']] ?? null;
-                if (!$yamlContent) {
-                    continue; // Skip if failed to load
-                }
-                
-                // Parse YAML content
-                $data = parseSimpleYaml($yamlContent);
-                if (!$data || !isset($data['description']) || !isset($data['price']) || !isset($data['contact_email'])) {
-                    continue;
-                }
-                
-                // Check if user has claimed this item using pre-loaded data
-                $claims = $data['claims'] ?? [];
-                $userClaim = null;
-                $claimPosition = null;
-                $activeClaims = [];
-                
-                foreach ($claims as $claim) {
-                    $status = $claim['status'] ?? 'active';
-                    if ($status === 'active') {
-                        $activeClaims[] = $claim;
-                        if ($claim['user_id'] === $userId) {
-                            $userClaim = $claim;
-                            $claimPosition = count($activeClaims); // 1-based position
-                        }
-                    }
-                }
-                
-                if ($userClaim) {
-                    // Check for image using fast O(1) lookup instead of O(n) search
-                    $imageKey = null;
-                    $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
-                    foreach ($imageExtensions as $ext) {
-                        $possibleImageKey = $trackingNumber . '.' . $ext;
-                        if (isset($imageLookup[$possibleImageKey])) {
-                            $imageKey = $imageLookup[$possibleImageKey]; // Get full S3 path with images/ prefix
-                            break;
-                        }
-                    }
-                    
-                    // Generate image URL using CloudFront
-                    $imageUrl = null;
-                    if ($imageKey) {
-                        $imageUrl = getCloudFrontUrl($imageKey);
-                    }
-                    
-                    $title = $data['title'] ?? $data['description'] ?? 'Untitled';
-                    $description = $data['description'];
-                    
-                    $claimedItems[] = [
-                        'tracking_number' => $trackingNumber,
-                        'title' => $title,
-                        'description' => $description,
-                        'price' => $data['price'],
-                        'contact_email' => $data['contact_email'],
-                        'image_key' => $imageKey,
-                        'image_url' => $imageUrl,
-                        'image_width' => $data['image_width'] ?? null,
-                        'image_height' => $data['image_height'] ?? null,
-                        'posted_date' => $data['submitted_at'] ?? 'Unknown',
-                        'yaml_key' => $object['key'],
-                        'user_id' => $data['user_id'] ?? 'legacy_user',
-                        'user_name' => $data['user_name'] ?? 'Legacy User',
-                        'user_email' => $data['user_email'] ?? $data['contact_email'] ?? '',
-                        'claim' => $userClaim,
-                        'claim_position' => $claimPosition,
-                        'is_primary_claim' => $claimPosition === 1,
-                        'total_claims' => count($activeClaims)
-                    ];
-                }
-            } catch (Exception $e) {
-                error_log("Error processing YAML file {$object['key']}: " . $e->getMessage());
-                continue;
-            }
-        }
-        
-        $processEndTime = microtime(true);
-        $processTime = round(($processEndTime - $processStartTime) * 1000, 2);
-        debugLog("Performance: Processed " . count($claimedItems) . " claimed items in {$processTime}ms");
-        
-        // Sort items by tracking number (newest first)
-        usort($claimedItems, function($a, $b) {
-            return strcmp($b['tracking_number'], $a['tracking_number']);
-        });
+        $endTime = microtime(true);
+        $totalTime = round(($endTime - $startTime) * 1000, 2);
+        debugLog("Performance: Loaded claimed items from database in {$totalTime}ms");
         
         // Cache the results
         $claimedItemsCache[$currentCacheKey] = $claimedItems;
@@ -2078,7 +1659,7 @@ function getItemsClaimedByUserOptimized($userId) {
         return $claimedItems;
         
     } catch (Exception $e) {
-        error_log('Error in getItemsClaimedByUserOptimized: ' . $e->getMessage());
+        error_log('Error loading claimed items: ' . $e->getMessage());
         return [];
     }
 }
@@ -2281,24 +1862,8 @@ function getUserZipcode($userId) {
  * @return array|null The item data or null if not found
  */
 function getItem($trackingNumber) {
-    try {
-        $awsService = getAwsService();
-        if (!$awsService) {
-            return null;
-        }
-        
-        $yamlKey = $trackingNumber . '.yaml';
-        $yamlObject = $awsService->getObject($yamlKey);
-        
-        if ($yamlObject && isset($yamlObject['content'])) {
-            return parseSimpleYaml($yamlObject['content']);
-        }
-        
-        return null;
-    } catch (Exception $e) {
-        error_log("Error getting item $trackingNumber: " . $e->getMessage());
-        return null;
-    }
+    // Simple wrapper around getItemFromDb for backward compatibility
+    return getItemFromDb($trackingNumber);
 }
 
 /**
@@ -2563,25 +2128,16 @@ function markItemAsGone($trackingNumber) {
         throw new Exception('You can only mark your own items as gone');
     }
     
-    $awsService = getAwsService();
-    if (!$awsService) {
-        throw new Exception('AWS service not available');
+    // Update item in database
+    $updates = [
+        'gone' => 1,
+        'gone_at' => date('Y-m-d H:i:s'),
+        'gone_by' => $currentUser['id']
+    ];
+    
+    if (!updateItemInDb($trackingNumber, $updates)) {
+        throw new Exception('Failed to update item in database');
     }
-    
-    // Get current item data
-    $yamlKey = $trackingNumber . '.yaml';
-    $yamlObject = $awsService->getObject($yamlKey);
-    $yamlContent = $yamlObject['content'];
-    $data = parseSimpleYaml($yamlContent);
-    
-    // Mark as gone
-    $data['gone'] = 'yes';
-    $data['gone_at'] = date('Y-m-d H:i:s');
-    $data['gone_by'] = $currentUser['id'];
-    
-    // Convert back to YAML and save
-    $newYamlContent = convertToYaml($data);
-    $awsService->putObject($yamlKey, $newYamlContent, 'text/yaml');
     
     return true;
 }
@@ -2603,25 +2159,16 @@ function relistItem($trackingNumber) {
         throw new Exception('You can only re-list your own items');
     }
     
-    $awsService = getAwsService();
-    if (!$awsService) {
-        throw new Exception('AWS service not available');
+    // Update item in database
+    $updates = [
+        'gone' => 0,
+        'relisted_at' => date('Y-m-d H:i:s'),
+        'relisted_by' => $currentUser['id']
+    ];
+    
+    if (!updateItemInDb($trackingNumber, $updates)) {
+        throw new Exception('Failed to update item in database');
     }
-    
-    // Get current item data
-    $yamlKey = $trackingNumber . '.yaml';
-    $yamlObject = $awsService->getObject($yamlKey);
-    $yamlContent = $yamlObject['content'];
-    $data = parseSimpleYaml($yamlContent);
-    
-    // Mark as not gone
-    $data['gone'] = 'no';
-    $data['relisted_at'] = date('Y-m-d H:i:s');
-    $data['relisted_by'] = $currentUser['id'];
-    
-    // Convert back to YAML and save
-    $newYamlContent = convertToYaml($data);
-    $awsService->putObject($yamlKey, $newYamlContent, 'text/yaml');
     
     return true;
 }
@@ -2633,7 +2180,8 @@ function relistItem($trackingNumber) {
  * @return bool True if item is gone, false otherwise
  */
 function isItemGone($itemData) {
-    return isset($itemData['gone']) && $itemData['gone'] === 'yes';
+    // Handle both database boolean format and legacy YAML 'yes'/'no' format
+    return isset($itemData['gone']) && ($itemData['gone'] === true || $itemData['gone'] === 1 || $itemData['gone'] === 'yes');
 }
 
 /**
@@ -2949,4 +2497,301 @@ function getNextImageIndex($trackingNumber) {
     }
     
     return $maxIndex + 1;
+}
+
+// ============================================================================
+// DATABASE HELPER FUNCTIONS FOR ITEMS AND CLAIMS
+// ============================================================================
+
+/**
+ * Get all items from database with optional filtering
+ * 
+ * @param bool $includeGone Whether to include items marked as gone
+ * @return array Array of items with all fields
+ */
+function getAllItemsFromDb($includeGone = false) {
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return [];
+    }
+    
+    try {
+        $sql = "SELECT * FROM items";
+        if (!$includeGone) {
+            $sql .= " WHERE gone = 0";
+        }
+        $sql .= " ORDER BY submitted_timestamp DESC";
+        
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute();
+        
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Error getting items from database: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get items by user ID from database
+ * 
+ * @param string $userId The user ID
+ * @param bool $includeGone Whether to include items marked as gone
+ * @return array Array of items
+ */
+function getUserItemsFromDb($userId, $includeGone = false) {
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return [];
+    }
+    
+    try {
+        $sql = "SELECT * FROM items WHERE user_id = ?";
+        if (!$includeGone) {
+            $sql .= " AND gone = 0";
+        }
+        $sql .= " ORDER BY submitted_timestamp DESC";
+        
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$userId]);
+        
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Error getting user items from database: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get single item by tracking number from database
+ * 
+ * @param string $trackingNumber The item tracking number
+ * @return array|null Item data or null if not found
+ */
+function getItemFromDb($trackingNumber) {
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return null;
+    }
+    
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM items WHERE tracking_number = ?");
+        $stmt->execute([$trackingNumber]);
+        
+        $item = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $item ?: null;
+    } catch (Exception $e) {
+        error_log("Error getting item from database: " . $e->getMessage());
+        return null;
+    }
+}
+
+/**
+ * Create new item in database
+ * 
+ * @param array $itemData Item data
+ * @return bool Success status
+ */
+function createItemInDb($itemData) {
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return false;
+    }
+    
+    try {
+        $now = date('Y-m-d H:i:s');
+        
+        $stmt = $pdo->prepare("
+            INSERT INTO items (
+                tracking_number, title, description, price, contact_email,
+                image_file, image_width, image_height,
+                user_id, user_name, user_email,
+                submitted_at, submitted_timestamp,
+                gone, gone_at, gone_by, relisted_at, relisted_by,
+                created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        
+        return $stmt->execute([
+            $itemData['tracking_number'],
+            $itemData['title'],
+            $itemData['description'],
+            $itemData['price'] ?? 0,
+            $itemData['contact_email'],
+            $itemData['image_file'] ?? null,
+            $itemData['image_width'] ?? null,
+            $itemData['image_height'] ?? null,
+            $itemData['user_id'],
+            $itemData['user_name'],
+            $itemData['user_email'],
+            $itemData['submitted_at'],
+            $itemData['submitted_timestamp'],
+            isset($itemData['gone']) ? (int)$itemData['gone'] : 0,
+            $itemData['gone_at'] ?? null,
+            $itemData['gone_by'] ?? null,
+            $itemData['relisted_at'] ?? null,
+            $itemData['relisted_by'] ?? null,
+            $now,
+            $now
+        ]);
+    } catch (Exception $e) {
+        error_log("Error creating item in database: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Update item in database
+ * 
+ * @param string $trackingNumber The item tracking number
+ * @param array $updates Fields to update
+ * @return bool Success status
+ */
+function updateItemInDb($trackingNumber, $updates) {
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return false;
+    }
+    
+    try {
+        $updates['updated_at'] = date('Y-m-d H:i:s');
+        
+        $fields = [];
+        $values = [];
+        foreach ($updates as $key => $value) {
+            $fields[] = "$key = ?";
+            $values[] = $value;
+        }
+        $values[] = $trackingNumber;
+        
+        $sql = "UPDATE items SET " . implode(', ', $fields) . " WHERE tracking_number = ?";
+        $stmt = $pdo->prepare($sql);
+        
+        return $stmt->execute($values);
+    } catch (Exception $e) {
+        error_log("Error updating item in database: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get claims for an item from database
+ * 
+ * @param string $trackingNumber The item tracking number
+ * @return array Array of claims
+ */
+function getClaimsForItem($trackingNumber) {
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return [];
+    }
+    
+    try {
+        $stmt = $pdo->prepare("
+            SELECT * FROM claims 
+            WHERE item_tracking_number = ? 
+            ORDER BY claimed_at ASC
+        ");
+        $stmt->execute([$trackingNumber]);
+        
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Error getting claims from database: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get items claimed by a user from database
+ * 
+ * @param string $userId The user ID
+ * @return array Array of items with claim info
+ */
+function getClaimedItemsByUser($userId) {
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return [];
+    }
+    
+    try {
+        $stmt = $pdo->prepare("
+            SELECT i.*, c.claimed_at, c.status as claim_status, c.id as claim_id
+            FROM items i
+            INNER JOIN claims c ON i.tracking_number = c.item_tracking_number
+            WHERE c.user_id = ?
+            ORDER BY c.claimed_at DESC
+        ");
+        $stmt->execute([$userId]);
+        
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Error getting claimed items from database: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Create claim in database
+ * 
+ * @param string $trackingNumber The item tracking number
+ * @param array $claimData Claim data
+ * @return bool Success status
+ */
+function createClaimInDb($trackingNumber, $claimData) {
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return false;
+    }
+    
+    try {
+        $now = date('Y-m-d H:i:s');
+        
+        $stmt = $pdo->prepare("
+            INSERT INTO claims (
+                item_tracking_number, user_id, user_name, user_email,
+                claimed_at, status, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        
+        return $stmt->execute([
+            $trackingNumber,
+            $claimData['user_id'],
+            $claimData['user_name'],
+            $claimData['user_email'],
+            $claimData['claimed_at'] ?? $now,
+            $claimData['status'] ?? 'active',
+            $now,
+            $now
+        ]);
+    } catch (Exception $e) {
+        error_log("Error creating claim in database: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Check if user has claimed an item
+ * 
+ * @param string $trackingNumber The item tracking number
+ * @param string $userId The user ID
+ * @return bool True if user has claimed this item
+ */
+function hasUserClaimedItem($trackingNumber, $userId) {
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return false;
+    }
+    
+    try {
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) FROM claims 
+            WHERE item_tracking_number = ? AND user_id = ? AND status = 'active'
+        ");
+        $stmt->execute([$trackingNumber, $userId]);
+        
+        return $stmt->fetchColumn() > 0;
+    } catch (Exception $e) {
+        error_log("Error checking claim in database: " . $e->getMessage());
+        return false;
+    }
 }

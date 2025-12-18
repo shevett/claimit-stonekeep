@@ -87,10 +87,10 @@ $isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
             <?php
             // Calculate additional stats using the data already loaded
             $itemsWithClaims = array_filter($items, function($item) { 
-                return $item['has_active_claims'] === true; 
+                return isset($item['active_claims']) && count($item['active_claims']) > 0; 
             });
             $itemsGone = array_filter($items, function($item) { 
-                return isset($item['gone']) && $item['gone'] === 'yes'; 
+                return isset($item['gone']) && $item['gone']; 
             });
             ?>
             <div class="dashboard-stats">

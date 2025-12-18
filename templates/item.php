@@ -12,74 +12,37 @@ if (!$itemId || !preg_match('/^(\d{14}|\d{14}-[a-f0-9]{4})$/', $itemId)) {
     redirect('items');
 }
 
-// Get item data from S3
+// Get item data from database
 $item = null;
 $error = null;
-$awsService = null;
 
 try {
-    $awsService = getAwsService();
-    if ($awsService) {
-        // Try to get the YAML file for this item
-        $yamlKey = $itemId . '.yaml';
-        
-        try {
-            $yamlObject = $awsService->getObject($yamlKey);
-            $yamlContent = $yamlObject['content'];
-            
-            // Parse YAML content
-            $data = parseSimpleYaml($yamlContent);
-            if ($data && isset($data['description']) && isset($data['price']) && isset($data['contact_email'])) {
-                // Check if corresponding image exists
-                $imageKey = null;
-                $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
-                foreach ($imageExtensions as $ext) {
-                    $possibleImageKey = 'images/' . $itemId . '.' . $ext;
-                    try {
-                        if ($awsService->objectExists($possibleImageKey)) {
-                            $imageKey = $possibleImageKey; // Store full S3 path with images/ prefix
-                            break;
-                        }
-                    } catch (Exception $e) {
-                        // Continue to next extension
-                    }
-                }
-                
-                // Handle backward compatibility - use description as title if title is missing
-                $title = $data['title'];
-                $description = $data['description'];
-                
-                $item = [
-                    'tracking_number' => $itemId,
-                    'title' => $title,
-                    'description' => $description,
-                    'price' => $data['price'],
-                    'contact_email' => $data['contact_email'],
-                    'image_key' => $imageKey,
-                    'image_width' => $data['image_width'] ?? null,
-                    'image_height' => $data['image_height'] ?? null,
-                    'posted_date' => $data['submitted_at'] ?? 'Unknown',
-                    'submitted_timestamp' => $data['submitted_timestamp'] ?? null,
-                    'yaml_key' => $yamlKey,
-                    // For backward compatibility, keep old fields but populate from new system
-                    'claimed_by' => null,
-                    'claimed_by_name' => null,
-                    'claimed_at' => null,
-                    'user_id' => $data['user_id'] ?? 'legacy_user',
-                    'user_name' => $data['user_name'] ?? 'Legacy User',
-                    'user_email' => $data['user_email'] ?? $data['contact_email'] ?? '',
-                    // Include all YAML fields
-                    'gone' => $data['gone'] ?? null,
-                    'gone_at' => $data['gone_at'] ?? null,
-                    'gone_by' => $data['gone_by'] ?? null,
-                    'relisted_at' => $data['relisted_at'] ?? null,
-                    'relisted_by' => $data['relisted_by'] ?? null
-                ];
-            }
-        } catch (Exception $e) {
-            // Item not found
-            $error = 'Item not found.';
-        }
+    // Get item from database
+    $dbItem = getItemFromDb($itemId);
+    
+    if ($dbItem) {
+        $item = [
+            'tracking_number' => $dbItem['tracking_number'],
+            'title' => $dbItem['title'],
+            'description' => $dbItem['description'],
+            'price' => $dbItem['price'],
+            'contact_email' => $dbItem['contact_email'],
+            'image_key' => $dbItem['image_file'],
+            'image_width' => $dbItem['image_width'],
+            'image_height' => $dbItem['image_height'],
+            'posted_date' => $dbItem['submitted_at'],
+            'submitted_timestamp' => $dbItem['submitted_timestamp'],
+            'user_id' => $dbItem['user_id'],
+            'user_name' => $dbItem['user_name'],
+            'user_email' => $dbItem['user_email'],
+            'gone' => $dbItem['gone'],
+            'gone_at' => $dbItem['gone_at'],
+            'gone_by' => $dbItem['gone_by'],
+            'relisted_at' => $dbItem['relisted_at'],
+            'relisted_by' => $dbItem['relisted_by']
+        ];
+    } else {
+        $error = 'Item not found.';
     }
 } catch (Exception $e) {
     $error = $e->getMessage();
