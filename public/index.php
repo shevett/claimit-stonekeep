@@ -1228,8 +1228,39 @@ if ($page === 'item' && isset($_GET['id'])) {
 } elseif ($page === 'user-listings' && isset($_GET['id'])) {
     $userId = $_GET['id'];
     $ogData['userId'] = $userId;
-    $ogData['userName'] = 'User #' . $userId;
-    $ogData['items'] = [];
+    
+    // Query database for user's display name and item count
+    try {
+        $pdo = getDbConnection();
+        if ($pdo) {
+            // Get user's display name
+            $userStmt = $pdo->prepare("SELECT display_name, name FROM users WHERE id = ? LIMIT 1");
+            $userStmt->execute([$userId]);
+            $user = $userStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($user) {
+                $ogData['userName'] = $user['display_name'] ?: $user['name'];
+            } else {
+                $ogData['userName'] = 'User';
+            }
+            
+            // Get item count for this user
+            $countStmt = $pdo->prepare("SELECT COUNT(*) as count FROM items WHERE user_id = ?");
+            $countStmt->execute([$userId]);
+            $countResult = $countStmt->fetch(PDO::FETCH_ASSOC);
+            $itemCount = $countResult['count'] ?? 0;
+            
+            // Create dummy array with correct count for OG tag generation
+            $ogData['items'] = array_fill(0, $itemCount, null);
+        } else {
+            $ogData['userName'] = 'User';
+            $ogData['items'] = [];
+        }
+    } catch (Exception $e) {
+        error_log("Error fetching user data for OG tags: " . $e->getMessage());
+        $ogData['userName'] = 'User';
+        $ogData['items'] = [];
+    }
 }
 
 // Log Open Graph data preparation completion
