@@ -1,0 +1,63 @@
+ClaimIt Non-Commercial Source License
+Copyright (c) 2025 Stonekeep Consulting, Inc. All rights reserved.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to use,
+copy, modify, merge, publish, and distribute the Software for non-commercial
+purposes only, subject to the following conditions:
+
+1. NON-COMMERCIAL USE ONLY
+   The Software may be used, modified, and distributed freely for non-commercial
+   purposes. You may NOT charge money for the Software or any service based on it.
+   Commercial purposes that are prohibited include, but are not limited to:
+   - Charging fees for access to the Software or services based on it
+   - Running the Software as a paid service
+   - Incorporating the Software into a commercial product for sale
+   - Charging for support, hosting, or maintenance of the Software
+
+2. ATTRIBUTION
+   All copies or substantial portions of the Software must include the above
+   copyright notice and this license notice.
+
+3. NAME AND TRADEMARK
+   You may use the name "ClaimIt" provided that you clearly display the following
+   attribution on your site/application:
+   
+   "ClaimIt is owned by Stonekeep Consulting, Inc."
+   
+   This attribution must include a link to the original repository:
+   https://github.com/shevett/claimit-stonekeep
+
+4. MODIFICATIONS AND DISTRIBUTION
+   You may modify the Software and distribute modified versions for non-commercial
+   purposes. Modified versions must:
+   - Clearly indicate they are modified versions
+   - Include this license
+   - Include the attribution required in section 3
+
+5. NO WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+   SOFTWARE.
+
+6. TERMINATION
+   This license automatically terminates if you violate any of its terms. Upon
+   termination, you must cease all use and distribution of the Software.
+
+---
+
+COMMERCIAL LICENSING:
+For commercial licensing inquiries or permission to use the Software for
+commercial purposes, please contact Stonekeep Consulting, Inc.
+
+Repository: https://github.com/shevett/claimit-stonekeep
+
+---
+
+NOTE: This is not an Open Source license as defined by the Open Source Initiative.
+This is a source-available license with non-commercial restrictions.
+
