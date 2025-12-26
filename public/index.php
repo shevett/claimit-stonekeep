@@ -150,9 +150,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['query
     }
     
     try {
-        $awsService = getAwsService();
-        if (!$awsService) {
-            throw new Exception('AWS service not available');
+        $pdo = getDbConnection();
+        if (!$pdo) {
+            throw new Exception('Database not available');
         }
         
         // Get current user's settings for showing gone items
@@ -160,40 +160,40 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['query
         $userId = $currentUser ? $currentUser['id'] : '';
         $showGone = $userId ? getUserShowGoneItems($userId) : false;
         
-        // Get all YAML files
-        $result = $awsService->listObjects('');
-        $allObjects = $result['objects'] ?? [];
+        // Build SQL query to search across multiple fields
+        $sql = "SELECT * FROM items WHERE (
+                    title LIKE ? OR 
+                    description LIKE ? OR 
+                    tracking_number LIKE ? OR
+                    user_name LIKE ? OR
+                    contact_email LIKE ?
+                )";
         
-        $matchingItems = [];
+        // Add gone filter if user doesn't want to see gone items
+        if (!$showGone) {
+            $sql .= " AND gone = 0";
+        }
         
-        foreach ($allObjects as $object) {
-            $key = $object['key'];
+        $sql .= " ORDER BY created_at DESC LIMIT 100";
+        
+        // Prepare search term with wildcards
+        $searchTerm = '%' . $searchQuery . '%';
+        
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$searchTerm, $searchTerm, $searchTerm, $searchTerm, $searchTerm]);
+        
+        $matchingItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Convert database format to expected format for frontend
+        foreach ($matchingItems as &$item) {
+            // Ensure status field exists
+            if (!isset($item['status'])) {
+                $item['status'] = $item['gone'] ? 'gone' : 'available';
+            }
             
-            // Only process YAML files (not in users/ or images/ directories)
-            if (strpos($key, '.yaml') !== false && 
-                strpos($key, 'users/') !== 0 && 
-                strpos($key, 'images/') !== 0) {
-                
-                try {
-                    // Get the YAML content
-                    $yamlObject = $awsService->getObject($key);
-                    $yamlContent = $yamlObject['content'];
-                    
-                    // Search within the entire YAML content (case-insensitive)
-                    if (stripos($yamlContent, $searchQuery) !== false) {
-                        $itemData = parseSimpleYaml($yamlContent);
-                        
-                        // Only include items that aren't marked as gone (unless user wants to see them)
-                        if (!isset($itemData['status']) || $itemData['status'] !== 'gone' || $showGone) {
-                            $itemData['tracking_number'] = str_replace('.yaml', '', $key);
-                            $matchingItems[] = $itemData;
-                        }
-                    }
-                } catch (Exception $e) {
-                    // Skip this item if there's an error reading it
-                    error_log("Search: Error processing item {$key}: " . $e->getMessage());
-                    continue;
-                }
+            // Convert gone boolean to status if needed
+            if ($item['gone'] && $item['status'] !== 'gone') {
+                $item['status'] = 'gone';
             }
         }
         
