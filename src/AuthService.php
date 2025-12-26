@@ -6,12 +6,10 @@
 class AuthService
 {
     private $googleClient;
-    private $awsService;
     private $config;
 
-    public function __construct($awsService)
+    public function __construct()
     {
-        $this->awsService = $awsService;
 
         // Load Google OAuth configuration
         $configPath = __DIR__ . '/../config/google-oauth.php';
@@ -165,83 +163,4 @@ class AuthService
         }
     }
 
-    /**
-     * Get user's posted items
-     */
-    public function getUserItems(string $userId): array
-    {
-        $items = [];
-
-        try {
-            $result = $this->awsService->listObjects();
-            $objects = $result['objects'] ?? [];
-
-            foreach ($objects as $object) {
-                $key = $object['key'];
-
-                // Skip user profiles and non-YAML files
-                if (strpos($key, 'users/') === 0 || !str_ends_with($key, '.yaml')) {
-                    continue;
-                }
-
-                // Get YAML content
-                $objectData = $this->awsService->getObject($key);
-                $yamlContent = $objectData['content']; // Extract content from the result array
-                $data = parseSimpleYaml($yamlContent);
-
-                // Check if this item belongs to the user
-                if (isset($data['user_id']) && $data['user_id'] === $userId) {
-                    $trackingNumber = str_replace('.yaml', '', $key);
-
-                    // Check for image
-                    $imageKey = null;
-                    $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
-                    foreach ($imageExtensions as $ext) {
-                        $possibleImageKey = $trackingNumber . '.' . $ext;
-                        if ($this->awsService->objectExists($possibleImageKey)) {
-                            $imageKey = $possibleImageKey;
-                            break;
-                        }
-                    }
-
-                    $items[] = [
-                        'tracking_number' => $trackingNumber,
-                        'title' => $data['title'],
-                        'description' => $data['description'] ?? '',
-                        'price' => (float)($data['price'] ?? 0),
-                        'contact_email' => $data['contact_email'] ?? '',
-                        'submitted_at' => $data['submitted_at'] ?? '',
-                        'image_key' => $imageKey,
-                        'user_id' => $data['user_id']
-                    ];
-                }
-            }
-
-            // Sort by submission date (newest first)
-            usort($items, function ($a, $b) {
-                return strcmp($b['submitted_at'], $a['submitted_at']);
-            });
-        } catch (\Exception $e) {
-            error_log('Error loading user items: ' . $e->getMessage());
-        }
-
-        return $items;
-    }
-
-    /**
-     * Check if user owns an item
-     */
-    public function userOwnsItem(string $userId, string $trackingNumber): bool
-    {
-        try {
-            $yamlKey = $trackingNumber . '.yaml';
-            $objectData = $this->awsService->getObject($yamlKey);
-            $yamlContent = $objectData['content']; // Extract content from the result array
-            $data = parseSimpleYaml($yamlContent);
-
-            return isset($data['user_id']) && $data['user_id'] === $userId;
-        } catch (\Exception $e) {
-            return false;
-        }
-    }
 }

@@ -262,11 +262,7 @@ function getAuthService()
     // This ensures fresh initialization on each request
     if ($authService === null) {
         try {
-            $awsService = getAwsService();
-            if (!$awsService) {
-                throw new Exception('AWS service not available');
-            }
-            $authService = new AuthService($awsService);
+            $authService = new AuthService();
         } catch (Exception $e) {
             error_log('Failed to initialize Auth service: ' . $e->getMessage());
             return null;
@@ -341,8 +337,9 @@ function currentUserOwnsItem(string $trackingNumber): bool
         return false;
     }
 
-    $authService = getAuthService();
-    return $authService ? $authService->userOwnsItem($user['id'], $trackingNumber) : false;
+    // Get item from database and check user_id
+    $item = getItemFromDb($trackingNumber);
+    return $item && ($item['user_id'] === $user['id']);
 }
 
 /**
