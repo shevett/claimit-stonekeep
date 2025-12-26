@@ -77,7 +77,7 @@ claimit.stonekeep.com/
 │   └── generate-changelog.php     # Generate changelog from commits
 ├── composer.json              # Composer dependencies
 ├── phinx.php                  # Phinx migration configuration
-└── LICENSE                    # Non-commercial license
+└── LICENSE                    # CC BY-NC-SA 4.0 license
 ```
 
 ## 🛠️ Requirements
@@ -266,25 +266,40 @@ View at: `https://claimit.stonekeep.com/changelog`
 
 ## 🤝 Contributing
 
-This project uses a non-commercial license. See [LICENSE](LICENSE) for details.
+This project is licensed under CC BY-NC-SA 4.0. See [LICENSE](LICENSE) for details.
 
-For non-commercial use:
-- Fork and modify freely
-- Must include attribution to Stonekeep Consulting, Inc.
-- Must link back to this repository
-- Cannot charge for the software or services based on it
+**You are free to:**
+- Share and redistribute the code
+- Modify and build upon the code
+- Create derivative works
 
-For commercial use, please contact Stonekeep Consulting, Inc.
+**Under these conditions:**
+- **Attribution** — Must credit Stonekeep Consulting, Inc.
+- **NonCommercial** — Cannot use for commercial purposes or charge fees
+- **ShareAlike** — Derivatives must use the same CC BY-NC-SA 4.0 license
+
+**Trademark:** The "ClaimIt" name is a trademark of Stonekeep Consulting, Inc. 
+Derivative works must use a different name.
+
+For commercial licensing, please contact Stonekeep Consulting, Inc.
 
 ## 📄 License
 
-This project is licensed under the ClaimIt Non-Commercial Source License.
-See [LICENSE](LICENSE) file for full terms.
+[![CC BY-NC-SA 4.0][cc-by-nc-sa-shield]][cc-by-nc-sa]
 
-**TL;DR**: Free to use and modify for non-commercial purposes. Must include attribution.
-Cannot charge money for it or services based on it.
+This work is licensed under a
+[Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License][cc-by-nc-sa].
 
-ClaimIt is owned by **Stonekeep Consulting, Inc.**
+[cc-by-nc-sa]: http://creativecommons.org/licenses/by-nc-sa/4.0/
+[cc-by-nc-sa-shield]: https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg
+
+**Summary:**
+- ✅ Free to use and modify for non-commercial purposes
+- ✅ Must credit Stonekeep Consulting, Inc.
+- ✅ Derivatives must share under same license
+- ❌ Cannot charge money or use commercially
+
+**ClaimIt** is a trademark of **Stonekeep Consulting, Inc.**
 
 ## 🆘 Support
 
