@@ -19,36 +19,63 @@ final class AddMissingColumnsToItems extends AbstractMigration
      */
     public function change(): void
     {
-        // Add missing columns to items table
+        // Add missing columns to items table (check if they exist first)
         $items = $this->table('items');
-        $items->addColumn('contact_email', 'string', ['limit' => 255, 'null' => true, 'after' => 'price'])
-              ->addColumn('image_width', 'integer', ['null' => true, 'after' => 'image_file'])
-              ->addColumn('image_height', 'integer', ['null' => true, 'after' => 'image_width'])
-              ->addColumn('user_name', 'string', ['limit' => 255, 'null' => true, 'after' => 'user_id'])
-              ->addColumn('user_email', 'string', ['limit' => 255, 'null' => true, 'after' => 'user_name'])
-              ->addColumn('submitted_at', 'datetime', ['null' => true, 'after' => 'user_email'])
-              ->addColumn('submitted_timestamp', 'integer', ['null' => true, 'after' => 'submitted_at'])
-              ->addColumn('gone', 'boolean', ['default' => false, 'after' => 'status'])
-              ->addColumn('gone_at', 'datetime', ['null' => true, 'after' => 'gone'])
-              ->addColumn('gone_by', 'string', ['limit' => 255, 'null' => true, 'after' => 'gone_at'])
-              ->addColumn('relisted_at', 'datetime', ['null' => true, 'after' => 'gone_by'])
-              ->addColumn('relisted_by', 'string', ['limit' => 255, 'null' => true, 'after' => 'relisted_at'])
-              ->update();
         
-        // Create claims table
-        $claims = $this->table('claims');
-        $claims->addColumn('item_tracking_number', 'string', ['limit' => 19])
-               ->addColumn('user_id', 'string', ['limit' => 255])
-               ->addColumn('user_name', 'string', ['limit' => 255, 'null' => true])
-               ->addColumn('user_email', 'string', ['limit' => 255, 'null' => true])
-               ->addColumn('claimed_at', 'datetime')
-               ->addColumn('status', 'string', ['limit' => 50, 'default' => 'active'])
-               ->addColumn('created_at', 'datetime', ['default' => 'CURRENT_TIMESTAMP'])
-               ->addColumn('updated_at', 'datetime', ['default' => 'CURRENT_TIMESTAMP', 'update' => 'CURRENT_TIMESTAMP'])
-               ->addIndex(['item_tracking_number'])
-               ->addIndex(['user_id'])
-               ->addIndex(['status'])
-               ->addIndex(['item_tracking_number', 'user_id', 'claimed_at'], ['unique' => true])
-               ->create();
+        if (!$items->hasColumn('contact_email')) {
+            $items->addColumn('contact_email', 'string', ['limit' => 255, 'null' => true]);
+        }
+        if (!$items->hasColumn('image_width')) {
+            $items->addColumn('image_width', 'integer', ['null' => true]);
+        }
+        if (!$items->hasColumn('image_height')) {
+            $items->addColumn('image_height', 'integer', ['null' => true]);
+        }
+        if (!$items->hasColumn('user_name')) {
+            $items->addColumn('user_name', 'string', ['limit' => 255, 'null' => true]);
+        }
+        if (!$items->hasColumn('user_email')) {
+            $items->addColumn('user_email', 'string', ['limit' => 255, 'null' => true]);
+        }
+        if (!$items->hasColumn('submitted_at')) {
+            $items->addColumn('submitted_at', 'datetime', ['null' => true]);
+        }
+        if (!$items->hasColumn('submitted_timestamp')) {
+            $items->addColumn('submitted_timestamp', 'integer', ['null' => true]);
+        }
+        if (!$items->hasColumn('gone')) {
+            $items->addColumn('gone', 'boolean', ['default' => false]);
+        }
+        if (!$items->hasColumn('gone_at')) {
+            $items->addColumn('gone_at', 'datetime', ['null' => true]);
+        }
+        if (!$items->hasColumn('gone_by')) {
+            $items->addColumn('gone_by', 'string', ['limit' => 255, 'null' => true]);
+        }
+        if (!$items->hasColumn('relisted_at')) {
+            $items->addColumn('relisted_at', 'datetime', ['null' => true]);
+        }
+        if (!$items->hasColumn('relisted_by')) {
+            $items->addColumn('relisted_by', 'string', ['limit' => 255, 'null' => true]);
+        }
+        $items->update();
+        
+        // Create claims table (only if it doesn't exist)
+        if (!$this->hasTable('claims')) {
+            $claims = $this->table('claims');
+            $claims->addColumn('item_tracking_number', 'string', ['limit' => 19])
+                   ->addColumn('user_id', 'string', ['limit' => 255])
+                   ->addColumn('user_name', 'string', ['limit' => 255, 'null' => true])
+                   ->addColumn('user_email', 'string', ['limit' => 255, 'null' => true])
+                   ->addColumn('claimed_at', 'datetime')
+                   ->addColumn('status', 'string', ['limit' => 50, 'default' => 'active'])
+                   ->addColumn('created_at', 'datetime', ['default' => 'CURRENT_TIMESTAMP'])
+                   ->addColumn('updated_at', 'datetime', ['default' => 'CURRENT_TIMESTAMP', 'update' => 'CURRENT_TIMESTAMP'])
+                   ->addIndex(['item_tracking_number'])
+                   ->addIndex(['user_id'])
+                   ->addIndex(['status'])
+                   ->addIndex(['item_tracking_number', 'user_id', 'claimed_at'], ['unique' => true])
+                   ->create();
+        }
     }
 }

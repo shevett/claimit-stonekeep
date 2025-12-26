@@ -2016,7 +2016,19 @@ function isAdmin() {
         return false;
     }
     
-    return ($currentUser['id'] ?? null) === ADMIN_USER_ID;
+    $userId = $currentUser['id'] ?? null;
+    
+    // First check if user is the master admin from config
+    if ($userId === ADMIN_USER_ID) {
+        return true;
+    }
+    
+    // Then check if user has admin flag in database
+    if (isset($currentUser['is_admin']) && $currentUser['is_admin']) {
+        return true;
+    }
+    
+    return false;
 }
 
 /**
