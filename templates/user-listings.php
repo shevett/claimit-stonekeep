@@ -85,25 +85,20 @@ $isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
 
         <?php if ($isOwnListings): ?>
             <?php
-            // Calculate additional stats using the data already loaded
-            $itemsWithClaims = array_filter($items, function($item) { 
-                return isset($item['active_claims']) && count($item['active_claims']) > 0; 
-            });
-            $itemsGone = array_filter($items, function($item) { 
-                return isset($item['gone']) && $item['gone']; 
-            });
+            // Get accurate stats from database (separate query, always includes all items)
+            $stats = getUserItemStats($userId);
             ?>
             <div class="dashboard-stats">
                 <div class="stat-card">
-                    <h3><?php echo count($items); ?></h3>
+                    <h3><?php echo $stats['total']; ?></h3>
                     <p>Items Posted</p>
                 </div>
                 <div class="stat-card">
-                    <h3><?php echo count(array_filter($items, function($item) { return $item['price'] == 0; })); ?></h3>
+                    <h3><?php echo $stats['free']; ?></h3>
                     <p>Free Items</p>
                 </div>
                 <div class="stat-card">
-                    <h3><?php echo count(array_filter($items, function($item) { return $item['price'] > 0; })); ?></h3>
+                    <h3><?php echo $stats['for_sale']; ?></h3>
                     <p>For Sale</p>
                 </div>
                 <div class="stat-card">
@@ -111,11 +106,11 @@ $isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
                     <p>Items I've claimed</p>
                 </div>
                 <div class="stat-card">
-                    <h3><?php echo count($itemsWithClaims); ?></h3>
+                    <h3><?php echo $stats['with_claims']; ?></h3>
                     <p>Items people have claimed</p>
                 </div>
                 <div class="stat-card">
-                    <h3><?php echo count($itemsGone); ?></h3>
+                    <h3><?php echo $stats['gone']; ?></h3>
                     <p>Items gone</p>
                 </div>
             </div>

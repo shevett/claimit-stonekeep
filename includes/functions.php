@@ -2563,6 +2563,66 @@ function getUserItemsFromDb($userId, $includeGone = false) {
 }
 
 /**
+ * Get stats for user's items (always includes all items, even gone ones)
+ * This provides accurate counts for the dashboard regardless of display preferences
+ * 
+ * @param string $userId The user's ID
+ * @return array Array with keys: total, free, for_sale, gone, with_claims
+ */
+function getUserItemStats($userId) {
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return [
+            'total' => 0,
+            'free' => 0,
+            'for_sale' => 0,
+            'gone' => 0,
+            'with_claims' => 0
+        ];
+    }
+    
+    try {
+        // Get all stats in a single query for efficiency
+        $sql = "
+            SELECT 
+                COUNT(*) as total,
+                SUM(CASE WHEN price = 0 THEN 1 ELSE 0 END) as free,
+                SUM(CASE WHEN price > 0 THEN 1 ELSE 0 END) as for_sale,
+                SUM(CASE WHEN gone = 1 THEN 1 ELSE 0 END) as gone,
+                COUNT(DISTINCT CASE 
+                    WHEN c.id IS NOT NULL THEN i.tracking_number 
+                    ELSE NULL 
+                END) as with_claims
+            FROM items i
+            LEFT JOIN claims c ON i.tracking_number = c.item_tracking_number 
+                AND c.status = 'active'
+            WHERE i.user_id = ?
+        ";
+        
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$userId]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        return [
+            'total' => (int)($result['total'] ?? 0),
+            'free' => (int)($result['free'] ?? 0),
+            'for_sale' => (int)($result['for_sale'] ?? 0),
+            'gone' => (int)($result['gone'] ?? 0),
+            'with_claims' => (int)($result['with_claims'] ?? 0)
+        ];
+    } catch (Exception $e) {
+        error_log("Error getting user item stats: " . $e->getMessage());
+        return [
+            'total' => 0,
+            'free' => 0,
+            'for_sale' => 0,
+            'gone' => 0,
+            'with_claims' => 0
+        ];
+    }
+}
+
+/**
  * Get single item by tracking number from database
  * 
  * @param string $trackingNumber The item tracking number
