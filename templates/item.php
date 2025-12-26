@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Individual Item View Template
  */
@@ -19,7 +20,7 @@ $error = null;
 try {
     // Get item from database
     $dbItem = getItemFromDb($itemId);
-    
+
     if ($dbItem) {
         $item = [
             'tracking_number' => $dbItem['tracking_number'],
@@ -72,7 +73,7 @@ $flashMessage = showFlashMessage();
 
 <div class="content-section">
     <div class="container">
-        <?php if ($flashMessage): ?>
+        <?php if ($flashMessage) : ?>
             <div class="alert alert-<?php echo escape($flashMessage['type']); ?>">
                 <?php echo escape($flashMessage['text']); ?>
             </div>
@@ -80,21 +81,26 @@ $flashMessage = showFlashMessage();
 
         <div class="item-detail-view">
             <div class="item-detail-image">
-                <?php 
+                <?php
                 // Get all images for this item
                 $allImages = getItemImages($item['tracking_number']);
                 $currentImageKey = !empty($allImages) ? $allImages[0] : $item['image_key'];
+
+                // Initialize common variables needed throughout the template
+                $currentUser = getCurrentUser();
+                $isOwnItem = currentUserOwnsItem($item['tracking_number']);
+                $isItemGone = isItemGone($item);
                 ?>
                 
-                <?php if ($currentImageKey): ?>
-                    <?php 
+                <?php if ($currentImageKey) : ?>
+                    <?php
                         // Use direct S3 URL if bypass_cdn flag is set (after image rotation)
-                        if (isset($_GET['bypass_cdn']) && $_GET['bypass_cdn'] === '1') {
-                            $awsService = getAwsService();
-                            $imageUrl = $awsService->getPresignedUrl($currentImageKey, 3600);
-                        } else {
-                            $imageUrl = getCloudFrontUrl($currentImageKey);
-                        }
+                    if (isset($_GET['bypass_cdn']) && $_GET['bypass_cdn'] === '1') {
+                        $awsService = getAwsService();
+                        $imageUrl = $awsService->getPresignedUrl($currentImageKey, 3600);
+                    } else {
+                        $imageUrl = getCloudFrontUrl($currentImageKey);
+                    }
                     ?>
                     <div class="image-container">
                         <img src="<?php echo escape($imageUrl); ?>" 
@@ -102,16 +108,13 @@ $flashMessage = showFlashMessage();
                              class="detail-image"
                              id="mainItemImage"
                              data-image-key="<?php echo escape($currentImageKey); ?>"
-                             <?php if ($item['image_width'] && $item['image_height']): ?>
+                             <?php if ($item['image_width'] && $item['image_height']) : ?>
                              width="<?php echo escape($item['image_width']); ?>" 
                              height="<?php echo escape($item['image_height']); ?>"
                              <?php endif; ?>>
-                        <?php 
+                        <?php
                         // Show rotation button only for item owners
-                        $currentUser = getCurrentUser();
-                        $isOwnItem = currentUserOwnsItem($item['tracking_number']);
-                        $isItemGone = isItemGone($item);
-                        if ($isOwnItem): ?>
+                        if ($isOwnItem) : ?>
                             <button onclick="rotateCurrentImage()" 
                                     class="rotate-btn" 
                                     id="rotateBtn"
@@ -121,18 +124,18 @@ $flashMessage = showFlashMessage();
                         <?php endif; ?>
                     </div>
                     
-                    <?php if (count($allImages) > 1): ?>
+                    <?php if (count($allImages) > 1) : ?>
                     <!-- Image Thumbnails Gallery -->
                     <div class="image-thumbnails">
-                        <?php foreach ($allImages as $imageKey): ?>
-                            <?php 
+                        <?php foreach ($allImages as $imageKey) : ?>
+                            <?php
                                 // Use direct S3 URL if bypass_cdn flag is set (after image rotation)
-                                if (isset($_GET['bypass_cdn']) && $_GET['bypass_cdn'] === '1') {
-                                    $awsService = getAwsService();
-                                    $thumbUrl = $awsService->getPresignedUrl($imageKey, 3600);
-                                } else {
-                                    $thumbUrl = getCloudFrontUrl($imageKey);
-                                }
+                            if (isset($_GET['bypass_cdn']) && $_GET['bypass_cdn'] === '1') {
+                                $awsService = getAwsService();
+                                $thumbUrl = $awsService->getPresignedUrl($imageKey, 3600);
+                            } else {
+                                $thumbUrl = getCloudFrontUrl($imageKey);
+                            }
                                 $imageIndex = getImageIndex($imageKey);
                                 $isPrimary = $imageIndex === null;
                             ?>
@@ -142,12 +145,12 @@ $flashMessage = showFlashMessage();
                                 <img src="<?php echo escape($thumbUrl); ?>" 
                                      alt="Thumbnail" 
                                      class="image-thumbnail <?php echo $isPrimary ? 'active' : ''; ?>">
-                                <?php if ($isOwnItem): ?>
+                                <?php if ($isOwnItem) : ?>
                                     <div class="thumbnail-controls">
                                         <button onclick="event.stopPropagation(); rotateImage('<?php echo escape($item['tracking_number']); ?>', <?php echo $imageIndex === null ? 'null' : $imageIndex; ?>)" 
                                                 class="thumb-btn thumb-rotate" 
                                                 title="Rotate">↻</button>
-                                        <?php if (!$isPrimary): ?>
+                                        <?php if (!$isPrimary) : ?>
                                             <button onclick="event.stopPropagation(); deleteImage('<?php echo escape($item['tracking_number']); ?>', <?php echo $imageIndex; ?>)" 
                                                     class="thumb-btn thumb-delete" 
                                                     title="Delete">×</button>
@@ -157,7 +160,7 @@ $flashMessage = showFlashMessage();
                             </div>
                         <?php endforeach; ?>
                         
-                        <?php if ($isOwnItem && count($allImages) < 10): ?>
+                        <?php if ($isOwnItem && count($allImages) < 10) : ?>
                         <!-- Add More Images Button -->
                         <div class="thumbnail-wrapper add-image-wrapper">
                             <label for="addImageInput" class="add-image-btn">
@@ -172,7 +175,7 @@ $flashMessage = showFlashMessage();
                         </div>
                         <?php endif; ?>
                     </div>
-                    <?php elseif ($isOwnItem && count($allImages) === 1): ?>
+                    <?php elseif ($isOwnItem && count($allImages) === 1) : ?>
                     <!-- Show add button even with just 1 image -->
                     <div class="image-thumbnails">
                         <div class="thumbnail-wrapper add-image-wrapper">
@@ -188,7 +191,7 @@ $flashMessage = showFlashMessage();
                         </div>
                     </div>
                     <?php endif; ?>
-                <?php else: ?>
+                <?php else : ?>
                     <div class="no-image-placeholder">
                         <span>📷</span>
                         <p>No Image Available</p>
@@ -199,9 +202,9 @@ $flashMessage = showFlashMessage();
             <div class="item-detail-info">
                 <div class="price-section">
                     <h2 class="item-price-large">
-                        <?php if ($item['price'] == 0): ?>
+                        <?php if ($item['price'] == 0) : ?>
                             <span class="free-badge">FREE</span>
-                        <?php else: ?>
+                        <?php else : ?>
                             $<?php echo escape(number_format($item['price'], 2)); ?>
                         <?php endif; ?>
                     </h2>
@@ -226,7 +229,7 @@ $flashMessage = showFlashMessage();
                         <div class="detail-item">
                             <strong>Listed by:</strong>
                             <a href="?page=user-listings&id=<?php echo escape($item['user_id']); ?>">
-                                <?php 
+                                <?php
                                 $currentUser = getCurrentUser();
                                 if ($currentUser && $item['user_id'] === $currentUser['id']) {
                                     echo 'You! (' . escape($item['user_name']) . ')';
@@ -236,17 +239,17 @@ $flashMessage = showFlashMessage();
                                 ?>
                             </a>
                         </div>
-                        <?php 
+                        <?php
                         // Get active claims for this item
                         $activeClaims = getActiveClaims($item['tracking_number']);
                         $primaryClaim = getPrimaryClaim($item['tracking_number']);
                         ?>
                         
-                        <?php if ($primaryClaim): ?>
+                        <?php if ($primaryClaim) : ?>
                             <div class="detail-item">
                                 <strong>Primary Claim:</strong>
                                 <span>
-                                    <?php 
+                                    <?php
                                     $currentUser = getCurrentUser();
                                     if ($currentUser && $primaryClaim['user_id'] === $currentUser['id']) {
                                         echo 'You! (' . escape($primaryClaim['user_name']) . ')';
@@ -259,7 +262,7 @@ $flashMessage = showFlashMessage();
                             </div>
                         <?php endif; ?>
                         
-                        <?php if (count($activeClaims) > 1): ?>
+                        <?php if (count($activeClaims) > 1) : ?>
                             <div class="detail-item">
                                 <strong>Waitlist:</strong>
                                 <span><?php echo count($activeClaims) - 1; ?> person<?php echo (count($activeClaims) - 1) !== 1 ? 's' : ''; ?> waiting</span>
@@ -275,39 +278,39 @@ $flashMessage = showFlashMessage();
                             📧 Contact Seller
                         </a>
                         
-                        <?php 
+                        <?php
                         $currentUser = getCurrentUser();
                         $isOwnItem = currentUserOwnsItem($item['tracking_number']);
                         $canEditItem = canUserEditItem($item['user_id'] ?? null);
                         $isUserClaimed = $currentUser ? isUserClaimed($item['tracking_number'], $currentUser['id']) : false;
                         $canUserClaim = $currentUser ? canUserClaim($item['tracking_number'], $currentUser['id']) : false;
                         $userClaimPosition = $currentUser ? getUserClaimPosition($item['tracking_number'], $currentUser['id']) : null;
-                        
+
                         // Debug output
-                        
+
                         ?>
                         
-                        <?php if (!$isOwnItem && $currentUser): ?>
-                            <?php if ($isUserClaimed): ?>
+                        <?php if (!$isOwnItem && $currentUser) : ?>
+                            <?php if ($isUserClaimed) : ?>
                                 <button onclick="removeMyClaim('<?php echo escape($item['tracking_number']); ?>')" 
                                         class="btn btn-warning btn-large claim-btn" 
                                         title="Remove yourself from the waitlist">
                                     🚫 Remove me from list (<?php echo $userClaimPosition . getOrdinalSuffix($userClaimPosition); ?> in line)
                                 </button>
-                            <?php elseif ($canUserClaim): ?>
+                            <?php elseif ($canUserClaim) : ?>
                                 <button onclick="addClaimToItem('<?php echo escape($item['tracking_number']); ?>')" 
                                         class="btn btn-primary btn-large claim-btn" 
                                         title="Claim this item">
                                     🏆 Claim this!
                                 </button>
-                            <?php else: ?>
+                            <?php else : ?>
                                 <button class="btn btn-secondary btn-large" disabled title="You cannot claim this item">
                                     ❌ Cannot claim
                                 </button>
                             <?php endif; ?>
                         <?php endif; ?>
                         
-                        <?php if ($canEditItem): ?>
+                        <?php if ($canEditItem) : ?>
                             <button onclick="openEditModalFromButton(this)" 
                                     class="btn btn-primary btn-large edit-btn" 
                                     title="Edit this item"
@@ -317,13 +320,13 @@ $flashMessage = showFlashMessage();
                                 ✏️ Edit...
                             </button>
                             
-                            <?php if ($isItemGone): ?>
+                            <?php if ($isItemGone) : ?>
                                 <button onclick="relistItem('<?php echo escape($item['tracking_number']); ?>')" 
                                         class="btn btn-success btn-large" 
                                         title="Re-list this item">
                                     🔄 Re-list
                                 </button>
-                            <?php else: ?>
+                            <?php else : ?>
                                 <button onclick="markItemGone('<?php echo escape($item['tracking_number']); ?>')" 
                                         class="btn btn-warning btn-large" 
                                         title="Mark this item as gone">
@@ -340,22 +343,22 @@ $flashMessage = showFlashMessage();
                     </div>
                 </div>
                 
-                <?php if (!empty($activeClaims)): ?>
+                <?php if (!empty($activeClaims)) : ?>
                 <div class="waitlist-section">
                     <h3>Waitlist</h3>
                     <div class="waitlist-container">
-                        <?php foreach ($activeClaims as $index => $claim): ?>
+                        <?php foreach ($activeClaims as $index => $claim) : ?>
                             <div class="waitlist-item <?php echo $index === 0 ? 'primary-claim' : ''; ?>">
                                 <div class="waitlist-position">
-                                    <?php if ($index === 0): ?>
+                                    <?php if ($index === 0) : ?>
                                         <span class="position-badge primary">1st</span>
-                                    <?php else: ?>
+                                    <?php else : ?>
                                         <span class="position-badge"><?php echo ($index + 1) . getOrdinalSuffix($index + 1); ?></span>
                                     <?php endif; ?>
                                 </div>
                                 <div class="waitlist-info">
                                     <div class="claimant-name">
-                                        <?php 
+                                        <?php
                                         $currentUser = getCurrentUser();
                                         if ($currentUser && $claim['user_id'] === $currentUser['id']) {
                                             echo 'You! (' . escape($claim['user_name']) . ')';
@@ -366,9 +369,9 @@ $flashMessage = showFlashMessage();
                                     </div>
                                     <div class="claim-date">Claimed <?php echo escape(date('M j, Y g:i A', strtotime($claim['claimed_at']))); ?></div>
                                 </div>
-                                <?php if ($isOwnItem): ?>
+                                <?php if ($isOwnItem) : ?>
                                     <div class="waitlist-actions">
-                                        <?php if ($claim['user_email']): ?>
+                                        <?php if ($claim['user_email']) : ?>
                                             <a href="mailto:<?php echo escape($claim['user_email']); ?>?subject=Regarding your claim on <?php echo escape($item['title']); ?>&body=Hi <?php echo escape($claim['user_name']); ?>,%0D%0A%0D%0AI'm contacting you about your claim on my item: <?php echo escape($item['title']); ?>%0D%0A%0D%0A" 
                                                class="btn btn-sm btn-outline-primary mailto-btn" 
                                                title="Email <?php echo escape($claim['user_name']); ?>">
@@ -377,7 +380,7 @@ $flashMessage = showFlashMessage();
                                         <?php endif; ?>
                                         <button onclick="removeClaimByOwner('<?php echo escape($item['tracking_number']); ?>', '<?php echo escape($claim['user_id']); ?>')" 
                                                 class="btn btn-sm btn-danger" 
-                                                title="Remove <?php 
+                                                title="Remove <?php
                                                 $currentUser = getCurrentUser();
                                                 if ($currentUser && $claim['user_id'] === $currentUser['id']) {
                                                     echo 'You! (' . escape($claim['user_name']) . ')';

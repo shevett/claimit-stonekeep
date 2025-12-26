@@ -12,25 +12,25 @@ $claimedItems = [];
 $error = null;
 $userName = '';
 $userEmail = '';
+$showGoneItems = false;
 
 try {
     // Check if user wants to see gone items
     $currentUser = getCurrentUser();
     $showGoneItems = $currentUser ? getUserShowGoneItems($currentUser['id']) : false;
-    
+
     // Use the optimized function to get user items
     $items = getUserItemsEfficiently($userId, $showGoneItems);
-    
+
     // Extract user info from first item if available
     if (!empty($items)) {
         $userName = $items[0]['user_name'] ?? 'Legacy User';
         $userEmail = $items[0]['user_email'] ?? '';
     }
-    
+
     // Get items claimed by this user using optimized approach
     // We can reuse the data already loaded by getUserItemsEfficiently
     $claimedItems = getItemsClaimedByUserOptimized($userId);
-    
 } catch (Exception $e) {
     $error = $e->getMessage();
 }
@@ -44,10 +44,10 @@ $isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
 
 <div class="page-header">
     <div class="container">
-        <?php if ($isOwnListings): ?>
+        <?php if ($isOwnListings) : ?>
             <div class="dashboard-header">
                 <div class="user-welcome">
-                    <?php if (!empty($currentUser['picture'])): ?>
+                    <?php if (!empty($currentUser['picture'])) : ?>
                         <img src="<?php echo escape($currentUser['picture']); ?>" alt="Profile" class="user-avatar">
                     <?php endif; ?>
                     <div>
@@ -59,12 +59,12 @@ $isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
                     <a href="?page=claim" class="btn btn-primary">Post New Item</a>
                 </div>
             </div>
-        <?php else: ?>
+        <?php else : ?>
             <h1>Items by <?php echo escape($userName ?: 'User'); ?></h1>
             <p class="page-subtitle">
-                <?php if (count($items) > 0): ?>
+                <?php if (count($items) > 0) : ?>
                     Showing <?php echo count($items); ?> item<?php echo count($items) !== 1 ? 's' : ''; ?>
-                <?php else: ?>
+                <?php else : ?>
                     No active listings found
                 <?php endif; ?>
             </p>
@@ -77,13 +77,13 @@ $isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
 
 <div class="content-section">
     <div class="container">
-        <?php if ($flashMessage): ?>
+        <?php if ($flashMessage) : ?>
             <div class="alert alert-<?php echo escape($flashMessage['type']); ?>">
                 <?php echo escape($flashMessage['text']); ?>
             </div>
         <?php endif; ?>
 
-        <?php if ($isOwnListings): ?>
+        <?php if ($isOwnListings) : ?>
             <?php
             // Get accurate stats from database (separate query, always includes all items)
             $stats = getUserItemStats($userId);
@@ -112,18 +112,18 @@ $isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
                 <div class="stat-card">
                     <h3><?php echo $stats['gone']; ?></h3>
                     <p>Items gone</p>
-                    <?php if (!$showGoneItems && $stats['gone'] > 0): ?>
+                    <?php if (!$showGoneItems && $stats['gone'] > 0) : ?>
                         <p class="stat-note">(not currently visible)</p>
                     <?php endif; ?>
                 </div>
             </div>
         <?php endif; ?>
 
-        <?php if ($error): ?>
+        <?php if ($error) : ?>
             <div class="alert alert-error">
                 Error loading items: <?php echo escape($error); ?>
             </div>
-        <?php elseif (empty($items) && empty($claimedItems)): ?>
+        <?php elseif (empty($items) && empty($claimedItems)) : ?>
             <div class="empty-state">
                 <div class="empty-state-content">
                     <div class="empty-state-icon">📦</div>
@@ -132,7 +132,7 @@ $isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
                     <a href="?page=items" class="btn btn-primary">Browse All Items</a>
                 </div>
             </div>
-        <?php elseif (empty($items) && !empty($claimedItems) && $isOwnListings): ?>
+        <?php elseif (empty($items) && !empty($claimedItems) && $isOwnListings) : ?>
             <!-- User has claimed items but no posted items -->
             <div class="empty-state">
                 <div class="empty-state-content">
@@ -151,13 +151,13 @@ $isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
                 </div>
             </div>
             
-            <?php if (empty($claimedItems)): ?>
+            <?php if (empty($claimedItems)) : ?>
                 <div class="empty-state">
                     <p>You haven't claimed any items yet.</p>
                 </div>
-            <?php else: ?>
+            <?php else : ?>
                 <div class="items-grid">
-                    <?php foreach ($claimedItems as $item): ?>
+                    <?php foreach ($claimedItems as $item) : ?>
                         <?php
                         // Set context for the unified template
                         $context = 'claimed';
@@ -167,8 +167,8 @@ $isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
-        <?php else: ?>
-            <?php if (!$isOwnListings): ?>
+        <?php else : ?>
+            <?php if (!$isOwnListings) : ?>
             <!-- User Info Section -->
             <div class="user-profile-section" style="background: var(--gray-50); padding: 2rem; border-radius: var(--radius-lg); margin-bottom: 2rem;">
                 <h2 style="margin: 0 0 1rem 0; color: var(--gray-900);">About <?php echo escape($userName); ?></h2>
@@ -178,7 +178,7 @@ $isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
                             <strong><?php echo count($items); ?></strong>
                             <span>Active Item<?php echo count($items) !== 1 ? 's' : ''; ?></span>
                         </div>
-                        <?php if ($userEmail): ?>
+                        <?php if ($userEmail) : ?>
                         <div class="stat-item">
                             <a href="mailto:<?php echo escape($userEmail); ?>" class="btn btn-primary">
                                 📧 Contact <?php echo escape(explode(' ', $userName)[0]); ?>
@@ -190,11 +190,11 @@ $isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
             </div>
             <?php endif; ?>
 
-            <?php if ($isOwnListings): ?>
+            <?php if ($isOwnListings) : ?>
             <div class="dashboard-content">
                 <div class="section-header">
                     <h2>Your Posted Items</h2>
-                    <?php if (empty($items)): ?>
+                    <?php if (empty($items)) : ?>
                         <p class="text-muted">You haven't posted any items yet.</p>
                     <?php endif; ?>
                 </div>
@@ -203,12 +203,12 @@ $isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
 
             <!-- Posted Items Grid -->
             <div class="items-grid">
-                <?php if (empty($items)): ?>
+                <?php if (empty($items)) : ?>
                     <div class="empty-state">
                         <p>This user doesn't have any active items posted.</p>
                     </div>
-                <?php else: ?>
-                    <?php foreach ($items as $item): ?>
+                <?php else : ?>
+                    <?php foreach ($items as $item) : ?>
                         <?php
                         // Set context for the unified template
                         $context = 'dashboard';
@@ -219,7 +219,7 @@ $isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
                 <?php endif; ?>
             </div>
             
-            <?php if ($isOwnListings && !empty($claimedItems)): ?>
+            <?php if ($isOwnListings && !empty($claimedItems)) : ?>
             <!-- Claimed Items Section -->
             <div class="dashboard-content" style="margin-top: <?php echo empty($items) ? '0' : '3rem'; ?>;">
                 <div class="section-header">
@@ -229,7 +229,7 @@ $isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
             </div>
             
             <div class="items-grid">
-                <?php foreach ($claimedItems as $item): ?>
+                <?php foreach ($claimedItems as $item) : ?>
                     <?php
                     // Set context for the unified template
                     $context = 'claimed';

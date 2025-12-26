@@ -1,4 +1,5 @@
 <?php
+
 /**
  * ClaimIt Web Application
  * Main entry point
@@ -22,7 +23,7 @@ putenv('PHP_UPLOAD_MAX_FILESIZE=10M');
 putenv('PHP_POST_MAX_SIZE=11M');
 
 // Custom error handler to filter out AWS SDK warnings from browser but keep in environment logs
-set_error_handler(function($errno, $errstr, $errfile, $errline) {
+set_error_handler(function ($errno, $errstr, $errfile, $errline) {
     // Log AWS SDK compatibility warnings to environment logs but don't display them
     if (strpos($errfile, 'aws-sdk-php') !== false && strpos($errstr, 'syntax error') !== false) {
         error_log("AWS SDK PHP 8.4 Compatibility Warning: $errstr in $errfile on line $errline");
@@ -70,25 +71,25 @@ require_once __DIR__ . '/../src/AuthService.php';
 if (isset($_GET['ajax']) && $_GET['ajax'] === '1' && $_GET['page'] === 'home') {
     // AJAX request for home page items
     header('Content-Type: text/html');
-    
+
     $ajaxStartTime = microtime(true);
     debugLog("AJAX: Starting home page items request");
-    
-    
+
+
     try {
         // Check if user wants to see gone items (lazy auth loading)
         $currentUser = null;
         $showGoneItems = false;
-        
+
         // Only check user settings if we have a session (avoid AWS initialization)
         if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['authenticated']) && $_SESSION['authenticated']) {
             $currentUser = getCurrentUser();
             $showGoneItems = $currentUser ? getUserShowGoneItems($currentUser['id']) : false;
         }
-        
+
         // Load items
         $items = [];
-        
+
         if (hasAwsCredentials()) {
             $itemsStartTime = microtime(true);
             debugLog("AJAX: Starting getAllItemsEfficiently");
@@ -97,14 +98,14 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1' && $_GET['page'] === 'home') {
             $itemsTime = round(($itemsEndTime - $itemsStartTime) * 1000, 2);
             debugLog("AJAX: getAllItemsEfficiently completed in {$itemsTime}ms, loaded " . count($items) . " items");
         }
-        
+
         // Render items
         if (empty($items)) {
             echo '<div class="no-items"><p>No items available at the moment.</p></div>';
         } else {
             $renderStartTime = microtime(true);
             debugLog("AJAX: Starting template rendering for " . count($items) . " items");
-            
+
             $itemCount = 0;
             foreach ($items as $item) {
                 $itemStartTime = microtime(true);
@@ -115,22 +116,20 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1' && $_GET['page'] === 'home') {
                 $itemTime = round(($itemEndTime - $itemStartTime) * 1000, 2);
                 $itemCount++;
             }
-            
+
             $renderEndTime = microtime(true);
             $renderTime = round(($renderEndTime - $renderStartTime) * 1000, 2);
             debugLog("AJAX: Template rendering completed in {$renderTime}ms");
         }
-        
-        
     } catch (Exception $e) {
         error_log('AJAX Error: ' . $e->getMessage());
         echo '<div class="no-items"><p>Error loading items: ' . escape($e->getMessage()) . '</p></div>';
     }
-    
+
     $ajaxEndTime = microtime(true);
     $ajaxTotalTime = round(($ajaxEndTime - $ajaxStartTime) * 1000, 2);
     debugLog("AJAX: Total request completed in {$ajaxTotalTime}ms");
-    
+
     exit;
 }
 
@@ -141,25 +140,25 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['query
         ob_clean();
     }
     header('Content-Type: application/json');
-    
+
     $searchQuery = trim($_GET['query']);
-    
+
     if (empty($searchQuery)) {
         echo json_encode(['success' => true, 'items' => []]);
         exit;
     }
-    
+
     try {
         $pdo = getDbConnection();
         if (!$pdo) {
             throw new Exception('Database not available');
         }
-        
+
         // Get current user's settings for showing gone items
         $currentUser = getCurrentUser();
         $userId = $currentUser ? $currentUser['id'] : '';
         $showGone = $userId ? getUserShowGoneItems($userId) : false;
-        
+
         // Build SQL query to search across multiple fields
         $sql = "SELECT * FROM items WHERE (
                     title LIKE ? OR 
@@ -168,80 +167,79 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['query
                     user_name LIKE ? OR
                     contact_email LIKE ?
                 )";
-        
+
         // Add gone filter if user doesn't want to see gone items
         if (!$showGone) {
             $sql .= " AND gone = 0";
         }
-        
+
         $sql .= " ORDER BY created_at DESC LIMIT 100";
-        
+
         // Prepare search term with wildcards
         $searchTerm = '%' . $searchQuery . '%';
-        
+
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$searchTerm, $searchTerm, $searchTerm, $searchTerm, $searchTerm]);
-        
+
         $matchingItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
+
         // Convert database format to expected format for frontend
         foreach ($matchingItems as &$item) {
             // Ensure status field exists
             if (!isset($item['status'])) {
                 $item['status'] = $item['gone'] ? 'gone' : 'available';
             }
-            
+
             // Convert gone boolean to status if needed
             if ($item['gone'] && $item['status'] !== 'gone') {
                 $item['status'] = 'gone';
             }
         }
-        
+
         echo json_encode(['success' => true, 'items' => $matchingItems, 'count' => count($matchingItems)]);
-        
     } catch (Exception $e) {
         error_log("Search error: " . $e->getMessage());
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
-    
+
     exit;
 }
 
 // Handle AJAX delete requests before any HTML output
 if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['tracking_number'])) {
     header('Content-Type: application/json');
-    
+
     $trackingNumber = $_POST['tracking_number'];
-    
+
     if (!preg_match('/^\d{14}$/', $trackingNumber)) {
         echo json_encode(['success' => false, 'message' => 'Invalid tracking number']);
         exit;
     }
-    
+
     // Check if user is logged in
     if (!isLoggedIn()) {
         echo json_encode(['success' => false, 'message' => 'Authentication required']);
         exit;
     }
-    
+
     // Check if user can edit this item (owner or admin)
     $item = getItem($trackingNumber);
     if (!$item || !canUserEditItem($item['user_id'] ?? null)) {
         echo json_encode(['success' => false, 'message' => 'You can only delete your own items or be an administrator']);
         exit;
     }
-    
+
     try {
         $awsService = getAwsService();
         if (!$awsService) {
             throw new Exception('AWS service not available');
         }
-        
+
         // Delete both YAML and image files
         $yamlKey = $trackingNumber . '.yaml';
         $imageDeleted = false;
         $yamlDeleted = false;
-        
+
         // Try to delete the YAML file
         try {
             $awsService->deleteObject($yamlKey);
@@ -249,7 +247,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['tr
         } catch (Exception $e) {
             // YAML file might not exist, continue
         }
-        
+
         // Try to delete the image file (try different extensions)
         $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
         foreach ($imageExtensions as $ext) {
@@ -264,57 +262,56 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['tr
                 // Continue to next extension
             }
         }
-        
+
         if ($yamlDeleted || $imageDeleted) {
             echo json_encode(['success' => true, 'message' => 'Item deleted successfully']);
         } else {
             echo json_encode(['success' => false, 'message' => 'No files found to delete']);
         }
-        
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'message' => 'Failed to delete item: ' . $e->getMessage()]);
     }
-    
+
     exit;
 }
 
 // Handle AJAX claim requests before any HTML output
 if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_claim', 'remove_claim_by_owner', 'delete_item', 'edit_item', 'rotate_image', 'mark_gone', 'relist_item', 'upload_additional_image', 'delete_image']) && isset($_POST['tracking_number'])) {
     header('Content-Type: application/json');
-    
+
     $trackingNumber = $_POST['tracking_number'];
     $action = $_POST['action'];
-    
+
     // Support both old format (YmdHis) and new format (YmdHis-xxxx)
     if (!preg_match('/^(\d{14}|\d{14}-[a-f0-9]{4})$/', $trackingNumber)) {
         echo json_encode(['success' => false, 'message' => 'Invalid tracking number']);
         exit;
     }
-    
+
     // Check if user is logged in
     if (!isLoggedIn()) {
         echo json_encode(['success' => false, 'message' => 'You must be logged in to claim items']);
         exit;
     }
-    
+
     $currentUser = getCurrentUser();
     if (!$currentUser) {
         echo json_encode(['success' => false, 'message' => 'User information not available']);
         exit;
     }
-    
+
     try {
         switch ($action) {
             case 'add_claim':
                 $claim = addClaimToItem($trackingNumber);
                 $position = getUserClaimPosition($trackingNumber, $claim['user_id']);
                 echo json_encode([
-                    'success' => true, 
+                    'success' => true,
                     'message' => 'You\'re now ' . $position . getOrdinalSuffix($position) . ' in line!',
                     'position' => $position
                 ]);
                 break;
-                
+
             case 'remove_claim':
                 error_log("DEBUG: remove_claim action called for tracking number: $trackingNumber");
                 try {
@@ -326,7 +323,7 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
                 }
                 break;
-                
+
             case 'remove_claim_by_owner':
                 if (!isset($_POST['claim_user_id'])) {
                     echo json_encode(['success' => false, 'message' => 'Claim user ID required']);
@@ -336,7 +333,7 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                 removeClaimFromItem($trackingNumber, $claimUserId);
                 echo json_encode(['success' => true, 'message' => 'Claim removed successfully']);
                 break;
-                
+
             case 'delete_item':
                 // Check if user can edit this item (owner or admin)
                 $item = getItem($trackingNumber);
@@ -344,17 +341,17 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                     echo json_encode(['success' => false, 'message' => 'You can only delete your own items or be an administrator']);
                     exit;
                 }
-                
+
                 // Delete the item from S3
                 $awsService = getAwsService();
                 if (!$awsService) {
                     throw new Exception('AWS service not available');
                 }
-                
+
                 // Delete the item YAML file
                 $yamlKey = $trackingNumber . '.yaml';
                 $awsService->deleteObject($yamlKey);
-                
+
                 // Delete all images for this item
                 $allImages = getItemImages($trackingNumber);
                 foreach ($allImages as $imageKey) {
@@ -364,14 +361,14 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                         error_log("Failed to delete image {$imageKey}: " . $e->getMessage());
                     }
                 }
-                
+
                 // Clear caches since we deleted an item
                 clearItemsCache();
                 clearImageUrlCache();
-                
+
                 echo json_encode(['success' => true, 'message' => 'Item deleted successfully']);
                 break;
-                
+
             case 'edit_item':
                 // Check if the current user can edit this item (owner or admin)
                 $item = getItemFromDb($trackingNumber);
@@ -379,38 +376,38 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                     echo json_encode(['success' => false, 'message' => 'You can only edit your own items or be an administrator']);
                     exit;
                 }
-                
+
                 // Validate required fields
                 if (!isset($_POST['title']) || !isset($_POST['description'])) {
                     echo json_encode(['success' => false, 'message' => 'Title and description are required']);
                     exit;
                 }
-                
+
                 $title = trim($_POST['title']);
                 $description = trim($_POST['description']);
-                
+
                 if (empty($title) || empty($description)) {
                     echo json_encode(['success' => false, 'message' => 'Title and description cannot be empty']);
                     exit;
                 }
-                
+
                 // Update the item in database
                 $updates = [
                     'title' => $title,
                     'description' => $description
                 ];
-                
+
                 if (!updateItemInDb($trackingNumber, $updates)) {
                     echo json_encode(['success' => false, 'message' => 'Failed to update item in database']);
                     exit;
                 }
-                
+
                 // Clear items cache since we updated an item
                 clearItemsCache();
-                
+
                 echo json_encode(['success' => true, 'message' => 'Item updated successfully']);
                 break;
-                
+
             case 'rotate_image':
                 // Check if the current user can edit this item (owner or admin)
                 $item = getItem($trackingNumber);
@@ -418,28 +415,28 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                     echo json_encode(['success' => false, 'message' => 'You can only rotate images for your own items or be an administrator']);
                     exit;
                 }
-                
+
                 // Get image index if provided (for rotating specific images)
                 $imageIndex = isset($_POST['image_index']) && $_POST['image_index'] !== 'null' ? intval($_POST['image_index']) : null;
-                
+
                 // Determine the image key using getItemImages helper
                 $awsService = getAwsService();
                 if (!$awsService) {
                     echo json_encode(['success' => false, 'message' => 'AWS service not available']);
                     exit;
                 }
-                
+
                 // Get all images for this item
                 $allImages = getItemImages($trackingNumber);
-                
+
                 if (empty($allImages)) {
                     echo json_encode(['success' => false, 'message' => 'No images found for this item']);
                     exit;
                 }
-                
+
                 // Find the specific image to rotate
                 $imageKey = null;
-                
+
                 if ($imageIndex === null) {
                     // Rotate primary image (first in the array)
                     $imageKey = $allImages[0];
@@ -452,29 +449,29 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                         }
                     }
                 }
-                
+
                 // Check if we found the image
                 if (empty($imageKey)) {
                     echo json_encode(['success' => false, 'message' => 'Image not found']);
                     exit;
                 }
-                
+
                 try {
                     // Download the image from S3
                     $imageObject = $awsService->getObject($imageKey);
                     $imageContent = $imageObject['content'];
                     $contentType = $imageObject['content_type'];
-                    
+
                     // Rotate the image using GD library
                     $rotatedImageContent = rotateImage90Degrees($imageContent, $contentType);
-                    
+
                     if ($rotatedImageContent === false) {
                         throw new Exception('Failed to rotate image');
                     }
-                    
+
                     // Upload the rotated image back to S3
                     $result = $awsService->putObject($imageKey, $rotatedImageContent, $contentType);
-                    
+
                     // Invalidate CloudFront cache for this image
                     // CloudFront serves images without the 'images/' prefix, so strip it for invalidation
                     $cloudFrontPath = str_replace('images/', '', $imageKey);
@@ -485,29 +482,28 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                         // Log but don't fail - cache will eventually expire
                         error_log("CloudFront invalidation failed (non-critical): " . $cfException->getMessage());
                     }
-                    
+
                     // Clear image URL cache since the image was modified
                     clearImageUrlCache();
-                    
+
                     // Generate a direct S3 presigned URL for immediate viewing (bypasses CloudFront)
                     // This ensures user sees rotated image instantly while CloudFront invalidation propagates
                     $directImageUrl = $awsService->getPresignedUrl($imageKey, 3600);
-                    
+
                     // Add cache-busting timestamp to force browser refresh
                     $cacheBuster = time();
-                    
+
                     echo json_encode([
-                        'success' => true, 
+                        'success' => true,
                         'message' => 'Image rotated successfully',
                         'cache_buster' => $cacheBuster,
                         'direct_image_url' => $directImageUrl  // Direct S3 URL bypassing CloudFront
                     ]);
-                    
                 } catch (Exception $e) {
                     echo json_encode(['success' => false, 'message' => 'Failed to rotate image: ' . $e->getMessage()]);
                 }
                 break;
-                
+
             case 'upload_additional_image':
                 // Verify user owns this item
                 $item = getItem($trackingNumber);
@@ -515,54 +511,54 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                     echo json_encode(['success' => false, 'message' => 'You can only add images to your own items']);
                     exit;
                 }
-                
+
                 // Check if file was uploaded
                 if (!isset($_FILES['image_file']) || $_FILES['image_file']['error'] === UPLOAD_ERR_NO_FILE) {
                     echo json_encode(['success' => false, 'message' => 'No image file provided']);
                     exit;
                 }
-                
+
                 $uploadedFile = $_FILES['image_file'];
-                
+
                 // Validate upload
                 if ($uploadedFile['error'] !== UPLOAD_ERR_OK) {
                     echo json_encode(['success' => false, 'message' => 'File upload error']);
                     exit;
                 }
-                
+
                 // Validate file type
                 $imageExtension = strtolower(pathinfo($uploadedFile['name'], PATHINFO_EXTENSION));
                 if (!in_array($imageExtension, ['jpg', 'jpeg', 'png', 'gif'])) {
                     echo json_encode(['success' => false, 'message' => 'Invalid file type. Only JPG, PNG, and GIF allowed']);
                     exit;
                 }
-                
+
                 // Validate file size (50MB)
                 if ($uploadedFile['size'] > 52428800) {
                     echo json_encode(['success' => false, 'message' => 'File too large. Maximum size is 50MB']);
                     exit;
                 }
-                
+
                 // Check image count limit
                 $existingImages = getItemImages($trackingNumber);
                 if (count($existingImages) >= 10) {
                     echo json_encode(['success' => false, 'message' => 'Maximum of 10 images per item']);
                     exit;
                 }
-                
+
                 try {
                     $awsService = getAwsService();
                     if (!$awsService) {
                         throw new Exception('AWS service not available');
                     }
-                    
+
                     // Get next available index
                     $nextIndex = getNextImageIndex($trackingNumber);
                     $imageKey = 'images/' . $trackingNumber . '-' . $nextIndex . '.' . $imageExtension;
-                    
+
                     // Resize the image
                     $tempResizedPath = tempnam(sys_get_temp_dir(), 'claimit_resized_');
-                    
+
                     if (resizeImageToFitSize($uploadedFile['tmp_name'], $tempResizedPath, 512000)) {
                         $imageContent = file_get_contents($tempResizedPath);
                         $mimeType = mime_content_type($tempResizedPath);
@@ -575,25 +571,24 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                             unlink($tempResizedPath);
                         }
                     }
-                    
+
                     // Upload to S3
                     $awsService->putObject($imageKey, $imageContent, $mimeType);
-                    
+
                     // Clear caches
                     clearImageUrlCache();
                     clearItemsCache();
-                    
+
                     echo json_encode([
                         'success' => true,
                         'message' => 'Image uploaded successfully',
                         'image_key' => $imageKey
                     ]);
-                    
                 } catch (Exception $e) {
                     echo json_encode(['success' => false, 'message' => 'Failed to upload image: ' . $e->getMessage()]);
                 }
                 break;
-                
+
             case 'delete_image':
                 // Verify user owns this item
                 $item = getItem($trackingNumber);
@@ -601,29 +596,28 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                     echo json_encode(['success' => false, 'message' => 'You can only delete images from your own items']);
                     exit;
                 }
-                
+
                 // Get image index
                 if (!isset($_POST['image_index'])) {
                     echo json_encode(['success' => false, 'message' => 'Image index not provided']);
                     exit;
                 }
-                
+
                 $imageIndex = intval($_POST['image_index']);
-                
+
                 try {
                     deleteImageFromS3($trackingNumber, $imageIndex);
-                    
+
                     // Clear caches
                     clearImageUrlCache();
                     clearItemsCache();
-                    
+
                     echo json_encode(['success' => true, 'message' => 'Image deleted successfully']);
-                    
                 } catch (Exception $e) {
                     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
                 }
                 break;
-                
+
             case 'mark_gone':
                 try {
                     markItemAsGone($trackingNumber);
@@ -633,7 +627,7 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
                 }
                 break;
-                
+
             case 'relist_item':
                 try {
                     relistItem($trackingNumber);
@@ -644,62 +638,61 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                 }
                 break;
         }
-        
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
-    
+
     exit;
 }
 
 // Handle GET-based AJAX claim requests (for backward compatibility)
 if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) && in_array($_GET['action'], ['add_claim', 'remove_claim', 'remove_claim_by_owner', 'delete_item', 'edit_item', 'rotate_image', 'mark_gone', 'relist_item'])) {
     header('Content-Type: application/json');
-    
+
     // For GET requests, we need to get the tracking number from POST data
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         echo json_encode(['success' => false, 'message' => 'Invalid request method']);
         exit;
     }
-    
+
     if (!isset($_POST['tracking_number'])) {
         echo json_encode(['success' => false, 'message' => 'Tracking number required']);
         exit;
     }
-    
+
     $trackingNumber = $_POST['tracking_number'];
     $action = $_GET['action'];
-    
+
     // Support both old format (YmdHis) and new format (YmdHis-xxxx)
     if (!preg_match('/^(\d{14}|\d{14}-[a-f0-9]{4})$/', $trackingNumber)) {
         echo json_encode(['success' => false, 'message' => 'Invalid tracking number']);
         exit;
     }
-    
+
     // Check if user is logged in
     if (!isLoggedIn()) {
         echo json_encode(['success' => false, 'message' => 'You must be logged in to claim items']);
         exit;
     }
-    
+
     $currentUser = getCurrentUser();
     if (!$currentUser) {
         echo json_encode(['success' => false, 'message' => 'User information not available']);
         exit;
     }
-    
+
     try {
         switch ($action) {
             case 'add_claim':
                 $claim = addClaimToItem($trackingNumber);
                 $position = getUserClaimPosition($trackingNumber, $claim['user_id']);
                 echo json_encode([
-                    'success' => true, 
+                    'success' => true,
                     'message' => 'You\'re now ' . $position . getOrdinalSuffix($position) . ' in line!',
                     'position' => $position
                 ]);
                 break;
-                
+
             case 'remove_claim':
                 error_log("DEBUG: remove_claim action called for tracking number: $trackingNumber");
                 try {
@@ -711,7 +704,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
                     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
                 }
                 break;
-                
+
             case 'remove_claim_by_owner':
                 if (!isset($_POST['claim_user_id'])) {
                     echo json_encode(['success' => false, 'message' => 'Claim user ID required']);
@@ -721,7 +714,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
                 removeClaimFromItem($trackingNumber, $claimUserId);
                 echo json_encode(['success' => true, 'message' => 'Claim removed successfully']);
                 break;
-                
+
             case 'delete_item':
                 // Check if user can edit this item (owner or admin)
                 $item = getItem($trackingNumber);
@@ -729,17 +722,17 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
                     echo json_encode(['success' => false, 'message' => 'You can only delete your own items or be an administrator']);
                     exit;
                 }
-                
+
                 // Delete the item from S3
                 $awsService = getAwsService();
                 if (!$awsService) {
                     throw new Exception('AWS service not available');
                 }
-                
+
                 // Delete the item YAML file
                 $yamlKey = $trackingNumber . '.yaml';
                 $awsService->deleteObject($yamlKey);
-                
+
                 // Delete all images for this item
                 $allImages = getItemImages($trackingNumber);
                 foreach ($allImages as $imageKey) {
@@ -749,14 +742,14 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
                         error_log("Failed to delete image {$imageKey}: " . $e->getMessage());
                     }
                 }
-                
+
                 // Clear caches since we deleted an item
                 clearItemsCache();
                 clearImageUrlCache();
-                
+
                 echo json_encode(['success' => true, 'message' => 'Item deleted successfully']);
                 break;
-                
+
             case 'edit_item':
                 // Check if the current user can edit this item (owner or admin)
                 $item = getItemFromDb($trackingNumber);
@@ -764,38 +757,38 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
                     echo json_encode(['success' => false, 'message' => 'You can only edit your own items or be an administrator']);
                     exit;
                 }
-                
+
                 // Validate required fields
                 if (!isset($_POST['title']) || !isset($_POST['description'])) {
                     echo json_encode(['success' => false, 'message' => 'Title and description are required']);
                     exit;
                 }
-                
+
                 $title = trim($_POST['title']);
                 $description = trim($_POST['description']);
-                
+
                 if (empty($title) || empty($description)) {
                     echo json_encode(['success' => false, 'message' => 'Title and description cannot be empty']);
                     exit;
                 }
-                
+
                 // Update the item in database
                 $updates = [
                     'title' => $title,
                     'description' => $description
                 ];
-                
+
                 if (!updateItemInDb($trackingNumber, $updates)) {
                     echo json_encode(['success' => false, 'message' => 'Failed to update item in database']);
                     exit;
                 }
-                
+
                 // Clear items cache since we updated an item
                 clearItemsCache();
-                
+
                 echo json_encode(['success' => true, 'message' => 'Item updated successfully']);
                 break;
-                
+
             case 'rotate_image':
                 // Check if the current user can edit this item (owner or admin)
                 $item = getItem($trackingNumber);
@@ -803,28 +796,28 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
                     echo json_encode(['success' => false, 'message' => 'You can only rotate images for your own items or be an administrator']);
                     exit;
                 }
-                
+
                 // Get image index if provided (for rotating specific images)
                 $imageIndex = isset($_POST['image_index']) && $_POST['image_index'] !== 'null' ? intval($_POST['image_index']) : null;
-                
+
                 // Determine the image key using getItemImages helper
                 $awsService = getAwsService();
                 if (!$awsService) {
                     echo json_encode(['success' => false, 'message' => 'AWS service not available']);
                     exit;
                 }
-                
+
                 // Get all images for this item
                 $allImages = getItemImages($trackingNumber);
-                
+
                 if (empty($allImages)) {
                     echo json_encode(['success' => false, 'message' => 'No images found for this item']);
                     exit;
                 }
-                
+
                 // Find the specific image to rotate
                 $imageKey = null;
-                
+
                 if ($imageIndex === null) {
                     // Rotate primary image (first in the array)
                     $imageKey = $allImages[0];
@@ -837,29 +830,29 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
                         }
                     }
                 }
-                
+
                 // Check if we found the image
                 if (empty($imageKey)) {
                     echo json_encode(['success' => false, 'message' => 'Image not found']);
                     exit;
                 }
-                
+
                 try {
                     // Download the image from S3
                     $imageObject = $awsService->getObject($imageKey);
                     $imageContent = $imageObject['content'];
                     $contentType = $imageObject['content_type'];
-                    
+
                     // Rotate the image using GD library
                     $rotatedImageContent = rotateImage90Degrees($imageContent, $contentType);
-                    
+
                     if ($rotatedImageContent === false) {
                         throw new Exception('Failed to rotate image');
                     }
-                    
+
                     // Upload the rotated image back to S3
                     $result = $awsService->putObject($imageKey, $rotatedImageContent, $contentType);
-                    
+
                     // Invalidate CloudFront cache for this image
                     // CloudFront serves images without the 'images/' prefix, so strip it for invalidation
                     $cloudFrontPath = str_replace('images/', '', $imageKey);
@@ -870,29 +863,28 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
                         // Log but don't fail - cache will eventually expire
                         error_log("CloudFront invalidation failed (non-critical): " . $cfException->getMessage());
                     }
-                    
+
                     // Clear image URL cache since the image was modified
                     clearImageUrlCache();
-                    
+
                     // Generate a direct S3 presigned URL for immediate viewing (bypasses CloudFront)
                     // This ensures user sees rotated image instantly while CloudFront invalidation propagates
                     $directImageUrl = $awsService->getPresignedUrl($imageKey, 3600);
-                    
+
                     // Add cache-busting timestamp to force browser refresh
                     $cacheBuster = time();
-                    
+
                     echo json_encode([
-                        'success' => true, 
+                        'success' => true,
                         'message' => 'Image rotated successfully',
                         'cache_buster' => $cacheBuster,
                         'direct_image_url' => $directImageUrl  // Direct S3 URL bypassing CloudFront
                     ]);
-                    
                 } catch (Exception $e) {
                     echo json_encode(['success' => false, 'message' => 'Failed to rotate image: ' . $e->getMessage()]);
                 }
                 break;
-                
+
             case 'mark_gone':
                 try {
                     markItemAsGone($trackingNumber);
@@ -902,7 +894,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
                     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
                 }
                 break;
-                
+
             case 'relist_item':
                 try {
                     relistItem($trackingNumber);
@@ -913,48 +905,47 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
                 }
                 break;
         }
-        
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);
     }
-    
+
     exit;
 }
 
 // Handle settings AJAX requests before any HTML output
 if (isset($_GET['page']) && $_GET['page'] === 'settings' && isset($_GET['action'])) {
     header('Content-Type: application/json');
-    
+
     if (!isLoggedIn()) {
         echo json_encode(['success' => false, 'message' => 'Authentication required']);
         exit;
     }
-    
+
     $currentUser = getCurrentUser();
     if (!$currentUser) {
         echo json_encode(['success' => false, 'message' => 'User information not available']);
         exit;
     }
-    
+
     $action = $_GET['action'];
-    
+
     if ($action === 'save') {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             echo json_encode(['success' => false, 'message' => 'Invalid request method']);
             exit;
         }
-        
+
         $displayName = trim($_POST['display_name'] ?? '');
         $zipcode = trim($_POST['zipcode'] ?? '');
         $showGoneItems = isset($_POST['show_gone_items']) && $_POST['show_gone_items'] === 'on';
         $emailNotifications = isset($_POST['email_notifications']) && $_POST['email_notifications'] === 'on';
         $newListingNotifications = isset($_POST['new_listing_notifications']) && $_POST['new_listing_notifications'] === 'on';
-        
+
         if (empty($displayName)) {
             echo json_encode(['success' => false, 'message' => 'Display name is required']);
             exit;
         }
-        
+
         try {
             // Update user in database
             $userData = [
@@ -971,27 +962,26 @@ if (isset($_GET['page']) && $_GET['page'] === 'settings' && isset($_GET['action'
                 'email_notifications' => $emailNotifications,
                 'new_listing_notifications' => $newListingNotifications
             ];
-            
+
             if (!updateUser($currentUser['id'], $userData)) {
                 throw new Exception('Failed to update user in database');
             }
-            
+
             // Update session with new values
             $_SESSION['user']['display_name'] = $displayName;
             $_SESSION['user']['zipcode'] = $zipcode;
             $_SESSION['user']['show_gone_items'] = $showGoneItems;
             $_SESSION['user']['email_notifications'] = $emailNotifications;
             $_SESSION['user']['new_listing_notifications'] = $newListingNotifications;
-            
+
             echo json_encode(['success' => true, 'message' => 'Settings saved successfully']);
-            
         } catch (Exception $e) {
             echo json_encode(['success' => false, 'message' => 'Failed to save settings: ' . $e->getMessage()]);
         }
-        
+
         exit;
     }
-    
+
     echo json_encode(['success' => false, 'message' => 'Invalid action']);
     exit;
 }
@@ -999,38 +989,38 @@ if (isset($_GET['page']) && $_GET['page'] === 'settings' && isset($_GET['action'
 // Handle admin AJAX requests before any HTML output
 if (isset($_GET['page']) && $_GET['page'] === 'admin' && isset($_GET['action'])) {
     header('Content-Type: application/json');
-    
+
     if (!isLoggedIn()) {
         echo json_encode(['success' => false, 'message' => 'Authentication required']);
         exit;
     }
-    
+
     if (!isAdmin()) {
         echo json_encode(['success' => false, 'message' => 'Administrator privileges required']);
         exit;
     }
-    
+
     $currentUser = getCurrentUser();
     if (!$currentUser) {
         echo json_encode(['success' => false, 'message' => 'User information not available']);
         exit;
     }
-    
+
     $action = $_GET['action'];
-    
+
     if ($action === 'execute') {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             echo json_encode(['success' => false, 'message' => 'Invalid request method']);
             exit;
         }
-        
+
         $testDatabase = isset($_POST['test_database']) && $_POST['test_database'] === 'on';
         $sendTestEmail = isset($_POST['send_test_email']) && $_POST['send_test_email'] === 'on';
-        
+
         try {
             $messages = [];
             $details = null;
-            
+
             // Test database connection if requested
             if ($testDatabase) {
                 $dbTest = testDbConnection();
@@ -1041,7 +1031,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'admin' && isset($_GET['action']))
                     $messages[] = $dbTest['message'];
                 }
             }
-            
+
             // Send test email if requested
             if ($sendTestEmail) {
                 try {
@@ -1057,21 +1047,20 @@ if (isset($_GET['page']) && $_GET['page'] === 'admin' && isset($_GET['action']))
                     $messages[] = 'Test email failed: ' . $e->getMessage();
                 }
             }
-            
+
             $message = empty($messages) ? 'No actions performed' : implode('. ', $messages);
             $response = ['success' => true, 'message' => $message];
             if ($details) {
                 $response['details'] = $details;
             }
             echo json_encode($response);
-            
         } catch (Exception $e) {
             echo json_encode(['success' => false, 'message' => 'Failed to execute admin action: ' . $e->getMessage()]);
         }
-        
+
         exit;
     }
-    
+
     echo json_encode(['success' => false, 'message' => 'Invalid action']);
     exit;
 }
@@ -1079,7 +1068,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'admin' && isset($_GET['action']))
 // Handle authentication routes before any HTML output
 if (isset($_GET['page']) && $_GET['page'] === 'auth' && isset($_GET['action'])) {
     $action = $_GET['action'];
-    
+
     if ($action === 'google') {
         // Redirect to Google OAuth
         try {
@@ -1172,7 +1161,7 @@ if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['authenticated'])
         // For other pages, just check session without initializing AWS
         $isLoggedIn = true;
         $currentUser = $_SESSION['user'] ?? null;
-        
+
         // Debug: Check if user data is available
         if (!$currentUser && isset($_SESSION['authenticated'])) {
             error_log("Warning: Session shows authenticated but no user data found");
@@ -1190,17 +1179,17 @@ $ogData = [];
 // Get page-specific data for meta tags
 if ($page === 'item' && isset($_GET['id'])) {
     $trackingNumber = $_GET['id'];
-    
+
     // For item pages, we need the actual title and description for proper link unfurling
     try {
         $dbItem = getItemFromDb($trackingNumber);
-        
+
         if ($dbItem) {
             $title = $dbItem['title'];
             $description = $dbItem['description'];
             $price = $dbItem['price'] ?? 0;
             $imageKey = $dbItem['image_file'];
-            
+
             $ogData['item'] = [
                 'tracking_number' => $trackingNumber,
                 'title' => 'Item #' . $trackingNumber . ' - ' . $title,
@@ -1228,7 +1217,7 @@ if ($page === 'item' && isset($_GET['id'])) {
 } elseif ($page === 'user-listings' && isset($_GET['id'])) {
     $userId = $_GET['id'];
     $ogData['userId'] = $userId;
-    
+
     // Query database for user's display name and item count
     try {
         $pdo = getDbConnection();
@@ -1237,19 +1226,19 @@ if ($page === 'item' && isset($_GET['id'])) {
             $userStmt = $pdo->prepare("SELECT display_name, name FROM users WHERE id = ? LIMIT 1");
             $userStmt->execute([$userId]);
             $user = $userStmt->fetch(PDO::FETCH_ASSOC);
-            
+
             if ($user) {
                 $ogData['userName'] = $user['display_name'] ?: $user['name'];
             } else {
                 $ogData['userName'] = 'User';
             }
-            
+
             // Get item count for this user
             $countStmt = $pdo->prepare("SELECT COUNT(*) as count FROM items WHERE user_id = ?");
             $countStmt->execute([$userId]);
             $countResult = $countStmt->fetch(PDO::FETCH_ASSOC);
             $itemCount = $countResult['count'] ?? 0;
-            
+
             // Create dummy array with correct count for OG tag generation
             $ogData['items'] = array_fill(0, $itemCount, null);
         } else {
@@ -1274,9 +1263,9 @@ debugLog("Performance: Page '{$page}' loaded in " . round($loadTime * 1000, 2) .
 // Store timing data for display
 $performanceData = [
     'total_time' => round($loadTime * 1000, 2),
-    'routing_time' => $timingLogs['routing'] ?? 0,
-    'auth_time' => $timingLogs['auth'] ?? 0,
-    'og_data_time' => $timingLogs['og_data'] ?? 0,
+    'routing_time' => $timingLogs['routing'],
+    'auth_time' => $timingLogs['auth'],
+    'og_data_time' => $timingLogs['og_data'],
     'before_template_time' => $timingLogs['before_template'] ?? 0,
     'after_template_time' => $timingLogs['after_template'] ?? 0
 ];
@@ -1317,13 +1306,13 @@ $performanceData = [
                 
                 <ul class="nav-menu">
                     <li><a href="/?page=items" class="nav-link <?php echo $page === 'items' ? 'active' : ''; ?>">View available items</a></li>
-                    <?php if ($isLoggedIn): ?>
+                    <?php if ($isLoggedIn) : ?>
                         <li><a href="/?page=claim" class="nav-link <?php echo $page === 'claim' ? 'active' : ''; ?>">Make a new posting</a></li>
                         <li><a href="/?page=user-listings&id=<?php echo escape($currentUser['id']); ?>" class="nav-link <?php echo $page === 'user-listings' ? 'active' : ''; ?>">My Listings</a></li>
                         <li class="nav-user-menu">
                             <div class="nav-user-dropdown">
                                 <button class="nav-user-trigger" onclick="toggleUserDropdown()">
-                                    <?php if (!empty($currentUser['picture'])): ?>
+                                    <?php if (!empty($currentUser['picture'])) : ?>
                                         <img src="<?php echo escape($currentUser['picture']); ?>" 
                                              alt="Profile" 
                                              class="nav-user-avatar"
@@ -1332,7 +1321,7 @@ $performanceData = [
                                         <div class="nav-user-avatar-fallback" style="display:none;">
                                             <?php echo strtoupper(substr($currentUser['name'], 0, 1)); ?>
                                         </div>
-                                    <?php else: ?>
+                                    <?php else : ?>
                                         <div class="nav-user-avatar-fallback">
                                             <?php echo strtoupper(substr($currentUser['name'], 0, 1)); ?>
                                         </div>
@@ -1345,7 +1334,7 @@ $performanceData = [
                                         <span class="nav-dropdown-icon">⚙️</span>
                                         Settings
                                     </a>
-                                    <?php if (isAdmin()): ?>
+                                    <?php if (isAdmin()) : ?>
                                     <a href="/?page=admin" class="nav-dropdown-item">
                                         <span class="nav-dropdown-icon">👑</span>
                                         Admin
@@ -1358,7 +1347,7 @@ $performanceData = [
                                 </div>
                             </div>
                         </li>
-                    <?php else: ?>
+                    <?php else : ?>
                         <li><a href="/?page=login" class="nav-link <?php echo $page === 'login' ? 'active' : ''; ?>">Login</a></li>
                     <?php endif; ?>
                 </ul>
@@ -1371,7 +1360,7 @@ $performanceData = [
         // Log before template rendering
         $timingLogs['before_template'] = round((microtime(true) - $startTime) * 1000, 2);
         debugLog("Performance: Before template rendering in {$timingLogs['before_template']}ms");
-        
+
         // Include the appropriate page template
         $templateFile = __DIR__ . "/../templates/{$page}.php";
         if (file_exists($templateFile)) {
@@ -1379,7 +1368,7 @@ $performanceData = [
         } else {
             include __DIR__ . '/../templates/404.php';
         }
-        
+
         // Log after template rendering
         $timingLogs['after_template'] = round((microtime(true) - $startTime) * 1000, 2);
         debugLog("Performance: After template rendering in {$timingLogs['after_template']}ms");
@@ -1389,7 +1378,6 @@ $performanceData = [
     <footer>
         <div class="footer-content">
             <p>&copy; <?php echo date('Y'); ?> ClaimIt by Stonekeep.com. All rights reserved. | <a href="/?page=about" class="footer-link">About</a> | <a href="/?page=contact" class="footer-link">Contact</a> | <a href="/changelog" class="footer-link">Changelog</a></p>
-            <?php if (isset($performanceData)): ?>
             <div style="font-size: 12px; color: #666; margin-top: 10px;">
                 Performance: Total: <?php echo $performanceData['total_time']; ?>ms | 
                 Routing: <?php echo $performanceData['routing_time']; ?>ms | 
@@ -1398,7 +1386,6 @@ $performanceData = [
                 Before Template: <?php echo $performanceData['before_template_time']; ?>ms | 
                 After Template: <?php echo $performanceData['after_template_time']; ?>ms
             </div>
-            <?php endif; ?>
         </div>
     </footer>
 
@@ -1568,7 +1555,7 @@ $performanceData = [
 
     </script>
     
-    <?php if ($page === 'home'): ?>
+    <?php if ($page === 'home') : ?>
     <script>
         // Load items after page loads for maximum performance
         document.addEventListener('DOMContentLoaded', function() {

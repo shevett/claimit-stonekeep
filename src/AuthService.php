@@ -12,15 +12,15 @@ class AuthService
     public function __construct($awsService)
     {
         $this->awsService = $awsService;
-        
+
         // Load Google OAuth configuration
         $configPath = __DIR__ . '/../config/google-oauth.php';
         if (!file_exists($configPath)) {
             throw new \Exception('Google OAuth configuration not found. Please copy google-oauth.example.php to google-oauth.php and configure it.');
         }
-        
+
         $this->config = require $configPath;
-        
+
         // Initialize Google Client
         $this->googleClient = new \Google_Client();
         $this->googleClient->setClientId($this->config['client_id']);
@@ -47,7 +47,7 @@ class AuthService
         try {
             // Exchange authorization code for access token
             $token = $this->googleClient->fetchAccessTokenWithAuthCode($code);
-            
+
             if (isset($token['error'])) {
                 throw new \Exception('OAuth error: ' . $token['error']);
             }
@@ -99,7 +99,6 @@ class AuthService
             $this->loginUser($user);
 
             return $user;
-
         } catch (\Exception $e) {
             throw new \Exception('Authentication failed: ' . $e->getMessage());
         }
@@ -113,7 +112,7 @@ class AuthService
         if (session_status() == PHP_SESSION_NONE) {
             session_start();
         }
-        
+
         $_SESSION['user'] = $user;
         $_SESSION['authenticated'] = true;
     }
@@ -126,7 +125,7 @@ class AuthService
         if (session_status() == PHP_SESSION_NONE) {
             session_start();
         }
-        
+
         unset($_SESSION['user']);
         unset($_SESSION['authenticated']);
         session_destroy();
@@ -140,7 +139,7 @@ class AuthService
         if (session_status() == PHP_SESSION_NONE) {
             session_start();
         }
-        
+
         return $_SESSION['user'] ?? null;
     }
 
@@ -152,7 +151,7 @@ class AuthService
         if (session_status() == PHP_SESSION_NONE) {
             session_start();
         }
-        
+
         return isset($_SESSION['authenticated']) && $_SESSION['authenticated'] === true;
     }
 
@@ -172,28 +171,28 @@ class AuthService
     public function getUserItems(string $userId): array
     {
         $items = [];
-        
+
         try {
             $result = $this->awsService->listObjects();
             $objects = $result['objects'] ?? [];
-            
+
             foreach ($objects as $object) {
                 $key = $object['key'];
-                
+
                 // Skip user profiles and non-YAML files
                 if (strpos($key, 'users/') === 0 || !str_ends_with($key, '.yaml')) {
                     continue;
                 }
-                
+
                 // Get YAML content
                 $objectData = $this->awsService->getObject($key);
                 $yamlContent = $objectData['content']; // Extract content from the result array
                 $data = parseSimpleYaml($yamlContent);
-                
+
                 // Check if this item belongs to the user
                 if (isset($data['user_id']) && $data['user_id'] === $userId) {
                     $trackingNumber = str_replace('.yaml', '', $key);
-                    
+
                     // Check for image
                     $imageKey = null;
                     $imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
@@ -204,7 +203,7 @@ class AuthService
                             break;
                         }
                     }
-                    
+
                     $items[] = [
                         'tracking_number' => $trackingNumber,
                         'title' => $data['title'],
@@ -217,16 +216,15 @@ class AuthService
                     ];
                 }
             }
-            
+
             // Sort by submission date (newest first)
-            usort($items, function($a, $b) {
+            usort($items, function ($a, $b) {
                 return strcmp($b['submitted_at'], $a['submitted_at']);
             });
-            
         } catch (\Exception $e) {
             error_log('Error loading user items: ' . $e->getMessage());
         }
-        
+
         return $items;
     }
 
@@ -240,10 +238,10 @@ class AuthService
             $objectData = $this->awsService->getObject($yamlKey);
             $yamlContent = $objectData['content']; // Extract content from the result array
             $data = parseSimpleYaml($yamlContent);
-            
+
             return isset($data['user_id']) && $data['user_id'] === $userId;
         } catch (\Exception $e) {
             return false;
         }
     }
-} 
+}

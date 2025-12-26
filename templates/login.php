@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Login page template
  */
@@ -21,7 +22,7 @@ $flashMessage = showFlashMessage();
 
 <div class="content-section">
     <div class="container">
-        <?php if ($flashMessage): ?>
+        <?php if ($flashMessage) : ?>
             <div class="alert alert-<?php echo escape($flashMessage['type']); ?>">
                 <?php echo escape($flashMessage['text']); ?>
             </div>

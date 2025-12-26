@@ -1,0 +1,24 @@
+parameters:
+    level: 5
+    paths:
+        - public
+        - src
+        - includes
+        - templates
+    excludePaths:
+        - vendor
+        - db/migrations
+    ignoreErrors:
+        # Config constants defined in config.php (not loaded during static analysis)
+        -
+            message: '#Constant (DB_HOST|DB_PORT|DB_NAME|DB_CHARSET|DB_USER|DB_PASS|ADMIN_USER_ID|DEVELOPMENT_MODE) not found#'
+            path: '*'
+        # Template timing logs - before_template and after_template are optional
+        -
+            message: '#Offset .*(before_template|after_template).* does not exist#'
+            path: public/index.php
+        # Variables that are intentionally checked with empty() even though they're initialized
+        -
+            message: '#Variable .* in empty\(\) always exists#'
+            path: templates/user-listings.php
+

@@ -9,37 +9,37 @@ class EmailService
 {
     private array $config;
     private AwsService $awsService;
-    
+
     public function __construct(AwsService $awsService)
     {
         $this->awsService = $awsService;
         $this->loadConfig();
     }
-    
+
     /**
      * Load SMTP configuration
      */
     private function loadConfig(): void
     {
         $configFile = __DIR__ . '/../config/smtp-config.php';
-        
+
         if (!file_exists($configFile)) {
             throw new \Exception(
                 "SMTP configuration file not found. Please copy 'smtp-config.example.php' to 'smtp-config.php' and configure your SMTP settings."
             );
         }
-        
+
         $this->config = require $configFile;
-        
+
         // Validate required configuration
         if (empty($this->config['host'])) {
             throw new \Exception('SMTP configuration is incomplete. Please check host.');
         }
-        
+
         // Check if authentication is configured
         $this->config['auth_enabled'] = !empty($this->config['username']) && !empty($this->config['password']);
     }
-    
+
     /**
      * Send email notification when an item is claimed
      */
@@ -50,12 +50,12 @@ class EmailService
             if (!$this->isEmailNotificationsEnabled($itemOwner['id'])) {
                 return true; // Not an error, just not sending
             }
-            
+
             // Prepare email content
             $subject = 'Your item has been claimed!';
             $htmlBody = $this->generateItemClaimedHtml($claimedItem, $claimer);
             $textBody = $this->generateItemClaimedText($claimedItem, $claimer);
-            
+
             // Send email via SMTP
             $result = $this->sendSmtpEmail(
                 $itemOwner['email'],
@@ -63,19 +63,18 @@ class EmailService
                 $htmlBody,
                 $textBody
             );
-            
+
             if ($result) {
                 error_log("Email sent successfully to {$itemOwner['email']} for claimed item {$claimedItem['tracking_number']}");
             }
-            
+
             return $result;
-            
         } catch (\Exception $e) {
             error_log("Email Error: " . $e->getMessage());
             return false;
         }
     }
-    
+
     /**
      * Send test email to administrator
      */
@@ -90,11 +89,11 @@ class EmailService
             } else {
                 error_log("SMTP Debug: From: {$this->config['from_email']} (no authentication)");
             }
-            
+
             $subject = 'ClaimIt Test Email';
             $htmlBody = $this->generateTestEmailHtml($user);
             $textBody = $this->generateTestEmailText($user);
-            
+
             // Send email via SMTP
             $result = $this->sendSmtpEmail(
                 $user['email'],
@@ -102,19 +101,18 @@ class EmailService
                 $htmlBody,
                 $textBody
             );
-            
+
             if ($result) {
                 error_log("Test email sent successfully to {$user['email']}");
             }
-            
+
             return $result;
-            
         } catch (\Exception $e) {
             error_log("Test Email Error: " . $e->getMessage());
             return false;
         }
     }
-    
+
     /**
      * Send new listing notification to all users who have it enabled
      */
@@ -123,60 +121,58 @@ class EmailService
         try {
             // Get all users who have new listing notifications enabled
             $usersToNotify = $this->getUsersWithNewListingNotifications();
-            
+
             if (empty($usersToNotify)) {
                 error_log("No users have new listing notifications enabled");
                 return true; // Not an error, just no one to notify
             }
-            
+
             $successCount = 0;
             $totalCount = count($usersToNotify);
-            
+
             foreach ($usersToNotify as $user) {
                 // Don't notify the person who posted the item
                 if ($user['id'] === $itemOwner['id']) {
                     continue;
                 }
-                
+
                 try {
                     $subject = 'New item posted on ClaimIt!';
                     $htmlBody = $this->generateNewListingHtml($newItem, $itemOwner, $user);
                     $textBody = $this->generateNewListingText($newItem, $itemOwner, $user);
-                    
+
                     $result = $this->sendSmtpEmail(
                         $user['email'],
                         $subject,
                         $htmlBody,
                         $textBody
                     );
-                    
+
                     if ($result) {
                         $successCount++;
                         error_log("New listing notification sent to {$user['email']}");
                     }
-                    
                 } catch (\Exception $e) {
                     error_log("Failed to send new listing notification to {$user['email']}: " . $e->getMessage());
                 }
             }
-            
+
             error_log("New listing notifications sent: $successCount/$totalCount");
             return $successCount > 0;
-            
         } catch (\Exception $e) {
             error_log("New Listing Notifications Error: " . $e->getMessage());
             return false;
         }
     }
-    
+
     /**
      * Send email via SMTP
      */
     private function sendSmtpEmail(string $to, string $subject, string $htmlBody, string $textBody): bool
     {
         // Create boundary for multipart message
-        $boundary = md5(uniqid(time()));
-        
+        $boundary = md5(uniqid((string)time()));
+
         // Build email headers
         $headers = [
             'From: ' . $this->config['from_name'] . ' <' . $this->config['from_email'] . '>',
@@ -185,24 +181,24 @@ class EmailService
             'Content-Type: multipart/alternative; boundary="' . $boundary . '"',
             'X-Mailer: ClaimIt Email Service'
         ];
-        
+
         // Build email body
         $body = "--$boundary\r\n";
         $body .= "Content-Type: text/plain; charset=UTF-8\r\n";
         $body .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
         $body .= $textBody . "\r\n\r\n";
-        
+
         $body .= "--$boundary\r\n";
         $body .= "Content-Type: text/html; charset=UTF-8\r\n";
         $body .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
         $body .= $htmlBody . "\r\n\r\n";
-        
+
         $body .= "--$boundary--\r\n";
-        
+
         // Send email using PHP's mail() function with SMTP
         return $this->sendViaSmtp($to, $subject, $body, $headers);
     }
-    
+
     /**
      * Send email via SMTP connection
      */
@@ -210,7 +206,7 @@ class EmailService
     {
         try {
             error_log("SMTP Debug: Attempting to connect to {$this->config['host']}:{$this->config['port']}");
-            
+
             // Create socket connection with SSL context if needed
             $context = null;
             if (isset($this->config['verify_ssl_cert']) && !$this->config['verify_ssl_cert']) {
@@ -223,7 +219,7 @@ class EmailService
                 ]);
                 error_log("SMTP Debug: SSL verification disabled for connection");
             }
-            
+
             // Create socket connection
             if ($context) {
                 $socket = stream_socket_client(
@@ -237,29 +233,29 @@ class EmailService
             } else {
                 $socket = fsockopen($this->config['host'], $this->config['port'], $errno, $errstr, $this->config['timeout'] ?? 30);
             }
-            
+
             if (!$socket) {
                 error_log("SMTP Debug: Connection failed - $errstr ($errno)");
                 throw new \Exception("Failed to connect to SMTP server: $errstr ($errno)");
             }
-            
+
             error_log("SMTP Debug: Socket connection established");
-            
+
             // Read initial response
             $response = fgets($socket, 512);
             error_log("SMTP Debug: Initial server response: " . trim($response));
-            
+
             if (substr($response, 0, 3) !== '220') {
                 error_log("SMTP Debug: Invalid initial response - expected 220, got: " . substr($response, 0, 3));
                 throw new \Exception("SMTP server error: $response");
             }
-            
+
             // Send EHLO command
             $heloHostname = $this->config['helo_hostname'] ?? ($_SERVER['HTTP_HOST'] ?? 'localhost');
             $ehloCommand = "EHLO " . $heloHostname . "\r\n";
             error_log("SMTP Debug: Sending EHLO command: " . trim($ehloCommand));
             fputs($socket, $ehloCommand);
-            
+
             // Read all EHLO response lines (server capabilities)
             $ehloResponses = [];
             do {
@@ -267,7 +263,7 @@ class EmailService
                 $ehloResponses[] = trim($response);
                 error_log("SMTP Debug: EHLO response: " . trim($response));
             } while (substr($response, 3, 1) === '-'); // Continue reading while response code has continuation mark
-            
+
             // Start TLS if required
             if ($this->config['encryption'] === 'tls') {
                 // Check if server supports STARTTLS
@@ -278,7 +274,7 @@ class EmailService
                         break;
                     }
                 }
-                
+
                 if (!$supportsStartTls) {
                     error_log("SMTP Debug: Server does not support STARTTLS, skipping TLS");
                 } else {
@@ -286,14 +282,14 @@ class EmailService
                     fputs($socket, "STARTTLS\r\n");
                     $response = fgets($socket, 512);
                     error_log("SMTP Debug: STARTTLS response: " . trim($response));
-                    
+
                     if (substr($response, 0, 3) !== '220') {
                         error_log("SMTP Debug: STARTTLS failed - expected 220, got: " . substr($response, 0, 3));
                         error_log("SMTP Debug: Continuing without TLS encryption");
                     } else {
                         // Enable crypto
                         error_log("SMTP Debug: Enabling TLS crypto");
-                        
+
                         // Apply SSL context to the socket if SSL verification is disabled
                         if (isset($this->config['verify_ssl_cert']) && !$this->config['verify_ssl_cert']) {
                             error_log("SMTP Debug: Applying SSL context with verification disabled");
@@ -301,12 +297,12 @@ class EmailService
                             stream_context_set_option($socket, 'ssl', 'verify_peer_name', false);
                             stream_context_set_option($socket, 'ssl', 'allow_self_signed', true);
                         }
-                        
+
                         if (!stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
                             error_log("SMTP Debug: TLS crypto enable failed, continuing without TLS");
                         } else {
                             error_log("SMTP Debug: TLS crypto enabled successfully");
-                            
+
                             // Send EHLO again after TLS
                             fputs($socket, $ehloCommand);
                             // Read all post-TLS EHLO response lines
@@ -318,7 +314,7 @@ class EmailService
                     }
                 }
             }
-            
+
             // Authenticate
             // Authenticate only if credentials are provided
             if ($this->config['auth_enabled']) {
@@ -326,29 +322,29 @@ class EmailService
                 fputs($socket, "AUTH LOGIN\r\n");
                 $response = fgets($socket, 512);
                 error_log("SMTP Debug: AUTH LOGIN response: " . trim($response));
-                
+
                 if (substr($response, 0, 3) !== '334') {
                     error_log("SMTP Debug: AUTH LOGIN failed - expected 334, got: " . substr($response, 0, 3));
                     throw new \Exception("AUTH LOGIN failed: $response");
                 }
-                
+
                 // Send username
                 error_log("SMTP Debug: Sending username: " . $this->config['username']);
                 fputs($socket, base64_encode($this->config['username']) . "\r\n");
                 $response = fgets($socket, 512);
                 error_log("SMTP Debug: Username response: " . trim($response));
-                
+
                 if (substr($response, 0, 3) !== '334') {
                     error_log("SMTP Debug: Username auth failed - expected 334, got: " . substr($response, 0, 3));
                     throw new \Exception("Username authentication failed: $response");
                 }
-                
+
                 // Send password
                 error_log("SMTP Debug: Sending password (hidden)");
                 fputs($socket, base64_encode($this->config['password']) . "\r\n");
                 $response = fgets($socket, 512);
                 error_log("SMTP Debug: Password response: " . trim($response));
-                
+
                 if (substr($response, 0, 3) !== '235') {
                     error_log("SMTP Debug: Password auth failed - expected 235, got: " . substr($response, 0, 3));
                     throw new \Exception("Password authentication failed: $response");
@@ -357,40 +353,40 @@ class EmailService
             } else {
                 error_log("SMTP Debug: Skipping authentication (no credentials provided)");
             }
-            
+
             // Send MAIL FROM
             error_log("SMTP Debug: Sending MAIL FROM: " . $this->config['from_email']);
             fputs($socket, "MAIL FROM: <" . $this->config['from_email'] . ">\r\n");
             $response = fgets($socket, 512);
             error_log("SMTP Debug: MAIL FROM response: " . trim($response));
-            
+
             if (substr($response, 0, 3) !== '250') {
                 error_log("SMTP Debug: MAIL FROM failed - expected 250, got: " . substr($response, 0, 3));
                 throw new \Exception("MAIL FROM failed: $response");
             }
-            
+
             // Send RCPT TO
             error_log("SMTP Debug: Sending RCPT TO: " . $to);
             fputs($socket, "RCPT TO: <$to>\r\n");
             $response = fgets($socket, 512);
             error_log("SMTP Debug: RCPT TO response: " . trim($response));
-            
+
             if (substr($response, 0, 3) !== '250') {
                 error_log("SMTP Debug: RCPT TO failed - expected 250, got: " . substr($response, 0, 3));
                 throw new \Exception("RCPT TO failed: $response");
             }
-            
+
             // Send DATA
             error_log("SMTP Debug: Sending DATA command");
             fputs($socket, "DATA\r\n");
             $response = fgets($socket, 512);
             error_log("SMTP Debug: DATA response: " . trim($response));
-            
+
             if (substr($response, 0, 3) !== '354') {
                 error_log("SMTP Debug: DATA command failed - expected 354, got: " . substr($response, 0, 3));
                 throw new \Exception("DATA command failed: $response");
             }
-            
+
             // Send email headers and body
             error_log("SMTP Debug: Sending email content");
             fputs($socket, "To: $to\r\n");
@@ -401,31 +397,30 @@ class EmailService
             fputs($socket, "\r\n");
             fputs($socket, $body);
             fputs($socket, "\r\n.\r\n");
-            
+
             $response = fgets($socket, 512);
             error_log("SMTP Debug: Email send response: " . trim($response));
-            
+
             if (substr($response, 0, 3) !== '250') {
                 error_log("SMTP Debug: Email sending failed - expected 250, got: " . substr($response, 0, 3));
                 throw new \Exception("Email sending failed: $response");
             }
-            
+
             // Send QUIT
             error_log("SMTP Debug: Sending QUIT command");
             fputs($socket, "QUIT\r\n");
             fclose($socket);
             error_log("SMTP Debug: Email sent successfully");
-            
+
             return true;
-            
         } catch (\Exception $e) {
-            if (isset($socket)) {
+            if (is_resource($socket)) {
                 fclose($socket);
             }
             throw $e;
         }
     }
-    
+
     /**
      * Check if user has email notifications enabled
      * Now uses MySQL database instead of YAML files
@@ -435,13 +430,12 @@ class EmailService
         try {
             // Use database function to get email notifications preference
             return getUserEmailNotifications($userId);
-            
         } catch (\Exception $e) {
             error_log("Error checking email notifications for user $userId: " . $e->getMessage());
             return false; // Default to no notifications on error
         }
     }
-    
+
     /**
      * Generate HTML email content for item claimed notification
      */
@@ -449,7 +443,7 @@ class EmailService
     {
         $itemUrl = $this->getItemUrl($item['tracking_number']);
         $itemImage = $this->getItemImageUrl($item);
-        
+
         return "
         <!DOCTYPE html>
         <html>
@@ -499,14 +493,14 @@ class EmailService
         </body>
         </html>";
     }
-    
+
     /**
      * Generate plain text email content for item claimed notification
      */
     private function generateItemClaimedText(array $item, array $claimer): string
     {
         $itemUrl = $this->getItemUrl($item['tracking_number']);
-        
+
         return "
 Your item has been claimed!
 
@@ -526,26 +520,26 @@ This email was sent because you have email notifications enabled in your ClaimIt
 You can disable these notifications anytime in your account settings.
         ";
     }
-    
+
     /**
      * Get item URL
      */
     private function getItemUrl(string $trackingNumber): string
     {
         $isLocalhost = isset($_SERVER['HTTP_HOST']) && (
-            $_SERVER['HTTP_HOST'] === 'localhost:8000' || 
+            $_SERVER['HTTP_HOST'] === 'localhost:8000' ||
             $_SERVER['HTTP_HOST'] === '127.0.0.1:8000' ||
-            $_SERVER['HTTP_HOST'] === 'localhost:8080' || 
+            $_SERVER['HTTP_HOST'] === 'localhost:8080' ||
             $_SERVER['HTTP_HOST'] === '127.0.0.1:8080'
         );
-        
-        $baseUrl = $isLocalhost 
+
+        $baseUrl = $isLocalhost
             ? 'http://' . $_SERVER['HTTP_HOST'] . '/'
             : 'https://claimit.stonekeep.com/';
-            
+
         return $baseUrl . '?page=item&id=' . urlencode($trackingNumber);
     }
-    
+
     /**
      * Get item image URL
      */
@@ -554,14 +548,14 @@ You can disable these notifications anytime in your account settings.
         if (empty($item['image_key'])) {
             return null;
         }
-        
+
         try {
             return $this->awsService->getPresignedUrl($item['image_key'], 86400); // 24 hours
         } catch (\Exception $e) {
             return null;
         }
     }
-    
+
     /**
      * Escape HTML
      */
@@ -569,7 +563,7 @@ You can disable these notifications anytime in your account settings.
     {
         return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
     }
-    
+
     /**
      * Format date
      */
@@ -577,7 +571,7 @@ You can disable these notifications anytime in your account settings.
     {
         return date('F j, Y \a\t g:i A', strtotime($date));
     }
-    
+
     /**
      * Generate HTML email content for test email
      */
@@ -633,7 +627,7 @@ You can disable these notifications anytime in your account settings.
         </body>
         </html>";
     }
-    
+
     /**
      * Generate plain text email content for test email
      */
@@ -661,7 +655,7 @@ You can now disable email notifications in your settings if you don't want to re
 This test email was sent from ClaimIt Email Service
         ";
     }
-    
+
     /**
      * Get all users who have new listing notifications enabled
      * Now uses MySQL database instead of YAML files
@@ -674,17 +668,17 @@ This test email was sent from ClaimIt Email Service
                 error_log("Error: Unable to get database connection for new listing notifications");
                 return [];
             }
-            
+
             // Query database for users with new listing notifications enabled
             $sql = "SELECT id, email, name, display_name 
                     FROM users 
                     WHERE new_listing_notifications = 1 
                     AND email IS NOT NULL 
                     AND email != ''";
-            
+
             $stmt = $pdo->query($sql);
             $users = $stmt->fetchAll(\PDO::FETCH_ASSOC);
-            
+
             $usersToNotify = [];
             foreach ($users as $user) {
                 $usersToNotify[] = [
@@ -693,16 +687,15 @@ This test email was sent from ClaimIt Email Service
                     'email' => $user['email']
                 ];
             }
-            
+
             error_log("Found " . count($usersToNotify) . " users with new listing notifications enabled");
             return $usersToNotify;
-            
         } catch (\Exception $e) {
             error_log("Error getting users with new listing notifications: " . $e->getMessage());
             return [];
         }
     }
-    
+
     /**
      * Generate new listing notification HTML content
      */
@@ -711,7 +704,7 @@ This test email was sent from ClaimIt Email Service
         $siteUrl = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'claimit.stonekeep.com');
         $itemUrl = $siteUrl . '/?page=item&id=' . $newItem['tracking_number'];
         $imageUrl = !empty($newItem['image_key']) ? getCloudFrontUrl($newItem['image_key']) : null;
-        
+
         $html = "
         <!DOCTYPE html>
         <html>
@@ -757,11 +750,11 @@ This test email was sent from ClaimIt Email Service
                             <strong>Price:</strong> $" . number_format($newItem['price'], 2) . "<br>
                             <strong>Tracking #:</strong> {$newItem['tracking_number']}
                         </div>";
-        
+
         if ($imageUrl) {
             $html .= "<img src='{$imageUrl}' alt='Item image' class='item-image'>";
         }
-        
+
         $html .= "
                         <a href='{$itemUrl}' class='cta-button'>View Item Details</a>
                     </div>
@@ -776,10 +769,10 @@ This test email was sent from ClaimIt Email Service
             </div>
         </body>
         </html>";
-        
+
         return $html;
     }
-    
+
     /**
      * Generate new listing notification text content
      */
@@ -787,7 +780,7 @@ This test email was sent from ClaimIt Email Service
     {
         $siteUrl = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'claimit.stonekeep.com');
         $itemUrl = $siteUrl . '/?page=item&id=' . $newItem['tracking_number'];
-        
+
         return "New Item on ClaimIt!
 
 Hello {$recipient['name']},

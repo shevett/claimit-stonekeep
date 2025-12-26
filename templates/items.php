@@ -30,29 +30,28 @@ if (!hasAwsCredentials()) {
 // Handle file download request
 if (isset($_GET['action']) && $_GET['action'] === 'download' && isset($_GET['key'])) {
     $key = $_GET['key'];
-    
+
     if (!isValidS3Key($key)) {
         setFlashMessage('Invalid file key provided.', 'error');
         redirect('items');
     }
-    
+
     try {
         $awsService = getAwsService();
         if (!$awsService) {
             throw new Exception('AWS service not available');
         }
-        
+
         $object = $awsService->getObject($key);
-        
+
         // Set headers for file download
         header('Content-Type: ' . $object['content_type']);
         header('Content-Length: ' . $object['content_length']);
         header('Content-Disposition: attachment; filename="' . basename($key) . '"');
         header('Cache-Control: no-cache, must-revalidate');
-        
+
         echo $object['content'];
         exit;
-        
     } catch (Exception $e) {
         setFlashMessage('Failed to download file: ' . $e->getMessage(), 'error');
         redirect('items');
@@ -62,28 +61,27 @@ if (isset($_GET['action']) && $_GET['action'] === 'download' && isset($_GET['key
 // Handle presigned URL generation
 if (isset($_GET['action']) && $_GET['action'] === 'presigned' && isset($_GET['key'])) {
     $key = $_GET['key'];
-    
+
     if (!isValidS3Key($key)) {
         setFlashMessage('Invalid file key provided.', 'error');
         redirect('items');
     }
-    
+
     try {
         $awsService = getAwsService();
         if (!$awsService) {
             throw new Exception('AWS service not available');
         }
-        
+
         $url = $awsService->getPresignedUrl($key, 3600); // 1 hour expiration
         setFlashMessage('Presigned URL generated successfully.', 'success');
-        
+
         // Store URL in session for display
         $_SESSION['presigned_url'] = $url;
-        
     } catch (Exception $e) {
         setFlashMessage('Failed to generate presigned URL: ' . $e->getMessage(), 'error');
     }
-    
+
     redirect('items');
 }
 
@@ -97,16 +95,15 @@ try {
     // Check if user wants to see gone items (lazy auth loading)
     $currentUser = null;
     $showGoneItems = false;
-    
+
     // Only check user settings if we have a session (avoid AWS initialization)
     if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['authenticated']) && $_SESSION['authenticated']) {
         $currentUser = getCurrentUser();
         $showGoneItems = $currentUser ? getUserShowGoneItems($currentUser['id']) : false;
     }
-    
+
     // Use efficient function that batches S3 operations
     $items = getAllItemsEfficiently($showGoneItems);
-    
 } catch (Exception $e) {
     $error = $e->getMessage();
 }
@@ -126,13 +123,13 @@ if ($presignedUrl) {
 
 <div class="content-section">
     <div class="container">
-        <?php if ($flashMessage): ?>
+        <?php if ($flashMessage) : ?>
             <div class="alert alert-<?php echo escape($flashMessage['type']); ?>">
                 <?php echo escape($flashMessage['text']); ?>
             </div>
         <?php endif; ?>
 
-        <?php if ($presignedUrl): ?>
+        <?php if ($presignedUrl) : ?>
             <div class="alert alert-info">
                 <h4>Presigned URL Generated</h4>
                 <p>This URL is valid for 1 hour:</p>
@@ -143,19 +140,19 @@ if ($presignedUrl) {
             </div>
         <?php endif; ?>
 
-        <?php if ($error): ?>
+        <?php if ($error) : ?>
             <div class="alert alert-error">
                 <strong>Error:</strong> <?php echo escape($error); ?>
             </div>
         <?php endif; ?>
 
-        <?php if (empty($items)): ?>
+        <?php if (empty($items)) : ?>
             <div class="no-items">
                 <p>No items available at the moment.</p>
             </div>
-        <?php else: ?>
+        <?php else : ?>
             <div class="items-grid">
-                <?php foreach ($items as $item): ?>
+                <?php foreach ($items as $item) : ?>
                     <?php
                     // Set context for the unified template
                     $context = 'listing';

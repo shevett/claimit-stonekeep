@@ -14,33 +14,33 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $errors = [];
-    
+
     // Validate CSRF token
     if (!verifyCSRFToken($_POST['csrf_token'] ?? '')) {
         $errors[] = 'Invalid form submission';
     }
-    
+
     // Validate form fields
     $title = trim($_POST['title'] ?? '');
     $description = trim($_POST['description'] ?? '');
     $amount = trim($_POST['amount'] ?? '');
-    
+
     if (empty($title)) {
         $errors[] = 'Title is required';
     }
-    
+
     if (empty($description)) {
         $errors[] = 'Description is required';
     }
-    
+
     if ($amount === '' || !is_numeric($amount) || (float)$amount < 0) {
         $errors[] = 'Valid amount is required (must be 0 or greater)';
     }
-    
+
     if (empty($contactEmail) || !filter_var($contactEmail, FILTER_VALIDATE_EMAIL)) {
         $errors[] = 'Valid email address is required';
     }
-    
+
     // Validate uploaded file if present
     $uploadedFile = $_FILES['item_photo'] ?? null;
     if ($uploadedFile && $uploadedFile['error'] !== UPLOAD_ERR_NO_FILE) {
@@ -72,43 +72,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = 'File must be a valid image (JPG, PNG, GIF)';
         }
     }
-    
+
     if (empty($errors)) {
         try {
             // Generate tracking number (timestamp + random suffix for uniqueness)
             $trackingNumber = date('YmdHis') . '-' . bin2hex(random_bytes(2));
-            
+
             // Get AWS service
             $awsService = getAwsService();
             if (!$awsService) {
                 throw new Exception('AWS service not available');
             }
-            
+
             // Upload image if provided
             $imageKey = null;
+            $imageWidth = null;
+            $imageHeight = null;
+
             if ($uploadedFile && $uploadedFile['error'] === UPLOAD_ERR_OK) {
                 $imageExtension = strtolower(pathinfo($uploadedFile['name'], PATHINFO_EXTENSION));
                 $imageKey = 'images/' . $trackingNumber . '.' . $imageExtension;
-                
+
                 // Create a temporary file for the resized image
                 $tempResizedPath = tempnam(sys_get_temp_dir(), 'claimit_resized_');
-                
-                // Resize the image to keep it under 500KB and get dimensions
-                $imageWidth = null;
-                $imageHeight = null;
-                
+
                 if (resizeImageToFitSize($uploadedFile['tmp_name'], $tempResizedPath, 512000)) {
                     // Use the resized image
                     $imageContent = file_get_contents($tempResizedPath);
                     $mimeType = mime_content_type($tempResizedPath);
-                    
+
                     // Get dimensions of resized image
                     $imageInfo = getimagesize($tempResizedPath);
                     if ($imageInfo) {
                         $imageWidth = $imageInfo[0];
                         $imageHeight = $imageInfo[1];
                     }
-                    
+
                     // Clean up temporary file
                     unlink($tempResizedPath);
                 } else {
@@ -116,23 +115,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     error_log('Image resizing failed, using original image');
                     $imageContent = file_get_contents($uploadedFile['tmp_name']);
                     $mimeType = mime_content_type($uploadedFile['tmp_name']);
-                    
+
                     // Get dimensions of original image
                     $imageInfo = getimagesize($uploadedFile['tmp_name']);
                     if ($imageInfo) {
                         $imageWidth = $imageInfo[0];
                         $imageHeight = $imageInfo[1];
                     }
-                    
+
                     // Clean up temporary file if it exists
                     if (file_exists($tempResizedPath)) {
                         unlink($tempResizedPath);
                     }
                 }
-                
+
                 $awsService->putObject($imageKey, $imageContent, $mimeType);
             }
-            
+
             // Create item data for database
             $itemData = [
                 'tracking_number' => $trackingNumber,
@@ -149,15 +148,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'submitted_at' => date('Y-m-d H:i:s'),
                 'submitted_timestamp' => time()
             ];
-            
+
             // Save item to database
             if (!createItemInDb($itemData)) {
                 throw new Exception('Failed to save item to database');
             }
-            
+
             // Clear items cache since we added a new item
             clearItemsCache();
-            
+
             // Send new listing notifications to users who have it enabled
             try {
                 $emailService = getEmailService();
@@ -170,14 +169,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'price' => floatval($amount),
                         'image_key' => $imageKey
                     ];
-                    
+
                     // Prepare item owner data
                     $itemOwner = [
                         'id' => $currentUser['id'],
                         'name' => $currentUser['name'],
                         'email' => $currentUser['email']
                     ];
-                    
+
                     // Send notifications
                     $emailService->sendNewListingNotifications($itemForEmail, $itemOwner);
                 }
@@ -185,10 +184,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Log error but don't fail the item posting process
                 error_log("Failed to send new listing notifications for item $trackingNumber: " . $e->getMessage());
             }
-            
+
             setFlashMessage("Your item has been posted successfully! Tracking number: {$trackingNumber}", 'success');
             redirect('items');
-            
         } catch (Exception $e) {
             $errors[] = 'Failed to submit posting: ' . $e->getMessage();
         }
@@ -207,16 +205,16 @@ $flashMessage = showFlashMessage();
 
 <div class="content-section">
     <div class="container">
-        <?php if ($flashMessage): ?>
+        <?php if ($flashMessage) : ?>
             <div class="alert alert-<?php echo escape($flashMessage['type']); ?>">
                 <?php echo escape($flashMessage['text']); ?>
             </div>
         <?php endif; ?>
 
-        <?php if (!empty($errors)): ?>
+        <?php if (!empty($errors)) : ?>
             <div class="alert alert-error">
                 <ul>
-                    <?php foreach ($errors as $error): ?>
+                    <?php foreach ($errors as $error) : ?>
                         <li><?php echo escape($error); ?></li>
                     <?php endforeach; ?>
                 </ul>
@@ -259,7 +257,7 @@ $flashMessage = showFlashMessage();
 
             <div class="form-group">
                 <label for="contact_email">Contact Email</label>
-                <input type="email" name="contact_email" id="contact_email" required value="<?php echo escape($contactEmail ?? ''); ?>">
+                <input type="email" name="contact_email" id="contact_email" required value="<?php echo escape($contactEmail); ?>">
             </div>
 
             <div class="form-group">

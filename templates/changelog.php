@@ -1,7 +1,8 @@
 <?php
+
 /**
  * Changelog Template
- * 
+ *
  * Displays the site's changelog from git commit history.
  */
 
@@ -141,20 +142,20 @@ if (file_exists($changelogFile)) {
         <p>Recent updates and improvements to ClaimIt</p>
     </div>
 
-    <?php if ($changelogData && isset($changelogData['groups'])): ?>
+    <?php if ($changelogData && isset($changelogData['groups'])) : ?>
         <div class="changelog-stats">
             <strong><?php echo $changelogData['total_commits']; ?></strong> total commits
             · Last updated: <?php echo htmlspecialchars($changelogData['generated_at_formatted']); ?>
         </div>
 
-        <?php foreach ($changelogData['groups'] as $group): ?>
+        <?php foreach ($changelogData['groups'] as $group) : ?>
             <div class="changelog-date-group">
                 <div class="date-header">
                     <h2><?php echo htmlspecialchars($group['date_formatted']); ?></h2>
                 </div>
                 
                 <ul class="commit-list">
-                    <?php foreach ($group['commits'] as $commit): ?>
+                    <?php foreach ($group['commits'] as $commit) : ?>
                         <li class="commit-item">
                             <div class="commit-header">
                                 <span class="commit-hash"><?php echo htmlspecialchars($commit['short_hash']); ?></span>
@@ -165,12 +166,12 @@ if (file_exists($changelogFile)) {
                                 <?php echo nl2br(htmlspecialchars($commit['subject'])); ?>
                             </div>
                             
-                            <?php if (!empty($commit['body'])): ?>
+                            <?php if (!empty($commit['body'])) : ?>
                                 <div class="commit-body">
-                                    <?php 
+                                    <?php
                                     // Remove excessive blank lines (collapse multiple newlines into single ones)
                                     $cleanBody = preg_replace('/\n\s*\n/', "\n", trim($commit['body']));
-                                    echo nl2br(htmlspecialchars($cleanBody)); 
+                                    echo nl2br(htmlspecialchars($cleanBody));
                                     ?>
                                 </div>
                             <?php endif; ?>
@@ -183,7 +184,7 @@ if (file_exists($changelogFile)) {
                 </ul>
             </div>
         <?php endforeach; ?>
-    <?php else: ?>
+    <?php else : ?>
         <div class="no-changelog">
             <p>Changelog is not available yet.</p>
             <p style="font-size: 0.9rem; margin-top: 0.5rem;">Run <code>php scripts/generate-changelog.php</code> to generate it.</p>

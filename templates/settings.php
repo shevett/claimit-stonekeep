@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Settings page template
  */
@@ -26,7 +27,7 @@ $flashMessage = showFlashMessage();
 
 <div class="content-section">
     <div class="container">
-        <?php if ($flashMessage): ?>
+        <?php if ($flashMessage) : ?>
             <div class="alert alert-<?php echo escape($flashMessage['type']); ?>">
                 <?php echo escape($flashMessage['text']); ?>
             </div>
@@ -54,10 +55,10 @@ $flashMessage = showFlashMessage();
 
                     <div class="form-group">
                         <label class="checkbox-label">
-                            <input type="checkbox" id="showGoneItems" name="showGoneItems" <?php 
-                                if (getUserShowGoneItems($currentUser['id'])) {
-                                    echo 'checked';
-                                }
+                            <input type="checkbox" id="showGoneItems" name="showGoneItems" <?php
+                            if (getUserShowGoneItems($currentUser['id'])) {
+                                echo 'checked';
+                            }
                             ?>>
                             <span class="checkbox-text">Show gone items in listings</span>
                         </label>
@@ -66,10 +67,10 @@ $flashMessage = showFlashMessage();
 
                     <div class="form-group">
                         <label class="checkbox-label">
-                            <input type="checkbox" id="emailNotifications" name="emailNotifications" <?php 
-                                if (getUserEmailNotifications($currentUser['id'])) {
-                                    echo 'checked';
-                                }
+                            <input type="checkbox" id="emailNotifications" name="emailNotifications" <?php
+                            if (getUserEmailNotifications($currentUser['id'])) {
+                                echo 'checked';
+                            }
                             ?>>
                             <span class="checkbox-text">Notify me when someone claims one of my items</span>
                         </label>
@@ -78,10 +79,10 @@ $flashMessage = showFlashMessage();
 
                     <div class="form-group">
                         <label class="checkbox-label">
-                            <input type="checkbox" id="newListingNotifications" name="newListingNotifications" <?php 
-                                if (getUserNewListingNotifications($currentUser['id'])) {
-                                    echo 'checked';
-                                }
+                            <input type="checkbox" id="newListingNotifications" name="newListingNotifications" <?php
+                            if (getUserNewListingNotifications($currentUser['id'])) {
+                                echo 'checked';
+                            }
                             ?>>
                             <span class="checkbox-text">Notify me of any new listings</span>
                         </label>
@@ -111,7 +112,7 @@ $flashMessage = showFlashMessage();
                     </div>
                     <div class="info-item">
                         <label>Zip Code:</label>
-                        <span><?php 
+                        <span><?php
                             $zipcode = getUserZipcode($currentUser['id']);
                             echo $zipcode ? escape($zipcode) : '<em style="color: #999;">Not set</em>';
                         ?></span>

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * User Dashboard template
  */
@@ -21,7 +22,7 @@ if ($authService) {
     <div class="container">
         <div class="dashboard-header">
             <div class="user-welcome">
-                <?php if (!empty($currentUser['picture'])): ?>
+                <?php if (!empty($currentUser['picture'])) : ?>
                     <img src="<?php echo escape($currentUser['picture']); ?>" alt="Profile" class="user-avatar">
                 <?php endif; ?>
                 <div>
@@ -38,7 +39,7 @@ if ($authService) {
 
 <div class="content-section">
     <div class="container">
-        <?php if ($flashMessage): ?>
+        <?php if ($flashMessage) : ?>
             <div class="alert alert-<?php echo escape($flashMessage['type']); ?>">
                 <?php echo escape($flashMessage['text']); ?>
             </div>
@@ -50,11 +51,15 @@ if ($authService) {
                 <p>Items Posted</p>
             </div>
             <div class="stat-card">
-                <h3><?php echo count(array_filter($userItems, function($item) { return $item['price'] == 0; })); ?></h3>
+                <h3><?php echo count(array_filter($userItems, function ($item) {
+    return $item['price'] == 0;
+                    })); ?></h3>
                 <p>Free Items</p>
             </div>
             <div class="stat-card">
-                <h3><?php echo count(array_filter($userItems, function($item) { return $item['price'] > 0; })); ?></h3>
+                <h3><?php echo count(array_filter($userItems, function ($item) {
+    return $item['price'] > 0;
+                    })); ?></h3>
                 <p>For Sale</p>
             </div>
         </div>
@@ -62,23 +67,23 @@ if ($authService) {
         <div class="dashboard-content">
             <div class="section-header">
                 <h2>Your Posted Items</h2>
-                <?php if (empty($userItems)): ?>
+                <?php if (empty($userItems)) : ?>
                     <p class="text-muted">You haven't posted any items yet.</p>
                 <?php endif; ?>
             </div>
 
-            <?php if (!empty($userItems)): ?>
+            <?php if (!empty($userItems)) : ?>
                 <div class="items-grid">
-                    <?php foreach ($userItems as $item): ?>
+                    <?php foreach ($userItems as $item) : ?>
                         <div class="item-card">
                             <a href="?page=item&id=<?php echo escape($item['tracking_number']); ?>" class="item-link">
                                 <div class="item-image">
-                                    <?php if ($item['image_key']): ?>
-                                        <?php 
+                                    <?php if ($item['image_key']) : ?>
+                                        <?php
                                         $imageUrl = getCloudFrontUrl($item['image_key']);
                                         ?>
                                         <img src="<?php echo escape($imageUrl); ?>" alt="<?php echo escape($item['title']); ?>">
-                                    <?php else: ?>
+                                    <?php else : ?>
                                         <div class="no-image-placeholder">
                                             <span>📦</span>
                                             <p>No Image</p>
@@ -90,16 +95,16 @@ if ($authService) {
                                     <div class="item-header">
                                         <h4 class="item-title"><?php echo escape($item['title']); ?></h4>
                                         <div class="item-price">
-                                            <?php if ($item['price'] == 0): ?>
+                                            <?php if ($item['price'] == 0) : ?>
                                                 <span class="price-free">FREE</span>
-                                            <?php else: ?>
+                                            <?php else : ?>
                                                 <span class="price-amount">$<?php echo escape(number_format($item['price'], 2)); ?></span>
                                             <?php endif; ?>
                                         </div>
                                     </div>
                                     
                                     <p class="item-description">
-                                        <?php 
+                                        <?php
                                         $description = $item['description'];
                                         echo escape(strlen($description) > 100 ? substr($description, 0, 100) . '...' : $description);
                                         ?>
@@ -127,7 +132,7 @@ if ($authService) {
                         </div>
                     <?php endforeach; ?>
                 </div>
-            <?php else: ?>
+            <?php else : ?>
                 <div class="empty-state">
                     <div class="empty-state-icon">📦</div>
                     <h3>No items posted yet</h3>

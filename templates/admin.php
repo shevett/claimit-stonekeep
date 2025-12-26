@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Admin page template
  */
@@ -32,7 +33,7 @@ $flashMessage = showFlashMessage();
 
 <div class="content-section">
     <div class="container">
-        <?php if ($flashMessage): ?>
+        <?php if ($flashMessage) : ?>
             <div class="alert alert-<?php echo escape($flashMessage['type']); ?>">
                 <?php echo escape($flashMessage['text']); ?>
             </div>
@@ -85,7 +86,7 @@ $flashMessage = showFlashMessage();
                     </div>
                     <div class="info-item">
                         <label>S3 Bucket:</label>
-                        <span><?php 
+                        <span><?php
                             $awsService = getAwsService();
                             echo $awsService ? escape($awsService->getBucketName()) : '<em style="color: #999;">Not configured</em>';
                         ?></span>

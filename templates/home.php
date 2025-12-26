@@ -36,18 +36,17 @@ try {
     // Check if user wants to see gone items (lazy auth loading)
     $currentUser = null;
     $showGoneItems = false;
-    
+
     // Only check user settings if we have a session (avoid AWS initialization)
     if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['authenticated']) && $_SESSION['authenticated']) {
         $currentUser = getCurrentUser();
         $showGoneItems = $currentUser ? getUserShowGoneItems($currentUser['id']) : false;
     }
-    
+
     // Skip loading items on initial page load for maximum performance
     // Items will be loaded via JavaScript after page loads
     $items = [];
     $error = null;
-    
 } catch (Exception $e) {
     $error = $e->getMessage();
 }
@@ -66,17 +65,17 @@ $flashMessage = showFlashMessage();
 
 <div class="content-section">
     <div class="container">
-        <?php if ($flashMessage): ?>
+        <?php if ($flashMessage) : ?>
             <div class="alert alert-<?php echo escape($flashMessage['type']); ?>">
                 <?php echo escape($flashMessage['text']); ?>
             </div>
         <?php endif; ?>
 
-        <?php if ($error): ?>
+        <?php if ($error) : ?>
             <div class="alert alert-error">
                 Error loading items: <?php echo escape($error); ?>
             </div>
-        <?php else: ?>
+        <?php else : ?>
             <div class="items-grid" id="items-grid">
                 <div class="loading-indicator" id="loading-indicator">
                     <div class="spinner"></div>
