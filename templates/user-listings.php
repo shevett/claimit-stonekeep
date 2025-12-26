@@ -112,6 +112,9 @@ $isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
                 <div class="stat-card">
                     <h3><?php echo $stats['gone']; ?></h3>
                     <p>Items gone</p>
+                    <?php if (!$showGoneItems && $stats['gone'] > 0): ?>
+                        <p class="stat-note">(not currently visible)</p>
+                    <?php endif; ?>
                 </div>
             </div>
         <?php endif; ?>
@@ -278,6 +281,14 @@ $isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
     font-size: 0.875rem;
     margin: 0;
     font-weight: 500;
+}
+
+.stat-card .stat-note {
+    color: var(--gray-500);
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+    font-weight: 400;
+    font-style: italic;
 }
 
 /* Items Grid Layout */
