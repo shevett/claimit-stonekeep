@@ -1,195 +1,309 @@
-# ClaimIt Web Application
+# ClaimIt
 
-A modern PHP web application for managing claims efficiently and securely. 
+A modern PHP web application for sharing and claiming free items and deals in your community. Post items you want to give away or sell, browse what others have listed, and claim items you're interested in.
 
-*Test deployment commit*
+**Live Site**: [claimit.stonekeep.com](https://claimit.stonekeep.com)
 
 ## 🚀 Features
 
-- **Modern Web Interface**: Clean, responsive design with professional UI/UX
-- **Claim Management**: Submit and track various types of claims
-- **Form Validation**: Client-side and server-side validation
-- **Security**: CSRF protection, input sanitization, and secure session handling
-- **Responsive Design**: Works seamlessly on desktop, tablet, and mobile devices
-- **Professional Contact System**: Multi-channel contact information and forms
+### Core Functionality
+- **Item Listings**: Post items for free or for sale with photos and descriptions
+- **Claiming System**: Users can claim items or join a waitlist
+- **Image Management**: Upload multiple images per item with rotation and deletion
+- **Gone/Relist**: Mark items as gone when claimed, or relist them if they become available
+- **Search**: Real-time search across all item fields
+- **User Profiles**: View all items posted by a specific user
+
+### Authentication & Users
+- **Google OAuth Login**: Secure authentication via Google accounts
+- **User Settings**: Customize display name, zipcode, notification preferences
+- **Show/Hide Gone Items**: User preference to filter out claimed items
+- **User Dashboard**: Manage your posted items and claimed items
+
+### Technical Features
+- **AWS S3 Storage**: All images stored in S3 with CloudFront CDN delivery
+- **MySQL Database**: Items and users stored in database with Phinx migrations
+- **Email Notifications**: AWS SES integration for notifications
+- **Responsive Design**: Works on desktop, tablet, and mobile
+- **Open Graph Tags**: Beautiful link previews for social media sharing
+- **Performance Optimized**: Efficient queries, caching, lazy loading
+
+### Admin Features
+- **Admin Panel**: Database and email testing tools
+- **Item Management**: Edit or delete any item
+- **User Management**: View and manage all users
 
 ## 📁 Project Structure
 
 ```
 claimit.stonekeep.com/
 ├── public/
-│   └── index.php              # Main entry point
-├── src/                       # Application source code (for future classes)
+│   ├── index.php              # Main entry point & routing
+│   └── assets/
+│       ├── css/style.css      # Main stylesheet
+│       ├── js/app.js          # JavaScript functionality
+│       └── images/            # Static images (logo, etc.)
+├── src/
+│   ├── AuthService.php        # Google OAuth authentication
+│   ├── AwsService.php         # AWS S3/SES/CloudFront integration
+│   └── EmailService.php       # Email notifications
 ├── config/
-│   └── config.php            # Application configuration
+│   ├── config.php             # Main configuration
+│   ├── aws-credentials.php    # AWS credentials
+│   ├── google-oauth.php       # Google OAuth credentials
+│   └── smtp-config.php        # Email configuration
 ├── includes/
-│   └── functions.php         # Utility functions
+│   └── functions.php          # Core utility functions
 ├── templates/
-│   ├── home.php              # Homepage template
-│   ├── about.php             # About page template
-│   ├── claim.php             # Claim submission page
-│   ├── contact.php           # Contact page template
-│   └── 404.php               # Error page template
-├── assets/
-│   ├── css/
-│   │   └── style.css         # Main stylesheet
-│   ├── js/
-│   │   └── app.js            # JavaScript functionality
-│   └── images/               # Image assets (empty)
-├── composer.json             # Composer dependencies
-└── README.md                 # This file
+│   ├── home.php               # Homepage with item grid
+│   ├── items.php              # Browse all items
+│   ├── item.php               # Individual item detail
+│   ├── claim.php              # Post new item
+│   ├── user-listings.php      # User's posted items
+│   ├── dashboard.php          # User dashboard
+│   ├── settings.php           # User settings
+│   ├── admin.php              # Admin panel
+│   ├── login.php              # Login page
+│   ├── about.php              # About page
+│   ├── contact.php            # Contact page
+│   ├── changelog.php          # Changelog display
+│   └── item-card.php          # Reusable item card component
+├── db/
+│   ├── migrations/            # Phinx database migrations
+│   └── seeds/                 # Database seeders
+├── scripts/
+│   ├── migrate_users_to_db.php    # User migration script
+│   ├── migrate_items_to_db.php    # Item migration script
+│   └── generate-changelog.php     # Generate changelog from commits
+├── composer.json              # Composer dependencies
+├── phinx.php                  # Phinx migration configuration
+└── LICENSE                    # Non-commercial license
 ```
 
 ## 🛠️ Requirements
 
 - **PHP**: 8.0 or higher
-- **Web Server**: Apache, Nginx, or built-in PHP server
-- **Composer**: For dependency management (optional for basic setup)
+- **MySQL**: 5.7 or higher (or MariaDB 10.2+)
+- **Web Server**: Apache or Nginx
+- **Composer**: For dependency management
+- **AWS Account**: For S3 storage and SES email (optional for local dev)
+- **Google OAuth**: For authentication
+
+### PHP Extensions Required
+- PDO with MySQL driver
+- GD or Imagick (for image processing)
+- cURL
+- OpenSSL
+- mbstring
 
 ## 📥 Installation
 
-1. **Clone or download the project**:
-   ```bash
-   git clone <repository-url> claimit.stonekeep.com
-   # OR download and extract to ~/src/claimit.stonekeep.com/
-   ```
+### 1. Clone the Repository
+```bash
+git clone https://github.com/shevett/claimit-stonekeep.git
+cd claimit-stonekeep
+```
 
-2. **Install dependencies** (optional):
-   ```bash
-   cd claimit.stonekeep.com
-   composer install
-   ```
+### 2. Install Dependencies
+```bash
+composer install
+```
 
-3. **Configure your web server**:
-   - **Document Root**: Point to the `public/` directory
-   - **Rewrite Rules**: Enable URL rewriting if needed
+### 3. Configure Database
+Create a MySQL database and update `config/config.php`:
+```php
+define('DB_HOST', 'localhost');
+define('DB_NAME', 'claimit_dev');
+define('DB_USER', 'your_db_user');
+define('DB_PASS', 'your_db_password');
+```
 
-4. **For development, use PHP's built-in server**:
-   ```bash
-   cd public
-   php -S localhost:8000
-   ```
+### 4. Run Migrations
+```bash
+vendor/bin/phinx migrate -e development
+```
 
-5. **Open in browser**:
-   ```
-   http://localhost:8000
-   ```
+### 5. Configure AWS (Optional for Development)
+Copy example files and add your credentials:
+```bash
+cp config/aws-credentials.example.php config/aws-credentials.php
+# Edit config/aws-credentials.php with your AWS keys
+```
+
+See [AWS_SETUP.md](AWS_SETUP.md) for detailed AWS configuration.
+
+### 6. Configure Google OAuth
+Copy example file and add your OAuth credentials:
+```bash
+cp config/google-oauth.example.php config/google-oauth.php
+# Edit config/google-oauth.php with your Client ID and Secret
+```
+
+See [GOOGLE_OAUTH_SETUP.md](GOOGLE_OAUTH_SETUP.md) for detailed OAuth setup.
+
+### 7. Start Development Server
+```bash
+cd public
+php -S localhost:8000
+```
+
+Visit `http://localhost:8000` in your browser.
 
 ## ⚙️ Configuration
 
-Edit `config/config.php` to customize:
+### Environment Mode
+Set in `config/config.php`:
+```php
+define('DEVELOPMENT_MODE', true);  // Set to false for production
+```
 
-- **Application settings**: Name, version, URL
-- **Database configuration**: Uncomment and configure when needed
-- **Error reporting**: Set to false for production
-- **Security settings**: Session configuration, CSRF tokens
+### Admin Users
+Add admin user IDs in `config/config.php`:
+```php
+define('ADMIN_USERS', ['your_google_user_id']);
+```
 
-## 🎯 Usage
+### AWS Services
+- **S3 Bucket**: Configure in `config/aws-credentials.php`
+- **CloudFront**: Set distribution URL for image CDN
+- **SES**: Configure for email notifications
 
-### Navigation
-- **Home**: Welcome page with feature overview
-- **About**: Company information and mission
-- **Make a Claim**: Submit new claims with validation
-- **Contact**: Multiple contact methods and contact form
+## 🗄️ Database
 
-### Claim Submission
-1. Navigate to "Make a Claim"
-2. Select claim type from dropdown
-3. Provide detailed description
-4. Enter claim amount
-5. Provide contact email
-6. Submit form (generates unique claim ID)
+### Migrations
+Create a new migration:
+```bash
+vendor/bin/phinx create MigrationName
+```
 
-### Form Features
-- Real-time validation
-- CSRF protection
-- Input sanitization
-- Error handling
-- Success notifications
+Run migrations:
+```bash
+vendor/bin/phinx migrate -e production
+```
 
-## 🔧 Development
+Check migration status:
+```bash
+vendor/bin/phinx status -e production
+```
 
-### Adding New Pages
-1. Create template in `templates/` directory
-2. Add page to `$availablePages` array in `public/index.php`
-3. Add navigation link in the navbar
-
-### Extending Functionality
-- **Database Integration**: Uncomment database config in `config/config.php`
-- **User Authentication**: Implement login/logout in `includes/functions.php`
-- **Email Integration**: Add email sending functionality for notifications
-- **File Uploads**: Extend claim forms to accept document uploads
-
-### Custom Styling
-- Modify `assets/css/style.css` for visual changes
-- Use CSS custom properties for easy theme customization
-- Responsive breakpoints: 768px (tablet), 480px (mobile)
-
-### JavaScript Enhancements
-- Form validation in `assets/js/app.js`
-- Animation and interaction handlers
-- Utility functions for formatting and UI
-
-## 🔒 Security Features
-
-- **CSRF Protection**: Tokens generated and validated for forms
-- **Input Sanitization**: All user input is escaped and validated
-- **Session Security**: Secure session configuration
-- **XSS Prevention**: HTML escaping for all output
-- **SQL Injection Prevention**: Prepared for database integration
-
-## 🎨 Design Features
-
-- **Modern UI**: Clean, professional interface
-- **Responsive Layout**: Grid-based, mobile-first design
-- **Color Scheme**: Professional blue/gray palette
-- **Typography**: System fonts for optimal readability
-- **Animations**: Smooth transitions and hover effects
-- **Accessibility**: Semantic HTML and keyboard navigation
-
-## 📱 Browser Support
-
-- **Modern Browsers**: Chrome, Firefox, Safari, Edge (latest versions)
-- **Mobile Browsers**: iOS Safari, Chrome Mobile, Samsung Internet
-- **Progressive Enhancement**: Graceful degradation for older browsers
+### Tables
+- **users**: User accounts and settings
+- **items**: Item listings with metadata
+- **claims**: Item claims and waitlist
+- **phinxlog**: Migration history
 
 ## 🚀 Deployment
 
-### Production Checklist
-1. Set `DEVELOPMENT_MODE` to `false` in `config/config.php`
-2. Configure database settings
-3. Set up SSL/HTTPS
-4. Configure web server with proper security headers
-5. Set up regular backups
-6. Configure email service for notifications
+### Production Deployment
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed production deployment instructions.
 
-### Recommended Hosting
-- **Shared Hosting**: Any PHP 8.0+ hosting
-- **VPS/Cloud**: DigitalOcean, AWS, Google Cloud
-- **Managed Hosting**: Platform.sh, Heroku, etc.
+Quick checklist:
+1. Set `DEVELOPMENT_MODE` to `false`
+2. Configure production database
+3. Set up SSL/HTTPS
+4. Configure AWS S3 and CloudFront
+5. Set up Google OAuth with production callback URL
+6. Configure Apache/Nginx with proper document root
+7. Run database migrations
+8. Set proper file permissions
+
+### Apache Configuration
+Point document root to `public/` directory:
+```apache
+DocumentRoot /var/www/claimit.stonekeep.com/public
+<Directory /var/www/claimit.stonekeep.com/public>
+    AllowOverride All
+    Require all granted
+</Directory>
+```
+
+## 🎯 Usage
+
+### For Users
+1. **Login**: Click login and authenticate with Google
+2. **Browse Items**: View all available items on the home page
+3. **Search**: Use the search bar to find specific items
+4. **Claim Items**: Click "Claim This!" to add yourself to the list
+5. **Post Items**: Click "Make a new posting" to list your items
+6. **Manage**: View your listings and claimed items in your dashboard
+
+### For Admins
+1. Access the admin panel from the user dropdown menu
+2. Test database connections and email functionality
+3. Edit or delete any item across the platform
+4. View system logs for debugging
+
+## 📝 Changelog
+
+The changelog is automatically generated from git commits. Generate with:
+```bash
+php scripts/generate-changelog.php
+```
+
+View at: `https://claimit.stonekeep.com/changelog`
+
+## 🔒 Security
+
+- **OAuth 2.0**: Secure Google authentication
+- **Session Security**: HTTP-only, secure cookies
+- **CSRF Protection**: Tokens for all forms
+- **Input Validation**: Server-side validation on all inputs
+- **SQL Injection Prevention**: Prepared statements with PDO
+- **XSS Prevention**: Output escaping with htmlspecialchars
+- **AWS Security**: Presigned URLs with expiration
+
+## 🎨 Customization
+
+### Styling
+- Main stylesheet: `public/assets/css/style.css`
+- Uses CSS custom properties for easy theming
+- Responsive breakpoints: 768px (tablet), 480px (mobile)
+
+### Adding Features
+1. Create new template in `templates/`
+2. Add route to `$availablePages` in `public/index.php`
+3. Add navigation link in navbar section
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open Pull Request
+This project uses a non-commercial license. See [LICENSE](LICENSE) for details.
+
+For non-commercial use:
+- Fork and modify freely
+- Must include attribution to Stonekeep Consulting, Inc.
+- Must link back to this repository
+- Cannot charge for the software or services based on it
+
+For commercial use, please contact Stonekeep Consulting, Inc.
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the ClaimIt Non-Commercial Source License.
+See [LICENSE](LICENSE) file for full terms.
+
+**TL;DR**: Free to use and modify for non-commercial purposes. Must include attribution.
+Cannot charge money for it or services based on it.
+
+ClaimIt is owned by **Stonekeep Consulting, Inc.**
 
 ## 🆘 Support
 
-- **Email**: support@stonekeep.com
-- **Phone**: 1-800-CLAIMIT (1-800-252-4648)
-- **Hours**: Monday-Friday 9AM-6PM EST
+For commercial licensing or questions:
+- Repository: https://github.com/shevett/claimit-stonekeep
+- Contact: Stonekeep Consulting, Inc.
+
+## 📚 Additional Documentation
+
+- [AWS_SETUP.md](AWS_SETUP.md) - AWS S3/CloudFront/SES configuration
+- [GOOGLE_OAUTH_SETUP.md](GOOGLE_OAUTH_SETUP.md) - Google OAuth setup
+- [DEPLOYMENT.md](DEPLOYMENT.md) - Production deployment guide
+- [MIGRATION_SUMMARY.md](MIGRATION_SUMMARY.md) - Database migration details
 
 ## 🔄 Version History
 
-- **v1.0.0**: Initial release with basic claim management functionality
+- **v2.0** (2025-01): Full database migration, improved performance, enhanced features
+- **v1.0** (2024): Initial release with S3 storage and basic functionality
 
 ---
 
-**Built with ❤️ for Stonekeep.com** 
+**Built with ❤️ by Stonekeep Consulting, Inc.**
