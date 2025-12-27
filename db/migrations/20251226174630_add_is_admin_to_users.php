@@ -20,7 +20,11 @@ final class AddIsAdminToUsers extends AbstractMigration
     public function change(): void
     {
         $table = $this->table('users');
-        $table->addColumn('is_admin', 'boolean', ['default' => false, 'after' => 'verified_email'])
-              ->update();
+        
+        // Only add column if it doesn't exist (idempotent)
+        if (!$table->hasColumn('is_admin')) {
+            $table->addColumn('is_admin', 'boolean', ['default' => false, 'after' => 'verified_email'])
+                  ->update();
+        }
     }
 }
