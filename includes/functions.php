@@ -1,21 +1,52 @@
 <?php
 
 /**
- * Utility functions for ClaimIt application
+ * ClaimIt Application Functions
+ * 
+ * REFACTORED STRUCTURE:
+ * Functions are now organized in modular files for better maintainability.
+ * 
+ * Completed modules:
+ * - core.php: Database, escaping, redirects, CSRF
+ * - auth.php: Authentication and authorization
+ * - users.php: User management
+ * - communities.php: Community management
+ * 
+ * Placeholder modules (functions still in this file):
+ * - items.php: Item management
+ * - claims.php: Claims system
+ * - images.php: Image handling
+ * - cache.php: Caching functions
+ * - utilities.php: Helper utilities
  */
+
+// Load all modular function libraries
+require_once __DIR__ . '/core.php';
+require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/users.php';
+require_once __DIR__ . '/items.php';
+require_once __DIR__ . '/claims.php';
+require_once __DIR__ . '/images.php';
+require_once __DIR__ . '/cache.php';
+require_once __DIR__ . '/utilities.php';
+require_once __DIR__ . '/communities.php';
+
 
 /**
  * Escape HTML output to prevent XSS attacks
  */
+if (!function_exists('escape')) {
 function escape($string)
 {
     return htmlspecialchars($string, ENT_QUOTES, 'UTF-8');
+}
 }
 
 /**
  * Get database connection
  * Returns a PDO instance or null on failure
  */
+if (!function_exists('getDbConnection')) {
 function getDbConnection()
 {
     static $pdo = null;
@@ -46,11 +77,13 @@ function getDbConnection()
         return null;
     }
 }
+}
 
 /**
  * Test database connection
  * Returns array with status and message
  */
+if (!function_exists('testDbConnection')) {
 function testDbConnection()
 {
     try {
@@ -84,11 +117,13 @@ function testDbConnection()
         ];
     }
 }
+}
 
 /**
  * Get user by ID from database
  * Returns user array or null if not found
  */
+if (!function_exists('getUserById')) {
 function getUserById($userId)
 {
     try {
@@ -126,11 +161,13 @@ function getUserById($userId)
         return null;
     }
 }
+}
 
 /**
  * Create a new user in database
  * Returns true on success, false on failure
  */
+if (!function_exists('createUser')) {
 function createUser($userData)
 {
     try {
@@ -168,11 +205,13 @@ function createUser($userData)
         return false;
     }
 }
+}
 
 /**
  * Update an existing user in database
  * Returns true on success, false on failure
  */
+if (!function_exists('updateUser')) {
 function updateUser($userId, $userData)
 {
     try {
@@ -209,11 +248,13 @@ function updateUser($userId, $userData)
         return false;
     }
 }
+}
 
 /**
  * Save or update user (upsert operation)
  * Returns true on success, false on failure
  */
+if (!function_exists('saveUser')) {
 function saveUser($userData)
 {
     $existingUser = getUserById($userData['id']);
@@ -224,10 +265,12 @@ function saveUser($userData)
         return createUser($userData);
     }
 }
+}
 
 /**
  * Redirect to a specific page
  */
+if (!function_exists('redirect')) {
 function redirect($page = 'home')
 {
     // Determine the correct base URL based on the environment
@@ -250,10 +293,12 @@ function redirect($page = 'home')
     header('Location: ' . $baseUrl . '?page=' . urlencode($page));
     exit;
 }
+}
 
 /**
  * Get Authentication service instance (lazy loading)
  */
+if (!function_exists('getAuthService')) {
 function getAuthService()
 {
     static $authService = null;
@@ -271,10 +316,12 @@ function getAuthService()
 
     return $authService;
 }
+}
 
 /**
  * Get Email service instance (lazy loading)
  */
+if (!function_exists('getEmailService')) {
 function getEmailService()
 {
     static $emailService = null;
@@ -294,29 +341,35 @@ function getEmailService()
 
     return $emailService;
 }
+}
 
 
 /**
  * Check if user is logged in
  */
+if (!function_exists('isLoggedIn')) {
 function isLoggedIn()
 {
     $authService = getAuthService();
     return $authService ? $authService->isLoggedIn() : false;
 }
+}
 
 /**
  * Get current authenticated user
  */
+if (!function_exists('getCurrentUser')) {
 function getCurrentUser()
 {
     $authService = getAuthService();
     return $authService ? $authService->getCurrentUser() : null;
 }
+}
 
 /**
  * Require authentication (redirect to login if not authenticated)
  */
+if (!function_exists('requireAuth')) {
 function requireAuth()
 {
     $authService = getAuthService();
@@ -326,10 +379,12 @@ function requireAuth()
         redirect('login');
     }
 }
+}
 
 /**
  * Check if current user owns an item
  */
+if (!function_exists('currentUserOwnsItem')) {
 function currentUserOwnsItem(string $trackingNumber): bool
 {
     $user = getCurrentUser();
@@ -341,10 +396,12 @@ function currentUserOwnsItem(string $trackingNumber): bool
     $item = getItemFromDb($trackingNumber);
     return $item && ($item['user_id'] === $user['id']);
 }
+}
 
 /**
  * Generate CSRF token
  */
+if (!function_exists('generateCSRFToken')) {
 function generateCSRFToken()
 {
     if (!isset($_SESSION['csrf_token'])) {
@@ -352,26 +409,32 @@ function generateCSRFToken()
     }
     return $_SESSION['csrf_token'];
 }
+}
 
 /**
  * Verify CSRF token
  */
+if (!function_exists('verifyCSRFToken')) {
 function verifyCSRFToken($token)
 {
     return isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token);
+}
 }
 
 /**
  * Format date for display
  */
+if (!function_exists('formatDate')) {
 function formatDate($date, $format = 'F j, Y')
 {
     return date($format, strtotime($date));
+}
 }
 
 /**
  * Show flash message
  */
+if (!function_exists('showFlashMessage')) {
 function showFlashMessage()
 {
     if (isset($_SESSION['flash_message'])) {
@@ -381,16 +444,19 @@ function showFlashMessage()
     }
     return null;
 }
+}
 
 /**
  * Set flash message
  */
+if (!function_exists('setFlashMessage')) {
 function setFlashMessage($message, $type = 'info')
 {
     $_SESSION['flash_message'] = [
         'text' => $message,
         'type' => $type
     ];
+}
 }
 
 /**
@@ -399,6 +465,7 @@ function setFlashMessage($message, $type = 'info')
  *
  * @return ClaimIt\AwsService|null
  */
+if (!function_exists('getAwsService')) {
 function getAwsService()
 {
     static $awsService = null;
@@ -428,6 +495,7 @@ function getAwsService()
 
     return $awsService;
 }
+}
 
 /**
  * Check if AWS service is available without initializing it
@@ -435,6 +503,7 @@ function getAwsService()
  *
  * @return bool
  */
+if (!function_exists('isAwsServiceAvailable')) {
 function isAwsServiceAvailable()
 {
     static $available = null;
@@ -450,11 +519,13 @@ function isAwsServiceAvailable()
 
     return $available;
 }
+}
 
 /**
  * Simple in-memory cache for user settings to avoid repeated S3 calls
  * Cache expires after 5 minutes to balance performance vs data freshness
  */
+if (!function_exists('getUserSettingsCache')) {
 function getUserSettingsCache($userId, $key = null)
 {
     static $cache = [];
@@ -475,10 +546,12 @@ function getUserSettingsCache($userId, $key = null)
 
     return null;
 }
+}
 
 /**
  * Set user settings cache
  */
+if (!function_exists('setUserSettingsCache')) {
 function setUserSettingsCache($userId, $value, $key = null)
 {
     static $cache = [];
@@ -488,6 +561,7 @@ function setUserSettingsCache($userId, $value, $key = null)
     $cache[$cacheKey] = $value;
     $cacheTime[$cacheKey] = time();
 }
+}
 
 /**
  * Get all items efficiently with minimal S3 API calls
@@ -496,6 +570,7 @@ function setUserSettingsCache($userId, $value, $key = null)
  * @param bool $includeGoneItems Whether to include gone items
  * @return array Array of items
  */
+if (!function_exists('getAllItemsEfficiently')) {
 function getAllItemsEfficiently($includeGoneItems = false)
 {
     static $itemsCache = null;
@@ -625,6 +700,7 @@ function getAllItemsEfficiently($includeGoneItems = false)
     // Return all items
     return $itemsCache;
 }
+}
 
 /**
  * Generate cached presigned URL for better performance
@@ -633,6 +709,7 @@ function getAllItemsEfficiently($includeGoneItems = false)
  * @param string $imageKey S3 object key
  * @return string Presigned URL
  */
+if (!function_exists('getCachedPresignedUrl')) {
 function getCachedPresignedUrl($imageKey)
 {
     static $urlCache = [];
@@ -681,11 +758,13 @@ function getCachedPresignedUrl($imageKey)
         return '';
     }
 }
+}
 
 /**
  * Clear items cache when items are modified
  * This ensures fresh data after item updates
  */
+if (!function_exists('clearItemsCache')) {
 function clearItemsCache()
 {
     // PHP static variables can't be directly cleared from outside the function
@@ -695,11 +774,13 @@ function clearItemsCache()
 
     error_log('Items cache invalidation flag set - next request will fetch fresh data');
 }
+}
 
 /**
  * Check if items cache should be cleared
  * Called from within getAllItemsEfficiently
  */
+if (!function_exists('shouldClearItemsCache')) {
 function shouldClearItemsCache()
 {
     global $__itemsCacheCleared;
@@ -709,11 +790,13 @@ function shouldClearItemsCache()
     }
     return false;
 }
+}
 
 /**
  * Clear presigned URL cache when images are modified
  * This ensures fresh URLs after image updates
  */
+if (!function_exists('clearImageUrlCache')) {
 function clearImageUrlCache()
 {
     // PHP static variables can't be directly cleared from outside the function
@@ -723,11 +806,13 @@ function clearImageUrlCache()
 
     error_log('Image URL cache invalidation flag set - next request will generate fresh URLs');
 }
+}
 
 /**
  * Check if image URL cache should be cleared
  * Called from within getCachedPresignedUrl
  */
+if (!function_exists('shouldClearImageUrlCache')) {
 function shouldClearImageUrlCache()
 {
     global $__imageUrlCacheCleared;
@@ -737,11 +822,13 @@ function shouldClearImageUrlCache()
     }
     return false;
 }
+}
 
 /**
  * Clear all static caches for development/testing
  * This forces fresh initialization of all services
  */
+if (!function_exists('clearAllCaches')) {
 function clearAllCaches()
 {
     // Clear OPcache if available
@@ -753,11 +840,13 @@ function clearAllCaches()
     // This is a development helper function
     error_log('All caches cleared - next request will use fresh initialization');
 }
+}
 
 /**
  * Simple performance monitoring - log page load times
  * This helps track performance improvements
  */
+if (!function_exists('logPagePerformance')) {
 function logPagePerformance($pageName)
 {
     static $startTime = null;
@@ -769,17 +858,20 @@ function logPagePerformance($pageName)
         error_log("Performance: {$pageName} loaded in " . round($loadTime * 1000, 2) . "ms");
     }
 }
+}
 
 /**
  * Debug logging function - only logs when DEBUG is set to 'yes'
  *
  * @param string $message The message to log
  */
+if (!function_exists('debugLog')) {
 function debugLog($message)
 {
     if (defined('DEBUG') && DEBUG === 'yes') {
         error_log($message);
     }
+}
 }
 
 /**
@@ -788,6 +880,7 @@ function debugLog($message)
  * @param string $imageKey The S3 object key for the image
  * @return string CloudFront URL or presigned URL in development mode
  */
+if (!function_exists('getCloudFrontUrl')) {
 function getCloudFrontUrl($imageKey)
 {
     // In development mode, always use presigned URLs to bypass CloudFront cache
@@ -807,6 +900,7 @@ function getCloudFrontUrl($imageKey)
     debugLog("Using CloudFront URL for: {$imageKey} (CloudFront path: {$cloudFrontPath})");
     return 'https://' . CLOUDFRONT_DOMAIN . '/' . $cloudFrontPath;
 }
+}
 
 /**
  * Format file size in human readable format
@@ -814,6 +908,7 @@ function getCloudFrontUrl($imageKey)
  * @param int $bytes File size in bytes
  * @return string Formatted size
  */
+if (!function_exists('formatFileSize')) {
 function formatFileSize($bytes)
 {
     if ($bytes == 0) {
@@ -825,6 +920,7 @@ function formatFileSize($bytes)
 
     return sprintf('%.1f %s', $bytes / pow(1024, $factor), $units[$factor]);
 }
+}
 
 /**
  * Get file extension from filename or path
@@ -832,9 +928,11 @@ function formatFileSize($bytes)
  * @param string $filename
  * @return string File extension (lowercase)
  */
+if (!function_exists('getFileExtension')) {
 function getFileExtension($filename)
 {
     return strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+}
 }
 
 /**
@@ -843,6 +941,7 @@ function getFileExtension($filename)
  * @param string $extension File extension
  * @return string MIME type
  */
+if (!function_exists('getMimeType')) {
 function getMimeType($extension)
 {
     $mimeTypes = [
@@ -865,15 +964,18 @@ function getMimeType($extension)
 
     return $mimeTypes[$extension] ?? 'application/octet-stream';
 }
+}
 
 /**
  * Check if AWS credentials are configured
  *
  * @return bool True if credentials file exists
  */
+if (!function_exists('hasAwsCredentials')) {
 function hasAwsCredentials()
 {
     return file_exists(__DIR__ . '/../config/aws-credentials.php');
+}
 }
 
 /**
@@ -882,6 +984,7 @@ function hasAwsCredentials()
  * @param string $key S3 object key
  * @return bool True if valid
  */
+if (!function_exists('isValidS3Key')) {
 function isValidS3Key($key)
 {
     // Basic validation for S3 key names
@@ -896,12 +999,14 @@ function isValidS3Key($key)
 
     return true;
 }
+}
 
 
 
 /**
  * Simple YAML parser for our specific format
  */
+if (!function_exists('parseSimpleYaml')) {
 function parseSimpleYaml($yamlContent)
 {
     $data = [];
@@ -1091,6 +1196,7 @@ function parseSimpleYaml($yamlContent)
 
     return $data;
 }
+}
 
 /**
  * Generate Open Graph meta tags for social media previews
@@ -1099,6 +1205,7 @@ function parseSimpleYaml($yamlContent)
  * @param array $data Page-specific data (item, user, etc.)
  * @return string HTML meta tags
  */
+if (!function_exists('generateOpenGraphTags')) {
 function generateOpenGraphTags($page, $data = [])
 {
     // Detect environment and set appropriate base URL
@@ -1207,10 +1314,12 @@ function generateOpenGraphTags($page, $data = [])
 
     return $html;
 }
+}
 
 /**
  * Add current user to item's claims list
  */
+if (!function_exists('addClaimToItem')) {
 function addClaimToItem($trackingNumber)
 {
     $currentUser = getCurrentUser();
@@ -1277,10 +1386,12 @@ function addClaimToItem($trackingNumber)
 
     return $newClaim;
 }
+}
 
 /**
  * Remove a specific claim from an item (owner only)
  */
+if (!function_exists('removeClaimFromItem')) {
 function removeClaimFromItem($trackingNumber, $claimUserId)
 {
     $currentUser = getCurrentUser();
@@ -1313,10 +1424,12 @@ function removeClaimFromItem($trackingNumber, $claimUserId)
 
     return true;
 }
+}
 
 /**
  * Remove current user's own claim from an item
  */
+if (!function_exists('removeMyClaim')) {
 function removeMyClaim($trackingNumber)
 {
     $currentUser = getCurrentUser();
@@ -1344,28 +1457,34 @@ function removeMyClaim($trackingNumber)
 
     return true;
 }
+}
 
 /**
  * Get all active claims for an item in chronological order
  */
+if (!function_exists('getActiveClaims')) {
 function getActiveClaims($trackingNumber)
 {
     // Get claims from database - already uses the helper function
     return getClaimsForItem($trackingNumber);
 }
+}
 
 /**
  * Get the primary (first) active claim for an item
  */
+if (!function_exists('getPrimaryClaim')) {
 function getPrimaryClaim($trackingNumber)
 {
     $activeClaims = getActiveClaims($trackingNumber);
     return !empty($activeClaims) ? $activeClaims[0] : null;
 }
+}
 
 /**
  * Check if a user has an active claim on an item
  */
+if (!function_exists('isUserClaimed')) {
 function isUserClaimed($trackingNumber, $userId)
 {
     $activeClaims = getActiveClaims($trackingNumber);
@@ -1378,10 +1497,12 @@ function isUserClaimed($trackingNumber, $userId)
 
     return false;
 }
+}
 
 /**
  * Check if a user can claim an item
  */
+if (!function_exists('canUserClaim')) {
 function canUserClaim($trackingNumber, $userId)
 {
     // User must be logged in
@@ -1401,10 +1522,12 @@ function canUserClaim($trackingNumber, $userId)
 
     return true;
 }
+}
 
 /**
  * Get user's position in the waitlist for an item
  */
+if (!function_exists('getUserClaimPosition')) {
 function getUserClaimPosition($trackingNumber, $userId)
 {
     $activeClaims = getActiveClaims($trackingNumber);
@@ -1417,10 +1540,12 @@ function getUserClaimPosition($trackingNumber, $userId)
 
     return null; // User not in waitlist
 }
+}
 
 /**
  * Convert data array back to YAML format
  */
+if (!function_exists('convertToYaml')) {
 function convertToYaml($data)
 {
     $yaml = '';
@@ -1461,11 +1586,13 @@ function convertToYaml($data)
 
     return $yaml;
 }
+}
 
 /**
  * Get all items posted by a specific user (optimized version)
  * Uses the same efficient pattern as getAllItemsEfficiently
  */
+if (!function_exists('getUserItemsEfficiently')) {
 function getUserItemsEfficiently($userId, $includeGoneItems = false)
 {
     static $userItemsCache = [];
@@ -1590,11 +1717,13 @@ function getUserItemsEfficiently($userId, $includeGoneItems = false)
         return [];
     }
 }
+}
 
 /**
  * Get all items that a user has claimed or is on the waiting list for (optimized version)
  * Uses the same efficient pattern as getAllItemsEfficiently
  */
+if (!function_exists('getItemsClaimedByUserOptimized')) {
 function getItemsClaimedByUserOptimized($userId)
 {
     static $claimedItemsCache = [];
@@ -1701,10 +1830,12 @@ function getItemsClaimedByUserOptimized($userId)
         return [];
     }
 }
+}
 
 /**
  * Get all items that a user has claimed or is on the waiting list for
  */
+if (!function_exists('getItemsClaimedByUser')) {
 function getItemsClaimedByUser($userId)
 {
     $awsService = getAwsService();
@@ -1804,10 +1935,12 @@ function getItemsClaimedByUser($userId)
 
     return $claimedItems;
 }
+}
 
 /**
  * Get ordinal suffix for numbers (1st, 2nd, 3rd, etc.)
  */
+if (!function_exists('getOrdinalSuffix')) {
 function getOrdinalSuffix($number)
 {
     if ($number >= 11 && $number <= 13) {
@@ -1825,6 +1958,7 @@ function getOrdinalSuffix($number)
             return 'th';
     }
 }
+}
 
 /**
  * Truncate text to a specified length with ellipsis
@@ -1833,6 +1967,7 @@ function getOrdinalSuffix($number)
  * @param int $length The maximum length
  * @return string The truncated text
  */
+if (!function_exists('truncateText')) {
 function truncateText($text, $length = 100)
 {
     if (strlen($text) <= $length) {
@@ -1840,6 +1975,7 @@ function truncateText($text, $length = 100)
     }
 
     return substr($text, 0, $length) . '...';
+}
 }
 
 /**
@@ -1849,6 +1985,7 @@ function truncateText($text, $length = 100)
  * @param string $defaultName The default name to use if no custom name is set
  * @return string The display name to use
  */
+if (!function_exists('getUserDisplayName')) {
 function getUserDisplayName($userId, $defaultName = '')
 {
     try {
@@ -1870,6 +2007,7 @@ function getUserDisplayName($userId, $defaultName = '')
         return $defaultName;
     }
 }
+}
 
 /**
  * Get user's zip code from settings
@@ -1877,6 +2015,7 @@ function getUserDisplayName($userId, $defaultName = '')
  * @param string $userId The Google user ID
  * @return string The user's zip code or empty string if not set
  */
+if (!function_exists('getUserZipcode')) {
 function getUserZipcode($userId)
 {
     try {
@@ -1898,6 +2037,7 @@ function getUserZipcode($userId)
         return '';
     }
 }
+}
 
 /**
  * Get a single item by tracking number
@@ -1905,10 +2045,12 @@ function getUserZipcode($userId)
  * @param string $trackingNumber The item tracking number
  * @return array|null The item data or null if not found
  */
+if (!function_exists('getItem')) {
 function getItem($trackingNumber)
 {
     // Simple wrapper around getItemFromDb for backward compatibility
     return getItemFromDb($trackingNumber);
+}
 }
 
 /**
@@ -1922,6 +2064,7 @@ function getItem($trackingNumber)
  * @param int $quality JPEG quality (default: 85)
  * @return bool True on success, false on failure
  */
+if (!function_exists('resizeImageToFitSize')) {
 function resizeImageToFitSize($sourcePath, $targetPath, $maxSizeBytes = 512000, $maxWidth = 1200, $maxHeight = 1200, $quality = 85)
 {
     // Check if GD extension is available
@@ -2051,10 +2194,12 @@ function resizeImageToFitSize($sourcePath, $targetPath, $maxSizeBytes = 512000, 
     error_log('Could not resize image to fit within size limit');
     return false;
 }
+}
 
 /**
  * Check if the current user is an administrator
  */
+if (!function_exists('isAdmin')) {
 function isAdmin()
 {
     $currentUser = getCurrentUser();
@@ -2076,10 +2221,12 @@ function isAdmin()
 
     return false;
 }
+}
 
 /**
  * Check if the current user can edit/delete an item (either owner or admin)
  */
+if (!function_exists('canUserEditItem')) {
 function canUserEditItem($itemUserId)
 {
     $currentUser = getCurrentUser();
@@ -2090,6 +2237,7 @@ function canUserEditItem($itemUserId)
     // User can edit if they own the item OR if they are an admin
     return ($currentUser['id'] === $itemUserId) || isAdmin();
 }
+}
 
 /**
  * Rotate an image 90 degrees clockwise using GD library
@@ -2098,6 +2246,7 @@ function canUserEditItem($itemUserId)
  * @param string $contentType The MIME type of the image
  * @return string|false The rotated image content or false on failure
  */
+if (!function_exists('rotateImage90Degrees')) {
 function rotateImage90Degrees($imageContent, $contentType)
 {
     // Check if GD extension is available
@@ -2170,6 +2319,7 @@ function rotateImage90Degrees($imageContent, $contentType)
 
     return $rotatedContent;
 }
+}
 
 /**
  * Mark an item as gone
@@ -2177,6 +2327,7 @@ function rotateImage90Degrees($imageContent, $contentType)
  * @param string $trackingNumber The item tracking number
  * @return bool True on success, false on failure
  */
+if (!function_exists('markItemAsGone')) {
 function markItemAsGone($trackingNumber)
 {
     $currentUser = getCurrentUser();
@@ -2202,6 +2353,7 @@ function markItemAsGone($trackingNumber)
 
     return true;
 }
+}
 
 /**
  * Re-list an item (mark as not gone)
@@ -2209,6 +2361,7 @@ function markItemAsGone($trackingNumber)
  * @param string $trackingNumber The item tracking number
  * @return bool True on success, false on failure
  */
+if (!function_exists('relistItem')) {
 function relistItem($trackingNumber)
 {
     $currentUser = getCurrentUser();
@@ -2234,6 +2387,7 @@ function relistItem($trackingNumber)
 
     return true;
 }
+}
 
 /**
  * Check if an item is marked as gone
@@ -2241,10 +2395,12 @@ function relistItem($trackingNumber)
  * @param array $itemData The item data array
  * @return bool True if item is gone, false otherwise
  */
+if (!function_exists('isItemGone')) {
 function isItemGone($itemData)
 {
     // Handle both database boolean format and legacy YAML 'yes'/'no' format
     return isset($itemData['gone']) && ($itemData['gone'] === true || $itemData['gone'] === 1 || $itemData['gone'] === 'yes');
+}
 }
 
 /**
@@ -2253,6 +2409,7 @@ function isItemGone($itemData)
  * @param string $userId The user ID
  * @return bool True if user wants email notifications, false otherwise
  */
+if (!function_exists('getUserEmailNotifications')) {
 function getUserEmailNotifications($userId)
 {
     // Check cache first
@@ -2282,10 +2439,12 @@ function getUserEmailNotifications($userId)
         return $result;
     }
 }
+}
 
 /**
  * Get user's new listing notification preference
  */
+if (!function_exists('getUserNewListingNotifications')) {
 function getUserNewListingNotifications($userId)
 {
     // Check cache first
@@ -2315,6 +2474,7 @@ function getUserNewListingNotifications($userId)
         return $result;
     }
 }
+}
 
 /**
  * Get user setting for showing gone items
@@ -2322,6 +2482,7 @@ function getUserNewListingNotifications($userId)
  * @param string $userId The user ID
  * @return bool True if user wants to show gone items, false otherwise
  */
+if (!function_exists('getUserShowGoneItems')) {
 function getUserShowGoneItems($userId)
 {
     // Check cache first
@@ -2351,6 +2512,7 @@ function getUserShowGoneItems($userId)
         return $result;
     }
 }
+}
 
 /**
  * Save user setting for showing gone items
@@ -2359,6 +2521,7 @@ function getUserShowGoneItems($userId)
  * @param bool $showGoneItems Whether to show gone items
  * @return bool True on success, false on failure
  */
+if (!function_exists('saveUserShowGoneItems')) {
 function saveUserShowGoneItems($userId, $showGoneItems)
 {
     try {
@@ -2376,6 +2539,7 @@ function saveUserShowGoneItems($userId, $showGoneItems)
         return false;
     }
 }
+}
 
 /**
  * Get all images for a specific item
@@ -2384,6 +2548,7 @@ function saveUserShowGoneItems($userId, $showGoneItems)
  * @param string $trackingNumber The tracking number of the item
  * @return array Array of image keys (with full S3 path including 'images/' prefix) or empty array
  */
+if (!function_exists('getItemImages')) {
 function getItemImages($trackingNumber)
 {
     try {
@@ -2446,6 +2611,7 @@ function getItemImages($trackingNumber)
         return [];
     }
 }
+}
 
 /**
  * Extract image index from image key
@@ -2454,6 +2620,7 @@ function getItemImages($trackingNumber)
  * @param string $imageKey The image key (with or without 'images/' prefix)
  * @return int|null The image index or null for primary
  */
+if (!function_exists('getImageIndex')) {
 function getImageIndex($imageKey)
 {
     // Remove 'images/' prefix if present
@@ -2488,6 +2655,7 @@ function getImageIndex($imageKey)
 
     return null; // Primary image (old format without suffix)
 }
+}
 
 /**
  * Delete a specific image from S3
@@ -2498,6 +2666,7 @@ function getImageIndex($imageKey)
  * @return bool Success or failure
  * @throws Exception If trying to delete primary or last image
  */
+if (!function_exists('deleteImageFromS3')) {
 function deleteImageFromS3($trackingNumber, $imageIndex)
 {
     $awsService = getAwsService();
@@ -2543,6 +2712,7 @@ function deleteImageFromS3($trackingNumber, $imageIndex)
 
     return true;
 }
+}
 
 /**
  * Get the next available image index for an item
@@ -2550,6 +2720,7 @@ function deleteImageFromS3($trackingNumber, $imageIndex)
  * @param string $trackingNumber The tracking number
  * @return int The next available index (1, 2, 3, etc.)
  */
+if (!function_exists('getNextImageIndex')) {
 function getNextImageIndex($trackingNumber)
 {
     $images = getItemImages($trackingNumber);
@@ -2568,6 +2739,7 @@ function getNextImageIndex($trackingNumber)
 
     return $maxIndex + 1;
 }
+}
 
 // ============================================================================
 // DATABASE HELPER FUNCTIONS FOR ITEMS AND CLAIMS
@@ -2579,6 +2751,7 @@ function getNextImageIndex($trackingNumber)
  * @param bool $includeGone Whether to include items marked as gone
  * @return array Array of items with all fields
  */
+if (!function_exists('getAllItemsFromDb')) {
 function getAllItemsFromDb($includeGone = false)
 {
     $pdo = getDbConnection();
@@ -2602,6 +2775,7 @@ function getAllItemsFromDb($includeGone = false)
         return [];
     }
 }
+}
 
 /**
  * Get items by user ID from database
@@ -2610,6 +2784,7 @@ function getAllItemsFromDb($includeGone = false)
  * @param bool $includeGone Whether to include items marked as gone
  * @return array Array of items
  */
+if (!function_exists('getUserItemsFromDb')) {
 function getUserItemsFromDb($userId, $includeGone = false)
 {
     $pdo = getDbConnection();
@@ -2633,11 +2808,13 @@ function getUserItemsFromDb($userId, $includeGone = false)
         return [];
     }
 }
+}
 
 /**
  * Get all users from database
  * @return array Array of all users
  */
+if (!function_exists('getAllUsers')) {
 function getAllUsers()
 {
     $pdo = getDbConnection();
@@ -2653,6 +2830,7 @@ function getAllUsers()
         return [];
     }
 }
+}
 
 /**
  * Get stats for user's items (always includes all items, even gone ones)
@@ -2661,6 +2839,7 @@ function getAllUsers()
  * @param string $userId The user's ID
  * @return array Array with keys: total, free, for_sale, gone, with_claims
  */
+if (!function_exists('getUserItemStats')) {
 function getUserItemStats($userId)
 {
     $pdo = getDbConnection();
@@ -2714,6 +2893,7 @@ function getUserItemStats($userId)
         ];
     }
 }
+}
 
 /**
  * Get single item by tracking number from database
@@ -2721,6 +2901,7 @@ function getUserItemStats($userId)
  * @param string $trackingNumber The item tracking number
  * @return array|null Item data or null if not found
  */
+if (!function_exists('getItemFromDb')) {
 function getItemFromDb($trackingNumber)
 {
     $pdo = getDbConnection();
@@ -2739,6 +2920,7 @@ function getItemFromDb($trackingNumber)
         return null;
     }
 }
+}
 
 /**
  * Create new item in database
@@ -2746,6 +2928,7 @@ function getItemFromDb($trackingNumber)
  * @param array $itemData Item data
  * @return bool Success status
  */
+if (!function_exists('createItemInDb')) {
 function createItemInDb($itemData)
 {
     $pdo = getDbConnection();
@@ -2794,6 +2977,7 @@ function createItemInDb($itemData)
         return false;
     }
 }
+}
 
 /**
  * Update item in database
@@ -2802,6 +2986,7 @@ function createItemInDb($itemData)
  * @param array $updates Fields to update
  * @return bool Success status
  */
+if (!function_exists('updateItemInDb')) {
 function updateItemInDb($trackingNumber, $updates)
 {
     $pdo = getDbConnection();
@@ -2829,6 +3014,7 @@ function updateItemInDb($trackingNumber, $updates)
         return false;
     }
 }
+}
 
 /**
  * Get claims for an item from database
@@ -2836,6 +3022,7 @@ function updateItemInDb($trackingNumber, $updates)
  * @param string $trackingNumber The item tracking number
  * @return array Array of claims
  */
+if (!function_exists('getClaimsForItem')) {
 function getClaimsForItem($trackingNumber)
 {
     $pdo = getDbConnection();
@@ -2857,6 +3044,7 @@ function getClaimsForItem($trackingNumber)
         return [];
     }
 }
+}
 
 /**
  * Get items claimed by a user from database
@@ -2864,6 +3052,7 @@ function getClaimsForItem($trackingNumber)
  * @param string $userId The user ID
  * @return array Array of items with claim info
  */
+if (!function_exists('getClaimedItemsByUser')) {
 function getClaimedItemsByUser($userId)
 {
     $pdo = getDbConnection();
@@ -2887,6 +3076,7 @@ function getClaimedItemsByUser($userId)
         return [];
     }
 }
+}
 
 /**
  * Create claim in database
@@ -2895,6 +3085,7 @@ function getClaimedItemsByUser($userId)
  * @param array $claimData Claim data
  * @return bool Success status
  */
+if (!function_exists('createClaimInDb')) {
 function createClaimInDb($trackingNumber, $claimData)
 {
     $pdo = getDbConnection();
@@ -2927,6 +3118,7 @@ function createClaimInDb($trackingNumber, $claimData)
         return false;
     }
 }
+}
 
 /**
  * Check if user has claimed an item
@@ -2935,6 +3127,7 @@ function createClaimInDb($trackingNumber, $claimData)
  * @param string $userId The user ID
  * @return bool True if user has claimed this item
  */
+if (!function_exists('hasUserClaimedItem')) {
 function hasUserClaimedItem($trackingNumber, $userId)
 {
     $pdo = getDbConnection();
@@ -2954,4 +3147,140 @@ function hasUserClaimedItem($trackingNumber, $userId)
         error_log("Error checking claim in database: " . $e->getMessage());
         return false;
     }
+}
+}
+
+/**
+ * Get all communities
+ * @return array Array of all communities
+ */
+if (!function_exists('getAllCommunities')) {
+function getAllCommunities()
+{
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return [];
+    }
+
+    try {
+        $stmt = $pdo->query("SELECT * FROM communities ORDER BY short_name ASC");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Error getting all communities: " . $e->getMessage());
+        return [];
+    }
+}
+}
+
+/**
+ * Get a community by ID
+ * @param int $id Community ID
+ * @return array|null Community data or null if not found
+ */
+if (!function_exists('getCommunityById')) {
+function getCommunityById($id)
+{
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return null;
+    }
+
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM communities WHERE id = ?");
+        $stmt->execute([$id]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $result ?: null;
+    } catch (Exception $e) {
+        error_log("Error getting community by ID: " . $e->getMessage());
+        return null;
+    }
+}
+}
+
+/**
+ * Create a new community
+ * @param array $data Community data (short_name, full_name, description, owner_id)
+ * @return int|false The new community ID or false on failure
+ */
+if (!function_exists('createCommunity')) {
+function createCommunity($data)
+{
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return false;
+    }
+
+    try {
+        $sql = "INSERT INTO communities (short_name, full_name, description, owner_id, created_at) 
+                VALUES (?, ?, ?, ?, NOW())";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            $data['short_name'],
+            $data['full_name'],
+            $data['description'] ?? null,
+            $data['owner_id']
+        ]);
+        return (int)$pdo->lastInsertId();
+    } catch (Exception $e) {
+        error_log("Error creating community: " . $e->getMessage());
+        return false;
+    }
+}
+}
+
+/**
+ * Update a community
+ * @param int $id Community ID
+ * @param array $data Community data to update
+ * @return bool True on success, false on failure
+ */
+if (!function_exists('updateCommunity')) {
+function updateCommunity($id, $data)
+{
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return false;
+    }
+
+    try {
+        $sql = "UPDATE communities 
+                SET short_name = ?, full_name = ?, description = ?, updated_at = NOW() 
+                WHERE id = ?";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            $data['short_name'],
+            $data['full_name'],
+            $data['description'] ?? null,
+            $id
+        ]);
+        return true;
+    } catch (Exception $e) {
+        error_log("Error updating community: " . $e->getMessage());
+        return false;
+    }
+}
+}
+
+/**
+ * Delete a community
+ * @param int $id Community ID
+ * @return bool True on success, false on failure
+ */
+if (!function_exists('deleteCommunity')) {
+function deleteCommunity($id)
+{
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return false;
+    }
+
+    try {
+        $stmt = $pdo->prepare("DELETE FROM communities WHERE id = ?");
+        $stmt->execute([$id]);
+        return true;
+    } catch (Exception $e) {
+        error_log("Error deleting community: " . $e->getMessage());
+        return false;
+    }
+}
 }

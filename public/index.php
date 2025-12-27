@@ -1065,6 +1065,110 @@ if (isset($_GET['page']) && $_GET['page'] === 'admin' && isset($_GET['action']))
     exit;
 }
 
+// Handle communities AJAX requests before any HTML output
+if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['action']) || (isset($_POST['action']) && $_SERVER['REQUEST_METHOD'] === 'POST'))) {
+    header('Content-Type: application/json');
+
+    // Check authentication and authorization
+    if (!isLoggedIn()) {
+        echo json_encode(['success' => false, 'message' => 'Authentication required']);
+        exit;
+    }
+
+    if (!isAdmin()) {
+        echo json_encode(['success' => false, 'message' => 'Administrator privileges required']);
+        exit;
+    }
+
+    $currentUser = getCurrentUser();
+    if (!$currentUser) {
+        echo json_encode(['success' => false, 'message' => 'User information not available']);
+        exit;
+    }
+
+    // Handle GET request for single community
+    if (isset($_GET['action']) && $_GET['action'] === 'get' && isset($_GET['id'])) {
+        $community = getCommunityById((int)$_GET['id']);
+        if ($community) {
+            echo json_encode(['success' => true, 'community' => $community]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Community not found']);
+        }
+        exit;
+    }
+
+    // Handle POST requests (create, update, delete)
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+        $action = $_POST['action'];
+
+        try {
+            switch ($action) {
+                case 'create':
+                    if (empty($_POST['short_name']) || empty($_POST['full_name']) || empty($_POST['owner_id'])) {
+                        echo json_encode(['success' => false, 'message' => 'Missing required fields']);
+                        exit;
+                    }
+
+                    $data = [
+                        'short_name' => trim($_POST['short_name']),
+                        'full_name' => trim($_POST['full_name']),
+                        'description' => trim($_POST['description'] ?? ''),
+                        'owner_id' => trim($_POST['owner_id'])
+                    ];
+
+                    $newId = createCommunity($data);
+                    if ($newId) {
+                        echo json_encode(['success' => true, 'message' => 'Community created successfully', 'id' => $newId]);
+                    } else {
+                        echo json_encode(['success' => false, 'message' => 'Failed to create community']);
+                    }
+                    break;
+
+                case 'update':
+                    if (empty($_POST['id']) || empty($_POST['short_name']) || empty($_POST['full_name'])) {
+                        echo json_encode(['success' => false, 'message' => 'Missing required fields']);
+                        exit;
+                    }
+
+                    $data = [
+                        'short_name' => trim($_POST['short_name']),
+                        'full_name' => trim($_POST['full_name']),
+                        'description' => trim($_POST['description'] ?? '')
+                    ];
+
+                    $success = updateCommunity((int)$_POST['id'], $data);
+                    if ($success) {
+                        echo json_encode(['success' => true, 'message' => 'Community updated successfully']);
+                    } else {
+                        echo json_encode(['success' => false, 'message' => 'Failed to update community']);
+                    }
+                    break;
+
+                case 'delete':
+                    if (empty($_POST['id'])) {
+                        echo json_encode(['success' => false, 'message' => 'Community ID required']);
+                        exit;
+                    }
+
+                    $success = deleteCommunity((int)$_POST['id']);
+                    if ($success) {
+                        echo json_encode(['success' => true, 'message' => 'Community deleted successfully']);
+                    } else {
+                        echo json_encode(['success' => false, 'message' => 'Failed to delete community']);
+                    }
+                    break;
+
+                default:
+                    echo json_encode(['success' => false, 'message' => 'Invalid action']);
+            }
+        } catch (Exception $e) {
+            error_log("Communities error: " . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+        }
+        exit;
+    }
+}
+
 // Handle authentication routes before any HTML output
 if (isset($_GET['page']) && $_GET['page'] === 'auth' && isset($_GET['action'])) {
     $action = $_GET['action'];
@@ -1135,7 +1239,7 @@ $page = $_GET['page'] ?? 'home';
 $page = preg_replace('/[^a-zA-Z0-9\-]/', '', $page);
 
 // Define available pages
-$availablePages = ['home', 'about', 'contact', 'claim', 'items', 'item', 'login', 'user-listings', 'settings', 'admin', 'changelog'];
+$availablePages = ['home', 'about', 'contact', 'claim', 'items', 'item', 'login', 'user-listings', 'settings', 'admin', 'changelog', 'communities'];
 
 if (!in_array($page, $availablePages)) {
     $page = 'home';

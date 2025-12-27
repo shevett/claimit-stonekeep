@@ -49,6 +49,19 @@ $flashMessage = showFlashMessage();
                     <p>Administrative tools and system configuration options</p>
                 </div>
 
+                <div class="admin-section">
+                    <h3>Management</h3>
+                    <div class="admin-links">
+                        <a href="?page=communities" class="admin-link">
+                            <span class="link-icon">🏘️</span>
+                            <span class="link-content">
+                                <strong>Community Management</strong>
+                                <small>Create and manage communities</small>
+                            </span>
+                        </a>
+                    </div>
+                </div>
+
                 <form id="adminForm" class="admin-form">
                     <div class="form-group">
                         <label class="checkbox-label">
@@ -257,6 +270,65 @@ $flashMessage = showFlashMessage();
 
 .admin-form {
     padding: 2rem;
+}
+
+.admin-section {
+    padding: 0 2rem 1.5rem 2rem;
+    border-bottom: 1px solid #f1f3f4;
+}
+
+.admin-section:last-child {
+    border-bottom: none;
+}
+
+.admin-section h3 {
+    margin: 0 0 1rem 0;
+    color: #333;
+    font-size: 1.1rem;
+}
+
+.admin-links {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.admin-link {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    border: 1px solid #e9ecef;
+}
+
+.admin-link:hover {
+    background: #e9ecef;
+    transform: translateX(4px);
+}
+
+.link-icon {
+    font-size: 2rem;
+    line-height: 1;
+}
+
+.link-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.link-content strong {
+    color: #007bff;
+    font-size: 1rem;
+}
+
+.link-content small {
+    color: #666;
+    font-size: 0.875rem;
 }
 
 .form-group {
