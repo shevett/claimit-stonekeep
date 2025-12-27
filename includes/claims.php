@@ -55,7 +55,7 @@ function addClaimToItem($trackingNumber)
 
                 // Prepare item data for email
                 $itemForEmail = [
-                    'tracking_number' => $trackingNumber,
+                    'id' => $trackingNumber,
                     'title' => $data['title'] ?? 'Untitled Item',
                     'description' => $data['description'] ?? '',
                     'type' => $data['type'] ?? 'Unknown',
@@ -101,7 +101,7 @@ function removeClaimFromItem($trackingNumber, $claimUserId)
     $stmt = $pdo->prepare("
         UPDATE claims 
         SET status = 'removed', updated_at = ?
-        WHERE item_tracking_number = ? AND user_id = ? AND status = 'active'
+        WHERE item_id = ? AND user_id = ? AND status = 'active'
     ");
 
     $stmt->execute([date('Y-m-d H:i:s'), $trackingNumber, $claimUserId]);
@@ -134,7 +134,7 @@ function removeMyClaim($trackingNumber)
     $stmt = $pdo->prepare("
         UPDATE claims 
         SET status = 'removed', updated_at = ?
-        WHERE item_tracking_number = ? AND user_id = ? AND status = 'active'
+        WHERE item_id = ? AND user_id = ? AND status = 'active'
     ");
 
     $stmt->execute([date('Y-m-d H:i:s'), $trackingNumber, $currentUser['id']]);
@@ -259,11 +259,11 @@ function getItemsClaimedByUserOptimized($userId)
         debugLog("Loaded " . count($dbItems) . " claimed items for user {$userId} from database");
 
         // Get all claims for these items  to determine position
-        $trackingNumbers = array_column($dbItems, 'tracking_number');
+        $trackingNumbers = array_column($dbItems, 'id');
         if (!empty($trackingNumbers)) {
             $pdo = getDbConnection();
             $placeholders = implode(',', array_fill(0, count($trackingNumbers), '?'));
-            $stmt = $pdo->prepare("SELECT * FROM claims WHERE item_tracking_number IN ($placeholders) AND status = 'active' ORDER BY claimed_at ASC");
+            $stmt = $pdo->prepare("SELECT * FROM claims WHERE item_id IN ($placeholders) AND status = 'active' ORDER BY claimed_at ASC");
             $stmt->execute($trackingNumbers);
             $allClaims = $stmt->fetchAll(PDO::FETCH_ASSOC);
         } else {
@@ -273,7 +273,7 @@ function getItemsClaimedByUserOptimized($userId)
         // Group claims by item
         $claimsByItem = [];
         foreach ($allClaims as $claim) {
-            $trackingNumber = $claim['item_tracking_number'];
+            $trackingNumber = $claim['item_id'];
             if (!isset($claimsByItem[$trackingNumber])) {
                 $claimsByItem[$trackingNumber] = [];
             }
@@ -284,7 +284,7 @@ function getItemsClaimedByUserOptimized($userId)
         $claimedItems = [];
 
         foreach ($dbItems as $dbItem) {
-            $trackingNumber = $dbItem['tracking_number'];
+            $trackingNumber = $dbItem['id'];
 
             // Get image key and URL
             $imageKey = $dbItem['image_file'];
@@ -307,7 +307,7 @@ function getItemsClaimedByUserOptimized($userId)
             }
 
             $claimedItems[] = [
-                'tracking_number' => $trackingNumber,
+                'id' => $trackingNumber,
                 'title' => $dbItem['title'],
                 'description' => $dbItem['description'],
                 'price' => $dbItem['price'],
@@ -360,7 +360,7 @@ function getClaimsForItem($trackingNumber)
     try {
         $stmt = $pdo->prepare("
             SELECT * FROM claims 
-            WHERE item_tracking_number = ? AND status = 'active'
+            WHERE item_id = ? AND status = 'active'
             ORDER BY claimed_at ASC
         ");
         $stmt->execute([$trackingNumber]);
@@ -391,7 +391,7 @@ function getClaimedItemsByUser($userId)
         $stmt = $pdo->prepare("
             SELECT i.*, c.claimed_at, c.status as claim_status, c.id as claim_id
             FROM items i
-            INNER JOIN claims c ON i.tracking_number = c.item_tracking_number
+            INNER JOIN claims c ON i.id = c.item_id
             WHERE c.user_id = ?
             ORDER BY c.claimed_at DESC
         ");
@@ -425,7 +425,7 @@ function createClaimInDb($trackingNumber, $claimData)
 
         $stmt = $pdo->prepare("
             INSERT INTO claims (
-                item_tracking_number, user_id, user_name, user_email,
+                item_id, user_id, user_name, user_email,
                 claimed_at, status, created_at, updated_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ");
@@ -465,7 +465,7 @@ function hasUserClaimedItem($trackingNumber, $userId)
     try {
         $stmt = $pdo->prepare("
             SELECT COUNT(*) FROM claims 
-            WHERE item_tracking_number = ? AND user_id = ? AND status = 'active'
+            WHERE item_id = ? AND user_id = ? AND status = 'active'
         ");
         $stmt->execute([$trackingNumber, $userId]);
 

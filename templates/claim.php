@@ -134,7 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Create item data for database
             $itemData = [
-                'tracking_number' => $trackingNumber,
+                'id' => $trackingNumber,
                 'title' => $title,
                 'description' => $description,
                 'price' => floatval($amount),
@@ -163,7 +163,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($emailService) {
                     // Prepare item data for email
                     $itemForEmail = [
-                        'tracking_number' => $trackingNumber,
+                        'id' => $trackingNumber,
                         'title' => $title,
                         'description' => $description,
                         'price' => floatval($amount),

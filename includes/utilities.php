@@ -383,7 +383,7 @@ function generateOpenGraphTags($page, $data = [])
                 $metaTags['title'] = $item['title'] ?? 'Item on ClaimIt';
                 $metaTags['description'] = $item['description'] ?? $defaultDescription;
                 $metaTags['type'] = 'website';
-                $metaTags['url'] = $baseUrl . '?page=item&id=' . urlencode($item['tracking_number']);
+                $metaTags['url'] = $baseUrl . '?page=item&id=' . urlencode($item['id']);
 
                 // Add image if available
                 if (isset($item['image_key']) && $item['image_key']) {

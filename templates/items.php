@@ -235,7 +235,7 @@ function addClaimToItem(trackingNumber) {
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: `action=add_claim&tracking_number=${encodeURIComponent(trackingNumber)}`
+        body: `action=add_claim&id=${encodeURIComponent(trackingNumber)}`
     })
     .then(response => response.json())
     .then(data => {
@@ -281,7 +281,7 @@ function removeMyClaim(trackingNumber) {
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: `action=remove_claim&tracking_number=${encodeURIComponent(trackingNumber)}`
+        body: `action=remove_claim&id=${encodeURIComponent(trackingNumber)}`
     })
     .then(response => response.json())
     .then(data => {
@@ -389,7 +389,7 @@ function confirmDelete() {
     // Create form data
     const formData = new FormData();
     formData.append('action', 'delete_item');
-    formData.append('tracking_number', trackingNumber);
+    formData.append('id', trackingNumber);
     
     // Send AJAX request
     fetch(window.location.href, {

@@ -51,7 +51,7 @@ function getAllItemsEfficiently($includeGoneItems = false)
             // Group claims by item
             $claimsByItem = [];
             foreach ($allClaims as $claim) {
-                $trackingNumber = $claim['item_tracking_number'];
+                $trackingNumber = $claim['item_id'];
                 if (!isset($claimsByItem[$trackingNumber])) {
                     $claimsByItem[$trackingNumber] = [];
                 }
@@ -65,7 +65,7 @@ function getAllItemsEfficiently($includeGoneItems = false)
             $currentUser = getCurrentUser();
 
             foreach ($dbItems as $dbItem) {
-                $trackingNumber = $dbItem['tracking_number'];
+                $trackingNumber = $dbItem['id'];
 
                 // Get image key and URL
                 $imageKey = $dbItem['image_file'];
@@ -96,7 +96,7 @@ function getAllItemsEfficiently($includeGoneItems = false)
                 }
 
                 $items[] = [
-                    'tracking_number' => $trackingNumber,
+                    'id' => $trackingNumber,
                     'title' => $dbItem['title'],
                     'description' => $dbItem['description'],
                     'price' => $dbItem['price'],
@@ -205,11 +205,11 @@ function getUserItemsEfficiently($userId, $includeGoneItems = false)
         debugLog("Loaded " . count($dbItems) . " items for user {$userId} from database");
 
         // Get all claims for these items
-        $trackingNumbers = array_column($dbItems, 'tracking_number');
+        $trackingNumbers = array_column($dbItems, 'id');
         if (!empty($trackingNumbers)) {
             $pdo = getDbConnection();
             $placeholders = implode(',', array_fill(0, count($trackingNumbers), '?'));
-            $stmt = $pdo->prepare("SELECT * FROM claims WHERE item_tracking_number IN ($placeholders) AND status = 'active' ORDER BY claimed_at ASC");
+            $stmt = $pdo->prepare("SELECT * FROM claims WHERE item_id IN ($placeholders) AND status = 'active' ORDER BY claimed_at ASC");
             $stmt->execute($trackingNumbers);
             $allClaims = $stmt->fetchAll(PDO::FETCH_ASSOC);
         } else {
@@ -219,7 +219,7 @@ function getUserItemsEfficiently($userId, $includeGoneItems = false)
         // Group claims by item
         $claimsByItem = [];
         foreach ($allClaims as $claim) {
-            $trackingNumber = $claim['item_tracking_number'];
+            $trackingNumber = $claim['item_id'];
             if (!isset($claimsByItem[$trackingNumber])) {
                 $claimsByItem[$trackingNumber] = [];
             }
@@ -231,7 +231,7 @@ function getUserItemsEfficiently($userId, $includeGoneItems = false)
         $currentUser = getCurrentUser();
 
         foreach ($dbItems as $dbItem) {
-            $trackingNumber = $dbItem['tracking_number'];
+            $trackingNumber = $dbItem['id'];
 
             // Get image key and URL
             $imageKey = $dbItem['image_file'];
@@ -262,7 +262,7 @@ function getUserItemsEfficiently($userId, $includeGoneItems = false)
             }
 
             $items[] = [
-                'tracking_number' => $trackingNumber,
+                'id' => $trackingNumber,
                 'title' => $dbItem['title'],
                 'description' => $dbItem['description'],
                 'price' => $dbItem['price'],
@@ -482,7 +482,7 @@ function getItemFromDb($trackingNumber)
     }
 
     try {
-        $stmt = $pdo->prepare("SELECT * FROM items WHERE tracking_number = ?");
+        $stmt = $pdo->prepare("SELECT * FROM items WHERE id = ?");
         $stmt->execute([$trackingNumber]);
 
         $item = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -513,7 +513,7 @@ function createItemInDb($itemData)
 
         $stmt = $pdo->prepare("
             INSERT INTO items (
-                tracking_number, title, description, price, contact_email,
+                id, title, description, price, contact_email,
                 image_file, image_width, image_height,
                 user_id, user_name, user_email,
                 submitted_at, submitted_timestamp,
@@ -523,7 +523,7 @@ function createItemInDb($itemData)
         ");
 
         return $stmt->execute([
-            $itemData['tracking_number'],
+            $itemData['id'],
             $itemData['title'],
             $itemData['description'],
             $itemData['price'] ?? 0,
@@ -577,7 +577,7 @@ function updateItemInDb($trackingNumber, $updates)
         }
         $values[] = $trackingNumber;
 
-        $sql = "UPDATE items SET " . implode(', ', $fields) . " WHERE tracking_number = ?";
+        $sql = "UPDATE items SET " . implode(', ', $fields) . " WHERE id = ?";
         $stmt = $pdo->prepare($sql);
 
         return $stmt->execute($values);

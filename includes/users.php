@@ -202,10 +202,10 @@ function getUserItemStats($userId)
 
         // Get count of items with active claims
         $claimsSql = "
-            SELECT COUNT(DISTINCT item_tracking_number) as with_claims
+            SELECT COUNT(DISTINCT item_id) as with_claims
             FROM claims
-            WHERE item_tracking_number IN (
-                SELECT tracking_number FROM items WHERE user_id = ?
+            WHERE item_id IN (
+                SELECT id FROM items WHERE user_id = ?
             )
             AND status = 'active'
         ";

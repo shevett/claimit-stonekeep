@@ -454,7 +454,7 @@ style.textContent = `
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: `tracking_number=${encodeURIComponent(trackingNumber)}&title=${encodeURIComponent(title)}&description=${encodeURIComponent(description)}`
+            body: `id=${encodeURIComponent(trackingNumber)}&title=${encodeURIComponent(title)}&description=${encodeURIComponent(description)}`
         })
         .then(response => response.json())
         .then(data => {
@@ -531,7 +531,7 @@ style.textContent = `
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: `action = mark_gone & tracking_number = ${encodeURIComponent(trackingNumber)}`
+            body: `action = mark_gone & id = ${encodeURIComponent(trackingNumber)}`
         })
         .then(response => response.json())
         .then(data => {
@@ -576,7 +576,7 @@ style.textContent = `
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: `action = relist_item & tracking_number = ${encodeURIComponent(trackingNumber)}`
+            body: `action = relist_item & id = ${encodeURIComponent(trackingNumber)}`
         })
         .then(response => response.json())
         .then(data => {

@@ -37,7 +37,7 @@ $imageUrl = $item['image_url'] ?? null;
 ?>
 
 <div class="item-card">
-    <a href="?page=item&id=<?php echo escape($item['tracking_number']); ?>" class="item-link">
+    <a href="?page=item&id=<?php echo escape($item['id']); ?>" class="item-link">
         <div class="item-image-container">
             <?php if ($imageUrl) : ?>
                 <img src="<?php echo escape($imageUrl); ?>" 
@@ -102,12 +102,12 @@ $imageUrl = $item['image_url'] ?? null;
         <!-- Action buttons for listing/home context -->
         <div class="item-actions">
             <?php if ($isUserClaimed) : ?>
-                <button onclick="removeMyClaim('<?php echo escape($item['tracking_number']); ?>')"
+                <button onclick="removeMyClaim('<?php echo escape($item['id']); ?>')"
                         class="btn btn-warning">
                     🚫 Remove Claim
                 </button>
             <?php elseif ($canUserClaim) : ?>
-                <button onclick="addClaimToItem('<?php echo escape($item['tracking_number']); ?>')"
+                <button onclick="addClaimToItem('<?php echo escape($item['id']); ?>')"
                         class="btn btn-primary">
                     🎯 Claim
                 </button>
@@ -118,7 +118,7 @@ $imageUrl = $item['image_url'] ?? null;
             <?php endif; ?>
 
             <?php if (!$isOwnItem) : ?>
-                <a href="mailto:<?php echo escape($item['contact_email']); ?>?subject=<?php echo rawurlencode('ClaimIt Interest - ' . $item['title']); ?>&body=<?php echo rawurlencode("Hi! I'm interested in your item: " . $item['title'] . "\n\nView the item here: " . (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . '?page=item&id=' . $item['tracking_number']); ?>"
+                <a href="mailto:<?php echo escape($item['contact_email']); ?>?subject=<?php echo rawurlencode('ClaimIt Interest - ' . $item['title']); ?>&body=<?php echo rawurlencode("Hi! I'm interested in your item: " . $item['title'] . "\n\nView the item here: " . (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . '?page=item&id=' . $item['id']); ?>"
                    class="btn btn-secondary">
                     📧 Contact
                 </a>
@@ -127,25 +127,25 @@ $imageUrl = $item['image_url'] ?? null;
             <?php if ($canEditItem) : ?>
                 <button onclick="openEditModalFromButton(this)"
                         class="btn btn-primary"
-                        data-tracking="<?php echo htmlspecialchars($item['tracking_number'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-tracking="<?php echo htmlspecialchars($item['id'], ENT_QUOTES, 'UTF-8'); ?>"
                         data-title="<?php echo htmlspecialchars($item['title'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
                         data-description="<?php echo htmlspecialchars($item['description'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
                     ✏️ Edit
                 </button>
 
                 <?php if ($isItemGone) : ?>
-                    <button onclick="relistItem('<?php echo escape($item['tracking_number']); ?>')"
+                    <button onclick="relistItem('<?php echo escape($item['id']); ?>')"
                             class="btn btn-success">
                         🔄 Re-list
                     </button>
                 <?php else : ?>
-                    <button onclick="markItemGone('<?php echo escape($item['tracking_number']); ?>')"
+                    <button onclick="markItemGone('<?php echo escape($item['id']); ?>')"
                             class="btn btn-warning">
                         ✅ Gone!
                     </button>
                 <?php endif; ?>
 
-                <button onclick="deleteItem('<?php echo escape($item['tracking_number']); ?>')"
+                <button onclick="deleteItem('<?php echo escape($item['id']); ?>')"
                         class="btn btn-danger">
                     🗑️ Delete
                 </button>
@@ -154,32 +154,32 @@ $imageUrl = $item['image_url'] ?? null;
     <?php elseif ($context === 'dashboard' && ($isOwnListings || isAdmin())) : ?>
         <!-- Action buttons for dashboard context (own listings or admin view) -->
         <div class="item-actions">
-            <a href="?page=item&id=<?php echo escape($item['tracking_number']); ?>" 
+            <a href="?page=item&id=<?php echo escape($item['id']); ?>" 
                class="btn btn-secondary">
                 👁️ View
             </a>
             <?php if ($canEditItem) : ?>
                 <button onclick="openEditModalFromButton(this)"
                         class="btn btn-primary"
-                        data-tracking="<?php echo htmlspecialchars($item['tracking_number'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-tracking="<?php echo htmlspecialchars($item['id'], ENT_QUOTES, 'UTF-8'); ?>"
                         data-title="<?php echo htmlspecialchars($item['title'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
                         data-description="<?php echo htmlspecialchars($item['description'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
                     ✏️ Edit
                 </button>
 
                 <?php if ($isItemGone) : ?>
-                    <button onclick="relistItem('<?php echo escape($item['tracking_number']); ?>')"
+                    <button onclick="relistItem('<?php echo escape($item['id']); ?>')"
                             class="btn btn-success">
                         🔄 Re-list
                     </button>
                 <?php else : ?>
-                    <button onclick="markItemGone('<?php echo escape($item['tracking_number']); ?>')"
+                    <button onclick="markItemGone('<?php echo escape($item['id']); ?>')"
                             class="btn btn-warning">
                         ✅ Gone!
                     </button>
                 <?php endif; ?>
 
-                <button onclick="deleteItem('<?php echo escape($item['tracking_number']); ?>')"
+                <button onclick="deleteItem('<?php echo escape($item['id']); ?>')"
                         class="btn btn-danger">
                     🗑️ Delete
                 </button>
@@ -207,7 +207,7 @@ $imageUrl = $item['image_url'] ?? null;
                     <span class="claim-status waitlist">Waitlist #<?php echo $claimPosition; ?></span>
                 <?php endif; ?>
 
-                <button onclick="removeMyClaim('<?php echo escape($item['tracking_number']); ?>')"
+                <button onclick="removeMyClaim('<?php echo escape($item['id']); ?>')"
                         class="btn btn-warning">
                     🚫 Remove
                 </button>

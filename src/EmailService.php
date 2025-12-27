@@ -65,7 +65,7 @@ class EmailService
             );
 
             if ($result) {
-                error_log("Email sent successfully to {$itemOwner['email']} for claimed item {$claimedItem['tracking_number']}");
+                error_log("Email sent successfully to {$itemOwner['email']} for claimed item {$claimedItem['id']}");
             }
 
             return $result;
@@ -441,7 +441,7 @@ class EmailService
      */
     private function generateItemClaimedHtml(array $item, array $claimer): string
     {
-        $itemUrl = $this->getItemUrl($item['tracking_number']);
+        $itemUrl = $this->getItemUrl($item['id']);
         $itemImage = $this->getItemImageUrl($item);
 
         return "
@@ -499,7 +499,7 @@ class EmailService
      */
     private function generateItemClaimedText(array $item, array $claimer): string
     {
-        $itemUrl = $this->getItemUrl($item['tracking_number']);
+        $itemUrl = $this->getItemUrl($item['id']);
 
         return "
 Your item has been claimed!
@@ -702,7 +702,7 @@ This test email was sent from ClaimIt Email Service
     private function generateNewListingHtml(array $newItem, array $itemOwner, array $recipient): string
     {
         $siteUrl = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'claimit.stonekeep.com');
-        $itemUrl = $siteUrl . '/?page=item&id=' . $newItem['tracking_number'];
+        $itemUrl = $siteUrl . '/?page=item&id=' . $newItem['id'];
         $imageUrl = !empty($newItem['image_key']) ? getCloudFrontUrl($newItem['image_key']) : null;
 
         $html = "
@@ -748,7 +748,7 @@ This test email was sent from ClaimIt Email Service
                         <div class='item-meta'>
                             <strong>Posted by:</strong> {$itemOwner['name']}<br>
                             <strong>Price:</strong> $" . number_format($newItem['price'], 2) . "<br>
-                            <strong>Tracking #:</strong> {$newItem['tracking_number']}
+                            <strong>Tracking #:</strong> {$newItem['id']}
                         </div>";
 
         if ($imageUrl) {
@@ -779,7 +779,7 @@ This test email was sent from ClaimIt Email Service
     private function generateNewListingText(array $newItem, array $itemOwner, array $recipient): string
     {
         $siteUrl = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'claimit.stonekeep.com');
-        $itemUrl = $siteUrl . '/?page=item&id=' . $newItem['tracking_number'];
+        $itemUrl = $siteUrl . '/?page=item&id=' . $newItem['id'];
 
         return "New Item on ClaimIt!
 
@@ -793,7 +793,7 @@ A new item has been posted on ClaimIt that you might be interested in:
 
 Posted by: {$itemOwner['name']}
 Price: $" . number_format($newItem['price'], 2) . "
-Tracking #: {$newItem['tracking_number']}
+Tracking #: {$newItem['id']}
 
 View this item: {$itemUrl}
 

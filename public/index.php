@@ -163,7 +163,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['query
         $sql = "SELECT * FROM items WHERE (
                     title LIKE ? OR 
                     description LIKE ? OR 
-                    tracking_number LIKE ? OR
+                    id LIKE ? OR
                     user_name LIKE ? OR
                     contact_email LIKE ?
                 )";
@@ -206,10 +206,10 @@ if (isset($_GET['action']) && $_GET['action'] === 'search' && isset($_GET['query
 }
 
 // Handle AJAX delete requests before any HTML output
-if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['tracking_number'])) {
+if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['id'])) {
     header('Content-Type: application/json');
 
-    $trackingNumber = $_POST['tracking_number'];
+    $trackingNumber = $_POST['id'];
 
     if (!preg_match('/^\d{14}$/', $trackingNumber)) {
         echo json_encode(['success' => false, 'message' => 'Invalid tracking number']);
@@ -276,10 +276,10 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['tr
 }
 
 // Handle AJAX claim requests before any HTML output
-if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_claim', 'remove_claim_by_owner', 'delete_item', 'edit_item', 'rotate_image', 'mark_gone', 'relist_item', 'upload_additional_image', 'delete_image']) && isset($_POST['tracking_number'])) {
+if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_claim', 'remove_claim_by_owner', 'delete_item', 'edit_item', 'rotate_image', 'mark_gone', 'relist_item', 'upload_additional_image', 'delete_image']) && isset($_POST['id'])) {
     header('Content-Type: application/json');
 
-    $trackingNumber = $_POST['tracking_number'];
+    $trackingNumber = $_POST['id'];
     $action = $_POST['action'];
 
     // Support both old format (YmdHis) and new format (YmdHis-xxxx)
@@ -655,12 +655,12 @@ if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) 
         exit;
     }
 
-    if (!isset($_POST['tracking_number'])) {
+    if (!isset($_POST['id'])) {
         echo json_encode(['success' => false, 'message' => 'Tracking number required']);
         exit;
     }
 
-    $trackingNumber = $_POST['tracking_number'];
+    $trackingNumber = $_POST['id'];
     $action = $_GET['action'];
 
     // Support both old format (YmdHis) and new format (YmdHis-xxxx)
@@ -1295,7 +1295,7 @@ if ($page === 'item' && isset($_GET['id'])) {
             $imageKey = $dbItem['image_file'];
 
             $ogData['item'] = [
-                'tracking_number' => $trackingNumber,
+                'id' => $trackingNumber,
                 'title' => 'Item #' . $trackingNumber . ' - ' . $title,
                 'description' => $description . ($price > 0 ? ' - $' . $price : ' - Free'),
                 'image_key' => $imageKey
@@ -1303,7 +1303,7 @@ if ($page === 'item' && isset($_GET['id'])) {
         } else {
             // Fallback if item not found
             $ogData['item'] = [
-                'tracking_number' => $trackingNumber,
+                'id' => $trackingNumber,
                 'title' => 'Item #' . $trackingNumber . ' - View on ClaimIt',
                 'description' => 'View this item on ClaimIt',
                 'image_key' => null
@@ -1312,7 +1312,7 @@ if ($page === 'item' && isset($_GET['id'])) {
     } catch (Exception $e) {
         // Fallback on any error
         $ogData['item'] = [
-            'tracking_number' => $trackingNumber,
+            'id' => $trackingNumber,
             'title' => 'Item #' . $trackingNumber . ' - View on ClaimIt',
             'description' => 'View this item on ClaimIt',
             'image_key' => null
@@ -1539,7 +1539,7 @@ $performanceData = [
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: `tracking_number=${encodeURIComponent(trackingNumber)}`
+            body: `id=${encodeURIComponent(trackingNumber)}`
         })
         .then(response => response.json())
         .then(data => {
@@ -1577,7 +1577,7 @@ $performanceData = [
         button.textContent = 'Removing...';
         
         const url = '?page=claim&action=remove_claim';
-        const body = `tracking_number=${encodeURIComponent(trackingNumber)}`;
+        const body = `id=${encodeURIComponent(trackingNumber)}`;
         
         console.log('Making fetch request to:', url);
         console.log('Request body:', body);
@@ -1633,7 +1633,7 @@ $performanceData = [
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: `tracking_number=${encodeURIComponent(trackingNumber)}`
+            body: `id=${encodeURIComponent(trackingNumber)}`
         })
         .then(response => response.json())
         .then(data => {
@@ -1803,7 +1803,7 @@ $performanceData = [
                 'https://dpwmq6brmwcyc.cloudfront.net/' + item.image_file.replace('images/', '') :
                 '/assets/images/placeholder.jpg';
             
-            const itemUrl = '/?page=item&id=' + encodeURIComponent(item.tracking_number);
+            const itemUrl = '/?page=item&id=' + encodeURIComponent(item.id);
             const statusClass = item.status === 'gone' ? 'status-gone' : '';
             const statusBadge = item.status === 'gone' ? '<span class="gone-badge">GONE</span>' : '';
             

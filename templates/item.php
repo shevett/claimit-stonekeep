@@ -23,7 +23,7 @@ try {
 
     if ($dbItem) {
         $item = [
-            'tracking_number' => $dbItem['tracking_number'],
+            'id' => $dbItem['id'],
             'title' => $dbItem['title'],
             'description' => $dbItem['description'],
             'price' => $dbItem['price'],
@@ -66,7 +66,7 @@ $flashMessage = showFlashMessage();
         <div class="header-with-back">
             <a href="?page=items" class="back-link">← Back to All Items</a>
             <h1><?php echo escape($item['title']); ?></h1>
-            <p class="page-subtitle">Item #<?php echo escape($item['tracking_number']); ?></p>
+            <p class="page-subtitle">Item #<?php echo escape($item['id']); ?></p>
         </div>
     </div>
 </div>
@@ -83,12 +83,12 @@ $flashMessage = showFlashMessage();
             <div class="item-detail-image">
                 <?php
                 // Get all images for this item
-                $allImages = getItemImages($item['tracking_number']);
+                $allImages = getItemImages($item['id']);
                 $currentImageKey = !empty($allImages) ? $allImages[0] : $item['image_key'];
 
                 // Initialize common variables needed throughout the template
                 $currentUser = getCurrentUser();
-                $isOwnItem = currentUserOwnsItem($item['tracking_number']);
+                $isOwnItem = currentUserOwnsItem($item['id']);
                 $isItemGone = isItemGone($item);
                 ?>
                 
@@ -147,11 +147,11 @@ $flashMessage = showFlashMessage();
                                      class="image-thumbnail <?php echo $isPrimary ? 'active' : ''; ?>">
                                 <?php if ($isOwnItem) : ?>
                                     <div class="thumbnail-controls">
-                                        <button onclick="event.stopPropagation(); rotateImage('<?php echo escape($item['tracking_number']); ?>', <?php echo $imageIndex === null ? 'null' : $imageIndex; ?>)" 
+                                        <button onclick="event.stopPropagation(); rotateImage('<?php echo escape($item['id']); ?>', <?php echo $imageIndex === null ? 'null' : $imageIndex; ?>)" 
                                                 class="thumb-btn thumb-rotate" 
                                                 title="Rotate">↻</button>
                                         <?php if (!$isPrimary) : ?>
-                                            <button onclick="event.stopPropagation(); deleteImage('<?php echo escape($item['tracking_number']); ?>', <?php echo $imageIndex; ?>)" 
+                                            <button onclick="event.stopPropagation(); deleteImage('<?php echo escape($item['id']); ?>', <?php echo $imageIndex; ?>)" 
                                                     class="thumb-btn thumb-delete" 
                                                     title="Delete">×</button>
                                         <?php endif; ?>
@@ -171,7 +171,7 @@ $flashMessage = showFlashMessage();
                                    id="addImageInput" 
                                    accept="image/*" 
                                    style="display: none;"
-                                   onchange="uploadAdditionalImage('<?php echo escape($item['tracking_number']); ?>', this)">
+                                   onchange="uploadAdditionalImage('<?php echo escape($item['id']); ?>', this)">
                         </div>
                         <?php endif; ?>
                     </div>
@@ -187,7 +187,7 @@ $flashMessage = showFlashMessage();
                                    id="addImageInput" 
                                    accept="image/*" 
                                    style="display: none;"
-                                   onchange="uploadAdditionalImage('<?php echo escape($item['tracking_number']); ?>', this)">
+                                   onchange="uploadAdditionalImage('<?php echo escape($item['id']); ?>', this)">
                         </div>
                     </div>
                     <?php endif; ?>
@@ -220,7 +220,7 @@ $flashMessage = showFlashMessage();
                     <div class="detail-grid">
                         <div class="detail-item">
                             <strong>Item ID:</strong>
-                            <span>#<?php echo escape($item['tracking_number']); ?></span>
+                            <span>#<?php echo escape($item['id']); ?></span>
                         </div>
                         <div class="detail-item">
                             <strong>Posted:</strong>
@@ -241,8 +241,8 @@ $flashMessage = showFlashMessage();
                         </div>
                         <?php
                         // Get active claims for this item
-                        $activeClaims = getActiveClaims($item['tracking_number']);
-                        $primaryClaim = getPrimaryClaim($item['tracking_number']);
+                        $activeClaims = getActiveClaims($item['id']);
+                        $primaryClaim = getPrimaryClaim($item['id']);
                         ?>
                         
                         <?php if ($primaryClaim) : ?>
@@ -280,11 +280,11 @@ $flashMessage = showFlashMessage();
                         
                         <?php
                         $currentUser = getCurrentUser();
-                        $isOwnItem = currentUserOwnsItem($item['tracking_number']);
+                        $isOwnItem = currentUserOwnsItem($item['id']);
                         $canEditItem = canUserEditItem($item['user_id'] ?? null);
-                        $isUserClaimed = $currentUser ? isUserClaimed($item['tracking_number'], $currentUser['id']) : false;
-                        $canUserClaim = $currentUser ? canUserClaim($item['tracking_number'], $currentUser['id']) : false;
-                        $userClaimPosition = $currentUser ? getUserClaimPosition($item['tracking_number'], $currentUser['id']) : null;
+                        $isUserClaimed = $currentUser ? isUserClaimed($item['id'], $currentUser['id']) : false;
+                        $canUserClaim = $currentUser ? canUserClaim($item['id'], $currentUser['id']) : false;
+                        $userClaimPosition = $currentUser ? getUserClaimPosition($item['id'], $currentUser['id']) : null;
 
                         // Debug output
 
@@ -292,13 +292,13 @@ $flashMessage = showFlashMessage();
                         
                         <?php if (!$isOwnItem && $currentUser) : ?>
                             <?php if ($isUserClaimed) : ?>
-                                <button onclick="removeMyClaim('<?php echo escape($item['tracking_number']); ?>')" 
+                                <button onclick="removeMyClaim('<?php echo escape($item['id']); ?>')" 
                                         class="btn btn-warning btn-large claim-btn" 
                                         title="Remove yourself from the waitlist">
                                     🚫 Remove me from list (<?php echo $userClaimPosition . getOrdinalSuffix($userClaimPosition); ?> in line)
                                 </button>
                             <?php elseif ($canUserClaim) : ?>
-                                <button onclick="addClaimToItem('<?php echo escape($item['tracking_number']); ?>')" 
+                                <button onclick="addClaimToItem('<?php echo escape($item['id']); ?>')" 
                                         class="btn btn-primary btn-large claim-btn" 
                                         title="Claim this item">
                                     🏆 Claim this!
@@ -314,27 +314,27 @@ $flashMessage = showFlashMessage();
                             <button onclick="openEditModalFromButton(this)" 
                                     class="btn btn-primary btn-large edit-btn" 
                                     title="Edit this item"
-                                    data-tracking="<?php echo htmlspecialchars($item['tracking_number'], ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-tracking="<?php echo htmlspecialchars($item['id'], ENT_QUOTES, 'UTF-8'); ?>"
                                     data-title="<?php echo htmlspecialchars($item['title'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
                                     data-description="<?php echo htmlspecialchars($item['description'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
                                 ✏️ Edit...
                             </button>
                             
                             <?php if ($isItemGone) : ?>
-                                <button onclick="relistItem('<?php echo escape($item['tracking_number']); ?>')" 
+                                <button onclick="relistItem('<?php echo escape($item['id']); ?>')" 
                                         class="btn btn-success btn-large" 
                                         title="Re-list this item">
                                     🔄 Re-list
                                 </button>
                             <?php else : ?>
-                                <button onclick="markItemGone('<?php echo escape($item['tracking_number']); ?>')" 
+                                <button onclick="markItemGone('<?php echo escape($item['id']); ?>')" 
                                         class="btn btn-warning btn-large" 
                                         title="Mark this item as gone">
                                     ✅ Gone!
                                 </button>
                             <?php endif; ?>
                             
-                            <button onclick="deleteItem('<?php echo escape($item['tracking_number']); ?>')" 
+                            <button onclick="deleteItem('<?php echo escape($item['id']); ?>')" 
                                     class="btn btn-danger btn-large delete-btn" 
                                     title="Delete this item">
                                 🗑️ Delete
@@ -378,7 +378,7 @@ $flashMessage = showFlashMessage();
                                                 ✉️
                                             </a>
                                         <?php endif; ?>
-                                        <button onclick="removeClaimByOwner('<?php echo escape($item['tracking_number']); ?>', '<?php echo escape($claim['user_id']); ?>')" 
+                                        <button onclick="removeClaimByOwner('<?php echo escape($item['id']); ?>', '<?php echo escape($claim['user_id']); ?>')" 
                                                 class="btn btn-sm btn-danger" 
                                                 title="Remove <?php
                                                 $currentUser = getCurrentUser();
@@ -1022,7 +1022,7 @@ function addClaimToItem(trackingNumber) {
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: `action=add_claim&tracking_number=${encodeURIComponent(trackingNumber)}`
+        body: `action=add_claim&id=${encodeURIComponent(trackingNumber)}`
     })
     .then(response => response.json())
     .then(data => {
@@ -1067,7 +1067,7 @@ function removeMyClaim(trackingNumber) {
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: `action=remove_claim&tracking_number=${encodeURIComponent(trackingNumber)}`
+        body: `action=remove_claim&id=${encodeURIComponent(trackingNumber)}`
     })
     .then(response => response.json())
     .then(data => {
@@ -1109,7 +1109,7 @@ function removeClaimByOwner(trackingNumber, claimUserId) {
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: `action=remove_claim_by_owner&tracking_number=${encodeURIComponent(trackingNumber)}&claim_user_id=${encodeURIComponent(claimUserId)}`
+        body: `action=remove_claim_by_owner&id=${encodeURIComponent(trackingNumber)}&claim_user_id=${encodeURIComponent(claimUserId)}`
     })
     .then(response => response.json())
     .then(data => {
@@ -1194,7 +1194,7 @@ function confirmDelete() {
     // Create form data
     const formData = new FormData();
     formData.append('action', 'delete_item');
-    formData.append('tracking_number', trackingNumber);
+    formData.append('id', trackingNumber);
     
     // Send AJAX request
     fetch(window.location.href, {
@@ -1251,7 +1251,7 @@ function rotateCurrentImage() {
     if (!mainImage) return;
     
     const imageKey = mainImage.dataset.imageKey;
-    const trackingNumber = '<?php echo escape($item['tracking_number']); ?>';
+    const trackingNumber = '<?php echo escape($item['id']); ?>';
     
     // Extract image index from image key
     // Need to distinguish between tracking suffix (-xxxx) and image index (-N)
@@ -1294,7 +1294,7 @@ function rotateImage(trackingNumber, imageIndex = null) {
     }
     
     // Build request body
-    let body = `action=rotate_image&tracking_number=${encodeURIComponent(trackingNumber)}`;
+    let body = `action=rotate_image&id=${encodeURIComponent(trackingNumber)}`;
     if (imageIndex !== null) {
         body += `&image_index=${imageIndex}`;
     }
@@ -1368,7 +1368,7 @@ function uploadAdditionalImage(trackingNumber, fileInput) {
     // Create form data
     const formData = new FormData();
     formData.append('action', 'upload_additional_image');
-    formData.append('tracking_number', trackingNumber);
+    formData.append('id', trackingNumber);
     formData.append('image_file', file);
     
     // Send AJAX request
@@ -1412,7 +1412,7 @@ function deleteImage(trackingNumber, imageIndex) {
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: `action=delete_image&tracking_number=${encodeURIComponent(trackingNumber)}&image_index=${imageIndex}`
+        body: `action=delete_image&id=${encodeURIComponent(trackingNumber)}&image_index=${imageIndex}`
     })
     .then(response => response.json())
     .then(data => {
