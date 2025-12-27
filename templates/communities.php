@@ -112,7 +112,7 @@ $flashMessage = showFlashMessage();
 </div>
 
 <!-- Add/Edit Community Modal -->
-<div id="communityModal" class="modal" style="display: none;">
+<div id="communityModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
             <h2 id="modalTitle">Add New Community</h2>
@@ -292,6 +292,7 @@ $flashMessage = showFlashMessage();
 
 /* Modal Styles */
 #communityModal {
+    display: none;
     position: fixed;
     top: 0;
     left: 0;
@@ -439,15 +440,6 @@ $flashMessage = showFlashMessage();
 <script>
 let editingCommunityId = null;
 
-// Add new community
-document.getElementById('addCommunityBtn').addEventListener('click', function() {
-    editingCommunityId = null;
-    document.getElementById('modalTitle').textContent = 'Add New Community';
-    document.getElementById('communityForm').reset();
-    document.getElementById('communityId').value = '';
-    document.getElementById('communityModal').classList.add('show');
-});
-
 // Edit community
 function editCommunity(id) {
     fetch('?page=communities&action=get&id=' + id)
@@ -479,12 +471,12 @@ function deleteCommunity(id) {
         return;
     }
     
-    fetch('?page=communities&action=delete', {
+    fetch('?page=communities', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: 'id=' + id
+        body: 'action=delete&id=' + id
     })
     .then(response => response.json())
     .then(data => {
@@ -508,60 +500,72 @@ function closeModal() {
     editingCommunityId = null;
 }
 
-// Submit form
-document.getElementById('communityForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    const submitBtn = this.querySelector('button[type="submit"]');
-    const btnText = submitBtn.querySelector('.btn-text');
-    const btnLoading = submitBtn.querySelector('.btn-loading');
-    
-    submitBtn.disabled = true;
-    btnText.style.display = 'none';
-    btnLoading.style.display = 'inline';
-    
-    const formData = new FormData(this);
-    const action = editingCommunityId ? 'update' : 'create';
-    
-    const body = new URLSearchParams();
-    body.append('action', action);
-    for (const [key, value] of formData.entries()) {
-        body.append(key, value);
-    }
-    
-    fetch('?page=communities', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: body.toString()
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showMessage(data.message || 'Community saved successfully!', 'success');
-            closeModal();
-            setTimeout(() => window.location.reload(), 1000);
-        } else {
-            showMessage('Error: ' + (data.message || 'Unknown error'), 'error');
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showMessage('Error saving community', 'error');
-    })
-    .finally(() => {
-        submitBtn.disabled = false;
-        btnText.style.display = 'inline';
-        btnLoading.style.display = 'none';
+// Wait for DOM to be fully loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Add new community button
+    document.getElementById('addCommunityBtn').addEventListener('click', function() {
+        editingCommunityId = null;
+        document.getElementById('modalTitle').textContent = 'Add New Community';
+        document.getElementById('communityForm').reset();
+        document.getElementById('communityId').value = '';
+        document.getElementById('communityModal').classList.add('show');
     });
-});
 
-// Close modal when clicking outside
-document.getElementById('communityModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeModal();
-    }
+    // Submit form
+    document.getElementById('communityForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const submitBtn = this.querySelector('button[type="submit"]');
+        const btnText = submitBtn.querySelector('.btn-text');
+        const btnLoading = submitBtn.querySelector('.btn-loading');
+        
+        submitBtn.disabled = true;
+        btnText.style.display = 'none';
+        btnLoading.style.display = 'inline';
+        
+        const formData = new FormData(this);
+        const action = editingCommunityId ? 'update' : 'create';
+        
+        const body = new URLSearchParams();
+        body.append('action', action);
+        for (const [key, value] of formData.entries()) {
+            body.append(key, value);
+        }
+        
+        fetch('?page=communities', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: body.toString()
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showMessage(data.message || 'Community saved successfully!', 'success');
+                closeModal();
+                setTimeout(() => window.location.reload(), 1000);
+            } else {
+                showMessage('Error: ' + (data.message || 'Unknown error'), 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showMessage('Error saving community', 'error');
+        })
+        .finally(() => {
+            submitBtn.disabled = false;
+            btnText.style.display = 'inline';
+            btnLoading.style.display = 'none';
+        });
+    });
+
+    // Close modal when clicking outside
+    document.getElementById('communityModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeModal();
+        }
+    });
 });
 
 function showMessage(message, type = 'info') {
