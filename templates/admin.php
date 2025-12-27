@@ -20,6 +20,9 @@ if (!$currentUser) {
     redirect('login');
 }
 
+// Get all users for the user management table
+$allUsers = getAllUsers();
+
 // Get flash message if any
 $flashMessage = showFlashMessage();
 ?>
@@ -110,6 +113,108 @@ $flashMessage = showFlashMessage();
                         <li>Keep credentials secure</li>
                     </ul>
                 </div>
+            </div>
+        </div>
+
+        <!-- User Management Section -->
+        <div class="user-management-section">
+            <h2>👥 User Management</h2>
+            <p class="section-subtitle">All registered users and their information</p>
+            
+            <div class="table-container">
+                <table class="user-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Display Name</th>
+                            <th>Zipcode</th>
+                            <th>Admin</th>
+                            <th>Verified</th>
+                            <th>Last Login</th>
+                            <th>Created</th>
+                            <th>Notifications</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($allUsers)): ?>
+                            <tr>
+                                <td colspan="9" class="no-data">No users found</td>
+                            </tr>
+                        <?php else: ?>
+                            <?php foreach ($allUsers as $user): ?>
+                                <tr>
+                                    <td class="user-name">
+                                        <?php if (!empty($user['picture'])): ?>
+                                            <img src="<?php echo escape($user['picture']); ?>" alt="" class="user-avatar">
+                                        <?php endif; ?>
+                                        <span><?php echo escape($user['name']); ?></span>
+                                    </td>
+                                    <td><?php echo escape($user['email']); ?></td>
+                                    <td><?php echo escape($user['display_name'] ?? '-'); ?></td>
+                                    <td><?php echo escape($user['zipcode'] ?? '-'); ?></td>
+                                    <td>
+                                        <?php 
+                                        // Check if user is super admin (defined in config)
+                                        $isSuperAdmin = defined('ADMIN_USER_ID') && $user['id'] === ADMIN_USER_ID;
+                                        $isAdmin = isset($user['is_admin']) && $user['is_admin'];
+                                        
+                                        if ($isSuperAdmin): ?>
+                                            <span class="badge badge-super-admin">SUPER</span>
+                                        <?php elseif ($isAdmin): ?>
+                                            <span class="badge badge-admin">Yes</span>
+                                        <?php else: ?>
+                                            <span class="badge badge-user">No</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($user['verified_email']): ?>
+                                            <span class="badge badge-success">✓</span>
+                                        <?php else: ?>
+                                            <span class="badge badge-warning">✗</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="date-cell">
+                                        <?php 
+                                        if ($user['last_login']) {
+                                            $date = new DateTime($user['last_login']);
+                                            echo escape($date->format('M j, Y g:i A'));
+                                        } else {
+                                            echo '-';
+                                        }
+                                        ?>
+                                    </td>
+                                    <td class="date-cell">
+                                        <?php 
+                                        if ($user['created_at']) {
+                                            $date = new DateTime($user['created_at']);
+                                            echo escape($date->format('M j, Y'));
+                                        } else {
+                                            echo '-';
+                                        }
+                                        ?>
+                                    </td>
+                                    <td class="notifications-cell">
+                                        <?php
+                                        $notifications = [];
+                                        if (isset($user['email_notifications']) && $user['email_notifications']) {
+                                            $notifications[] = 'Email';
+                                        }
+                                        if (isset($user['new_listing_notifications']) && $user['new_listing_notifications']) {
+                                            $notifications[] = 'Listings';
+                                        }
+                                        echo !empty($notifications) ? escape(implode(', ', $notifications)) : '-';
+                                        ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="user-stats">
+                <strong>Total Users:</strong> <?php echo count($allUsers); ?>
             </div>
         </div>
     </div>
@@ -311,6 +416,141 @@ $flashMessage = showFlashMessage();
     line-height: 1.4;
 }
 
+/* User Management Section */
+.user-management-section {
+    margin-top: 3rem;
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.user-management-section h2 {
+    font-size: 1.75rem;
+    color: #333;
+    margin: 0 0 0.5rem 0;
+}
+
+.section-subtitle {
+    color: #666;
+    margin: 0 0 1.5rem 0;
+}
+
+.table-container {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    overflow-x: auto;
+}
+
+.user-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.user-table thead {
+    background: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.user-table th {
+    padding: 1rem 0.75rem;
+    text-align: left;
+    font-weight: 600;
+    color: #495057;
+    white-space: nowrap;
+}
+
+.user-table td {
+    padding: 0.875rem 0.75rem;
+    border-bottom: 1px solid #f1f3f4;
+    color: #333;
+}
+
+.user-table tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.user-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.user-name {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 500;
+}
+
+.user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.badge-super-admin {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-weight: 700;
+    box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+}
+
+.badge-admin {
+    background: #ffeaa7;
+    color: #856404;
+}
+
+.badge-user {
+    background: #e9ecef;
+    color: #6c757d;
+}
+
+.badge-success {
+    background: #d4edda;
+    color: #155724;
+}
+
+.badge-warning {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.date-cell {
+    color: #666;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+.notifications-cell {
+    color: #666;
+    font-size: 0.85rem;
+}
+
+.no-data {
+    text-align: center;
+    color: #999;
+    padding: 2rem !important;
+    font-style: italic;
+}
+
+.user-stats {
+    padding: 1rem;
+    background: white;
+    border-radius: 0 0 12px 12px;
+    border-top: 1px solid #e9ecef;
+    color: #666;
+}
+
 @media (max-width: 768px) {
     .admin-container {
         grid-template-columns: 1fr;
@@ -328,6 +568,20 @@ $flashMessage = showFlashMessage();
     
     .btn {
         width: 100%;
+    }
+    
+    .user-table {
+        font-size: 0.8rem;
+    }
+    
+    .user-table th,
+    .user-table td {
+        padding: 0.5rem;
+    }
+    
+    .user-avatar {
+        width: 24px;
+        height: 24px;
     }
 }
 </style>

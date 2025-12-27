@@ -2635,6 +2635,26 @@ function getUserItemsFromDb($userId, $includeGone = false)
 }
 
 /**
+ * Get all users from database
+ * @return array Array of all users
+ */
+function getAllUsers()
+{
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return [];
+    }
+
+    try {
+        $stmt = $pdo->query("SELECT * FROM users ORDER BY created_at DESC");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Error getting all users: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
  * Get stats for user's items (always includes all items, even gone ones)
  * This provides accurate counts for the dashboard regardless of display preferences
  *
