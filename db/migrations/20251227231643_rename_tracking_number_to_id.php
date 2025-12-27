@@ -12,9 +12,11 @@ final class RenameTrackingNumberToId extends AbstractMigration
         $items = $this->table('items');
         if ($items->hasColumn('id')) {
             // Production case: Need to drop the auto-increment id column first
-            // First, drop the primary key if it exists
+            // Step 1: Remove AUTO_INCREMENT from the id column (required before dropping PRIMARY KEY)
+            $this->execute('ALTER TABLE items MODIFY COLUMN id INT NOT NULL');
+            // Step 2: Drop the primary key
             $this->execute('ALTER TABLE items DROP PRIMARY KEY');
-            // Then drop the old id column
+            // Step 3: Drop the old id column
             $this->execute('ALTER TABLE items DROP COLUMN id');
         }
         
