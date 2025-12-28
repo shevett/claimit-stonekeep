@@ -154,6 +154,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception('Failed to save item to database');
             }
 
+            // Handle community associations
+            $communities = $_POST['communities'] ?? [];
+            $communityIds = [];
+            
+            // If "all" is not in the array, collect specific community IDs
+            if (!in_array('all', $communities)) {
+                foreach ($communities as $commValue) {
+                    if ($commValue !== 'all' && is_numeric($commValue)) {
+                        $communityIds[] = (int)$commValue;
+                    }
+                }
+            }
+            // If "all" is selected or array is empty, $communityIds stays empty (visible to all)
+            
+            // Save community associations
+            setItemCommunities($trackingNumber, $communityIds);
+
             // Clear items cache since we added a new item
             clearItemsCache();
 
@@ -261,6 +278,40 @@ $flashMessage = showFlashMessage();
             </div>
 
             <div class="form-group">
+                <label>Visible in Communities</label>
+                <small style="color: var(--gray-500); font-size: 0.875rem; display: block; margin-bottom: 0.5rem;">
+                    Select which communities can see this item (at least one required)
+                </small>
+                <div class="community-checkboxes">
+                    <div class="community-checkbox-item">
+                        <input type="checkbox" 
+                               name="communities[]" 
+                               value="all" 
+                               id="community_all" 
+                               checked 
+                               onchange="handleAllCommunities(this)">
+                        <label for="community_all">All Communities</label>
+                    </div>
+                    <?php
+                    $allCommunities = getAllCommunities();
+                    foreach ($allCommunities as $comm):
+                    ?>
+                    <div class="community-checkbox-item">
+                        <input type="checkbox" 
+                               name="communities[]" 
+                               value="<?php echo escape($comm['id']); ?>" 
+                               id="community_<?php echo escape($comm['id']); ?>"
+                               class="specific-community"
+                               onchange="handleSpecificCommunity()">
+                        <label for="community_<?php echo escape($comm['id']); ?>">
+                            <?php echo escape($comm['full_name']); ?>
+                        </label>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+
+            <div class="form-group">
                 <button type="submit" class="btn btn-primary" id="submitBtn">Post Item</button>
                 <a href="?page=home" class="btn btn-secondary">Cancel</a>
             </div>
@@ -285,9 +336,75 @@ $flashMessage = showFlashMessage();
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+.community-checkboxes {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 6px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.community-checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.community-checkbox-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.community-checkbox-item label {
+    cursor: pointer;
+    margin: 0;
+    font-weight: normal;
+}
+
+#community_all {
+    accent-color: #007bff;
+}
 </style>
 
 <script>
+// Community checkbox handling
+function handleAllCommunities(checkbox) {
+    const specificCheckboxes = document.querySelectorAll('.specific-community');
+    if (checkbox.checked) {
+        // If "All" is checked, uncheck all specific communities
+        specificCheckboxes.forEach(cb => cb.checked = false);
+    }
+}
+
+function handleSpecificCommunity() {
+    const allCheckbox = document.getElementById('community_all');
+    const specificCheckboxes = document.querySelectorAll('.specific-community');
+    const anySpecificChecked = Array.from(specificCheckboxes).some(cb => cb.checked);
+    
+    if (anySpecificChecked) {
+        // If any specific community is checked, uncheck "All"
+        allCheckbox.checked = false;
+    }
+}
+
+// Validate at least one community is selected
+function validateCommunities() {
+    const allCheckbox = document.getElementById('community_all');
+    const specificCheckboxes = document.querySelectorAll('.specific-community');
+    const anySpecificChecked = Array.from(specificCheckboxes).some(cb => cb.checked);
+    
+    if (!allCheckbox.checked && !anySpecificChecked) {
+        alert('Please select at least one community for this item.');
+        return false;
+    }
+    return true;
+}
+
 // Handle paste events to allow pasting images directly
 document.addEventListener('paste', function(event) {
     // Only handle paste on the claim page
@@ -406,6 +523,12 @@ document.querySelector('form').addEventListener('submit', function(event) {
     const description = document.querySelector('textarea[name="description"]').value.trim();
     const amount = document.querySelector('input[name="amount"]').value;
     const email = document.querySelector('input[name="contact_email"]').value.trim();
+    
+    // Validate communities
+    if (!validateCommunities()) {
+        event.preventDefault();
+        return false;
+    }
     
     // Only show overlay if form is valid
     if (title && description && amount !== '' && email) {

@@ -440,6 +440,15 @@ $flashMessage = showFlashMessage();
                     <textarea id="editDescription" name="description" rows="4" required></textarea>
                     <small>Provide details about the item's condition, features, etc.</small>
                 </div>
+                <div class="form-group">
+                    <label>Visible in Communities:</label>
+                    <small style="color: #666; font-size: 0.875rem; display: block; margin-bottom: 0.5rem;">
+                        Select which communities can see this item (at least one required)
+                    </small>
+                    <div id="editCommunityCheckboxes" class="community-checkboxes">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                </div>
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">Save Changes</button>
                     <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
@@ -450,6 +459,35 @@ $flashMessage = showFlashMessage();
 </div>
 
 <style>
+.community-checkboxes {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 6px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.community-checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.community-checkbox-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.community-checkbox-item label {
+    cursor: pointer;
+    margin: 0;
+    font-weight: normal;
+}
+
 .header-with-back {
     position: relative;
 }
@@ -1434,4 +1472,4 @@ function deleteImage(trackingNumber, imageIndex) {
 }
 </script>
 
-<script src="/assets/js/app.js?v=1757534999"></script> 
+<script src="/assets/js/app.js?v=1735365542"></script> 

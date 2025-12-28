@@ -50,8 +50,12 @@ $flashMessage = showFlashMessage();
                             <th>Short Name</th>
                             <th>Full Name</th>
                             <th>Description</th>
+                            <th>Members</th>
                             <th>Owner</th>
                             <th>Created</th>
+                            <?php if ($currentUser): ?>
+                            <th>Membership</th>
+                            <?php endif; ?>
                             <?php if ($isAdmin): ?>
                             <th>Actions</th>
                             <?php endif; ?>
@@ -60,23 +64,45 @@ $flashMessage = showFlashMessage();
                     <tbody>
                         <?php if (empty($communities)): ?>
                             <tr>
-                                <td colspan="<?php echo $isAdmin ? '7' : '6'; ?>" class="no-data">
+                                <?php 
+                                $colspan = 7; // Base columns (ID, Short Name, Full Name, Description, Members, Owner, Created)
+                                if ($currentUser) $colspan++; // Add membership column
+                                if ($isAdmin) $colspan++; // Add actions column
+                                ?>
+                                <td colspan="<?php echo $colspan; ?>" class="no-data">
                                     <?php echo $isAdmin ? 'No communities found. Create one to get started!' : 'No communities available yet.'; ?>
                                 </td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($communities as $community): ?>
+                                <?php 
+                                $memberCount = getCommunityMemberCount($community['id']);
+                                $isMember = $currentUser ? isUserInCommunity($currentUser['id'], $community['id']) : false;
+                                ?>
                                 <tr>
                                     <td><?php echo escape($community['id']); ?></td>
                                     <td class="short-name"><?php echo escape($community['short_name']); ?></td>
-                                    <td><?php echo escape($community['full_name']); ?></td>
+                                    <td>
+                                        <a href="/?page=community&id=<?php echo escape($community['id']); ?>" class="community-link">
+                                            <?php echo escape($community['full_name']); ?>
+                                        </a>
+                                    </td>
                                     <td class="description-cell">
                                         <?php 
                                         $desc = $community['description'] ?? '';
                                         echo escape(strlen($desc) > 100 ? substr($desc, 0, 100) . '...' : $desc); 
                                         ?>
                                     </td>
-                                    <td><?php echo escape($community['owner_id']); ?></td>
+                                    <td class="member-count"><?php echo escape($memberCount); ?></td>
+                                    <td class="owner-cell">
+                                        <?php if ($community['owner_name']): ?>
+                                            <a href="/?page=user-listings&id=<?php echo escape($community['owner_id']); ?>" class="owner-link">
+                                                <?php echo escape($community['owner_name']); ?>
+                                            </a>
+                                        <?php else: ?>
+                                            <span class="owner-unknown">Unknown</span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td class="date-cell">
                                         <?php 
                                         if ($community['created_at']) {
@@ -87,6 +113,14 @@ $flashMessage = showFlashMessage();
                                         }
                                         ?>
                                     </td>
+                                    <?php if ($currentUser): ?>
+                                    <td class="membership-cell">
+                                        <button class="btn-mini <?php echo $isMember ? 'btn-secondary' : 'btn-primary'; ?>" 
+                                                onclick="toggleMembershipFromList(<?php echo $community['id']; ?>, <?php echo $isMember ? 'true' : 'false'; ?>, this)">
+                                            <?php echo $isMember ? 'Leave' : 'Join'; ?>
+                                        </button>
+                                    </td>
+                                    <?php endif; ?>
                                     <?php if ($isAdmin): ?>
                                     <td class="actions-cell">
                                         <button class="btn-icon btn-edit" onclick="editCommunity(<?php echo escape($community['id']); ?>)" title="Edit">
@@ -277,6 +311,47 @@ $flashMessage = showFlashMessage();
 
 .btn-edit {
     margin-right: 0.5rem;
+}
+
+.btn-mini {
+    display: inline-block;
+    padding: 0.375rem 0.75rem;
+    border: none;
+    border-radius: 4px;
+    font-weight: 500;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 60px;
+}
+
+.community-link, .owner-link {
+    color: #007bff;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.community-link:hover, .owner-link:hover {
+    text-decoration: underline;
+}
+
+.owner-cell {
+    color: #666;
+}
+
+.owner-unknown {
+    color: #999;
+    font-style: italic;
+}
+
+.member-count {
+    text-align: center;
+    font-weight: 600;
+    color: #666;
+}
+
+.membership-cell {
+    text-align: center;
 }
 
 .no-data {
@@ -563,6 +638,56 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+// Toggle membership from the communities list
+function toggleMembershipFromList(communityId, isMember, button) {
+    const action = isMember ? 'leave' : 'join';
+    const originalText = button.textContent;
+    
+    button.disabled = true;
+    button.textContent = isMember ? 'Leaving...' : 'Joining...';
+    
+    fetch('/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'action=' + encodeURIComponent(action) + '&community_id=' + encodeURIComponent(communityId)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update button state
+            button.textContent = isMember ? 'Join' : 'Leave';
+            button.classList.toggle('btn-primary');
+            button.classList.toggle('btn-secondary');
+            button.onclick = function() {
+                toggleMembershipFromList(communityId, !isMember, this);
+            };
+            button.disabled = false;
+            
+            // Update member count in the row
+            const row = button.closest('tr');
+            const memberCountCell = row.querySelector('.member-count');
+            if (memberCountCell) {
+                const currentCount = parseInt(memberCountCell.textContent) || 0;
+                memberCountCell.textContent = isMember ? currentCount - 1 : currentCount + 1;
+            }
+            
+            showMessage(data.message || (isMember ? 'Left community' : 'Joined community'), 'success');
+        } else {
+            showMessage('Error: ' + (data.message || 'Unknown error'), 'error');
+            button.disabled = false;
+            button.textContent = originalText;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showMessage('Error updating membership', 'error');
+        button.disabled = false;
+        button.textContent = originalText;
+    });
+}
 
 function showMessage(message, type = 'info') {
     const messageDiv = document.createElement('div');

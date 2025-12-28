@@ -275,6 +275,30 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['id
     exit;
 }
 
+// Handle GET request for item communities (for edit modal)
+if (isset($_GET['action']) && $_GET['action'] === 'get_item_communities' && isset($_GET['id'])) {
+    header('Content-Type: application/json');
+    
+    $trackingNumber = $_GET['id'];
+    
+    // Support both old format (YmdHis) and new format (YmdHis-xxxx)
+    if (!preg_match('/^(\d{14}|\d{14}-[a-f0-9]{4})$/', $trackingNumber)) {
+        echo json_encode(['success' => false, 'message' => 'Invalid tracking number']);
+        exit;
+    }
+    
+    // Get all communities and the item's current communities
+    $allCommunities = getAllCommunities();
+    $itemCommunities = getItemCommunities($trackingNumber);
+    
+    echo json_encode([
+        'success' => true,
+        'communities' => $allCommunities,
+        'itemCommunities' => $itemCommunities
+    ]);
+    exit;
+}
+
 // Handle AJAX claim requests before any HTML output
 if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_claim', 'remove_claim_by_owner', 'delete_item', 'edit_item', 'rotate_image', 'mark_gone', 'relist_item', 'upload_additional_image', 'delete_image']) && isset($_POST['id'])) {
     header('Content-Type: application/json');
@@ -313,13 +337,10 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                 break;
 
             case 'remove_claim':
-                error_log("DEBUG: remove_claim action called for tracking number: $trackingNumber");
                 try {
                     removeMyClaim($trackingNumber);
-                    error_log("DEBUG: removeMyClaim completed successfully");
                     echo json_encode(['success' => true, 'message' => 'You\'ve been removed from the waitlist']);
                 } catch (Exception $e) {
-                    error_log("DEBUG: removeMyClaim failed with error: " . $e->getMessage());
                     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
                 }
                 break;
@@ -402,11 +423,28 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                     exit;
                 }
 
+                // Handle community associations
+                $communities = $_POST['communities'] ?? [];
+                $communityIds = [];
+                
+                // If "all" is not in the array, collect specific community IDs
+                if (!in_array('all', $communities)) {
+                    foreach ($communities as $commValue) {
+                        if ($commValue !== 'all' && is_numeric($commValue)) {
+                            $communityIds[] = (int)$commValue;
+                        }
+                    }
+                }
+                // If "all" is selected or array is empty, $communityIds stays empty (visible to all)
+                
+                // Save community associations
+                setItemCommunities($trackingNumber, $communityIds);
+                
                 // Clear items cache since we updated an item
                 clearItemsCache();
 
                 echo json_encode(['success' => true, 'message' => 'Item updated successfully']);
-                break;
+                exit;
 
             case 'rotate_image':
                 // Check if the current user can edit this item (owner or admin)
@@ -645,272 +683,6 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
     exit;
 }
 
-// Handle GET-based AJAX claim requests (for backward compatibility)
-if (isset($_GET['page']) && $_GET['page'] === 'claim' && isset($_GET['action']) && in_array($_GET['action'], ['add_claim', 'remove_claim', 'remove_claim_by_owner', 'delete_item', 'edit_item', 'rotate_image', 'mark_gone', 'relist_item'])) {
-    header('Content-Type: application/json');
-
-    // For GET requests, we need to get the tracking number from POST data
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-        echo json_encode(['success' => false, 'message' => 'Invalid request method']);
-        exit;
-    }
-
-    if (!isset($_POST['id'])) {
-        echo json_encode(['success' => false, 'message' => 'Tracking number required']);
-        exit;
-    }
-
-    $trackingNumber = $_POST['id'];
-    $action = $_GET['action'];
-
-    // Support both old format (YmdHis) and new format (YmdHis-xxxx)
-    if (!preg_match('/^(\d{14}|\d{14}-[a-f0-9]{4})$/', $trackingNumber)) {
-        echo json_encode(['success' => false, 'message' => 'Invalid tracking number']);
-        exit;
-    }
-
-    // Check if user is logged in
-    if (!isLoggedIn()) {
-        echo json_encode(['success' => false, 'message' => 'You must be logged in to claim items']);
-        exit;
-    }
-
-    $currentUser = getCurrentUser();
-    if (!$currentUser) {
-        echo json_encode(['success' => false, 'message' => 'User information not available']);
-        exit;
-    }
-
-    try {
-        switch ($action) {
-            case 'add_claim':
-                $claim = addClaimToItem($trackingNumber);
-                $position = getUserClaimPosition($trackingNumber, $claim['user_id']);
-                echo json_encode([
-                    'success' => true,
-                    'message' => 'You\'re now ' . $position . getOrdinalSuffix($position) . ' in line!',
-                    'position' => $position
-                ]);
-                break;
-
-            case 'remove_claim':
-                error_log("DEBUG: remove_claim action called for tracking number: $trackingNumber");
-                try {
-                    removeMyClaim($trackingNumber);
-                    error_log("DEBUG: removeMyClaim completed successfully");
-                    echo json_encode(['success' => true, 'message' => 'You\'ve been removed from the waitlist']);
-                } catch (Exception $e) {
-                    error_log("DEBUG: removeMyClaim failed with error: " . $e->getMessage());
-                    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
-                }
-                break;
-
-            case 'remove_claim_by_owner':
-                if (!isset($_POST['claim_user_id'])) {
-                    echo json_encode(['success' => false, 'message' => 'Claim user ID required']);
-                    exit;
-                }
-                $claimUserId = $_POST['claim_user_id'];
-                removeClaimFromItem($trackingNumber, $claimUserId);
-                echo json_encode(['success' => true, 'message' => 'Claim removed successfully']);
-                break;
-
-            case 'delete_item':
-                // Check if user can edit this item (owner or admin)
-                $item = getItem($trackingNumber);
-                if (!$item || !canUserEditItem($item['user_id'] ?? null)) {
-                    echo json_encode(['success' => false, 'message' => 'You can only delete your own items or be an administrator']);
-                    exit;
-                }
-
-                // Delete the item from S3
-                $awsService = getAwsService();
-                if (!$awsService) {
-                    throw new Exception('AWS service not available');
-                }
-
-                // Delete the item YAML file
-                $yamlKey = $trackingNumber . '.yaml';
-                $awsService->deleteObject($yamlKey);
-
-                // Delete all images for this item
-                $allImages = getItemImages($trackingNumber);
-                foreach ($allImages as $imageKey) {
-                    try {
-                        $awsService->deleteObject($imageKey);
-                    } catch (Exception $e) {
-                        error_log("Failed to delete image {$imageKey}: " . $e->getMessage());
-                    }
-                }
-
-                // Clear caches since we deleted an item
-                clearItemsCache();
-                clearImageUrlCache();
-
-                echo json_encode(['success' => true, 'message' => 'Item deleted successfully']);
-                break;
-
-            case 'edit_item':
-                // Check if the current user can edit this item (owner or admin)
-                $item = getItemFromDb($trackingNumber);
-                if (!$item || !canUserEditItem($item['user_id'] ?? null)) {
-                    echo json_encode(['success' => false, 'message' => 'You can only edit your own items or be an administrator']);
-                    exit;
-                }
-
-                // Validate required fields
-                if (!isset($_POST['title']) || !isset($_POST['description'])) {
-                    echo json_encode(['success' => false, 'message' => 'Title and description are required']);
-                    exit;
-                }
-
-                $title = trim($_POST['title']);
-                $description = trim($_POST['description']);
-
-                if (empty($title) || empty($description)) {
-                    echo json_encode(['success' => false, 'message' => 'Title and description cannot be empty']);
-                    exit;
-                }
-
-                // Update the item in database
-                $updates = [
-                    'title' => $title,
-                    'description' => $description
-                ];
-
-                if (!updateItemInDb($trackingNumber, $updates)) {
-                    echo json_encode(['success' => false, 'message' => 'Failed to update item in database']);
-                    exit;
-                }
-
-                // Clear items cache since we updated an item
-                clearItemsCache();
-
-                echo json_encode(['success' => true, 'message' => 'Item updated successfully']);
-                break;
-
-            case 'rotate_image':
-                // Check if the current user can edit this item (owner or admin)
-                $item = getItem($trackingNumber);
-                if (!$item || !canUserEditItem($item['user_id'] ?? null)) {
-                    echo json_encode(['success' => false, 'message' => 'You can only rotate images for your own items or be an administrator']);
-                    exit;
-                }
-
-                // Get image index if provided (for rotating specific images)
-                $imageIndex = isset($_POST['image_index']) && $_POST['image_index'] !== 'null' ? intval($_POST['image_index']) : null;
-
-                // Determine the image key using getItemImages helper
-                $awsService = getAwsService();
-                if (!$awsService) {
-                    echo json_encode(['success' => false, 'message' => 'AWS service not available']);
-                    exit;
-                }
-
-                // Get all images for this item
-                $allImages = getItemImages($trackingNumber);
-
-                if (empty($allImages)) {
-                    echo json_encode(['success' => false, 'message' => 'No images found for this item']);
-                    exit;
-                }
-
-                // Find the specific image to rotate
-                $imageKey = null;
-
-                if ($imageIndex === null) {
-                    // Rotate primary image (first in the array)
-                    $imageKey = $allImages[0];
-                } else {
-                    // Rotate specific indexed image
-                    foreach ($allImages as $img) {
-                        if (getImageIndex($img) === $imageIndex) {
-                            $imageKey = $img;
-                            break;
-                        }
-                    }
-                }
-
-                // Check if we found the image
-                if (empty($imageKey)) {
-                    echo json_encode(['success' => false, 'message' => 'Image not found']);
-                    exit;
-                }
-
-                try {
-                    // Download the image from S3
-                    $imageObject = $awsService->getObject($imageKey);
-                    $imageContent = $imageObject['content'];
-                    $contentType = $imageObject['content_type'];
-
-                    // Rotate the image using GD library
-                    $rotatedImageContent = rotateImage90Degrees($imageContent, $contentType);
-
-                    if ($rotatedImageContent === false) {
-                        throw new Exception('Failed to rotate image');
-                    }
-
-                    // Upload the rotated image back to S3
-                    $result = $awsService->putObject($imageKey, $rotatedImageContent, $contentType);
-
-                    // Invalidate CloudFront cache for this image
-                    // CloudFront serves images without the 'images/' prefix, so strip it for invalidation
-                    $cloudFrontPath = str_replace('images/', '', $imageKey);
-                    try {
-                        $invalidationResult = $awsService->createInvalidation([$cloudFrontPath]);
-                        error_log("CloudFront invalidation created for path: /{$cloudFrontPath} (ID: " . $invalidationResult['invalidation_id'] . ")");
-                    } catch (Exception $cfException) {
-                        // Log but don't fail - cache will eventually expire
-                        error_log("CloudFront invalidation failed (non-critical): " . $cfException->getMessage());
-                    }
-
-                    // Clear image URL cache since the image was modified
-                    clearImageUrlCache();
-
-                    // Generate a direct S3 presigned URL for immediate viewing (bypasses CloudFront)
-                    // This ensures user sees rotated image instantly while CloudFront invalidation propagates
-                    $directImageUrl = $awsService->getPresignedUrl($imageKey, 3600);
-
-                    // Add cache-busting timestamp to force browser refresh
-                    $cacheBuster = time();
-
-                    echo json_encode([
-                        'success' => true,
-                        'message' => 'Image rotated successfully',
-                        'cache_buster' => $cacheBuster,
-                        'direct_image_url' => $directImageUrl  // Direct S3 URL bypassing CloudFront
-                    ]);
-                } catch (Exception $e) {
-                    echo json_encode(['success' => false, 'message' => 'Failed to rotate image: ' . $e->getMessage()]);
-                }
-                break;
-
-            case 'mark_gone':
-                try {
-                    markItemAsGone($trackingNumber);
-                    clearItemsCache(); // Clear cache since item status changed
-                    echo json_encode(['success' => true, 'message' => 'Item marked as gone']);
-                } catch (Exception $e) {
-                    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
-                }
-                break;
-
-            case 'relist_item':
-                try {
-                    relistItem($trackingNumber);
-                    clearItemsCache(); // Clear cache since item status changed
-                    echo json_encode(['success' => true, 'message' => 'Item re-listed successfully']);
-                } catch (Exception $e) {
-                    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
-                }
-                break;
-        }
-    } catch (Exception $e) {
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
-    }
-
-    exit;
-}
 
 // Handle settings AJAX requests before any HTML output
 if (isset($_GET['page']) && $_GET['page'] === 'settings' && isset($_GET['action'])) {
@@ -1062,6 +834,42 @@ if (isset($_GET['page']) && $_GET['page'] === 'admin' && isset($_GET['action']))
     }
 
     echo json_encode(['success' => false, 'message' => 'Invalid action']);
+    exit;
+}
+
+// Handle community membership AJAX requests (join/leave) - for all logged-in users
+if (isset($_POST['action']) && in_array($_POST['action'], ['join', 'leave']) && isset($_POST['community_id'])) {
+    header('Content-Type: application/json');
+    
+    if (!isLoggedIn()) {
+        echo json_encode(['success' => false, 'message' => 'Authentication required']);
+        exit;
+    }
+    
+    $currentUser = getCurrentUser();
+    if (!$currentUser) {
+        echo json_encode(['success' => false, 'message' => 'User information not available']);
+        exit;
+    }
+    
+    $communityId = (int)$_POST['community_id'];
+    $action = $_POST['action'];
+    
+    try {
+        if ($action === 'join') {
+            $success = joinCommunity($currentUser['id'], $communityId);
+            $message = $success ? 'Successfully joined community' : 'Failed to join community';
+        } else {
+            $success = leaveCommunity($currentUser['id'], $communityId);
+            $message = $success ? 'Successfully left community' : 'Failed to leave community';
+        }
+        
+        echo json_encode(['success' => $success, 'message' => $message]);
+    } catch (Exception $e) {
+        error_log("Community membership error: " . $e->getMessage());
+        echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+    }
+    
     exit;
 }
 
@@ -1239,7 +1047,7 @@ $page = $_GET['page'] ?? 'home';
 $page = preg_replace('/[^a-zA-Z0-9\-]/', '', $page);
 
 // Define available pages
-$availablePages = ['home', 'about', 'contact', 'claim', 'items', 'item', 'login', 'user-listings', 'settings', 'admin', 'changelog', 'communities'];
+$availablePages = ['home', 'about', 'contact', 'claim', 'items', 'item', 'login', 'user-listings', 'settings', 'admin', 'changelog', 'communities', 'community'];
 
 if (!in_array($page, $availablePages)) {
     $page = 'home';
@@ -1515,6 +1323,15 @@ $performanceData = [
                         <textarea id="editDescription" name="description" rows="4" required></textarea>
                         <small>Provide details about the item's condition, features, etc.</small>
                     </div>
+                    <div class="form-group">
+                        <label>Visible in Communities:</label>
+                        <small style="color: #666; font-size: 0.875rem; display: block; margin-bottom: 0.5rem;">
+                            Select which communities can see this item (at least one required)
+                        </small>
+                        <div id="editCommunityCheckboxes" class="community-checkboxes">
+                            <!-- Will be populated by JavaScript -->
+                        </div>
+                    </div>
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary">Save Changes</button>
                         <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
@@ -1524,7 +1341,38 @@ $performanceData = [
         </div>
     </div>
 
-    <script src="/assets/js/app.js?v=1757534999"></script>
+    <style>
+    .community-checkboxes {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 6px;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    
+    .community-checkbox-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .community-checkbox-item input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+    }
+    
+    .community-checkbox-item label {
+        cursor: pointer;
+        margin: 0;
+        font-weight: normal;
+    }
+    </style>
+
+    <script src="/assets/js/app.js?v=1735365542"></script>
     
     <!-- Claim Management JavaScript Functions -->
     <script>

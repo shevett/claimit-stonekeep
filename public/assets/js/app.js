@@ -378,8 +378,8 @@ style.textContent = `
     `;
     document.head.appendChild(style);
 
-// User dropdown functionality
-    function toggleUserDropdown()
+// User dropdown functionality - make globally accessible for inline handlers
+    window.toggleUserDropdown = function()
     {
         const dropdown = document.querySelector('.nav-user-dropdown');
         const dropdownMenu = document.getElementById('userDropdown');
@@ -400,9 +400,9 @@ style.textContent = `
 
 
 // Edit Modal Functions
-    function openEditModal(trackingNumber, title, description)
+    // Make these functions globally accessible for inline handlers
+    window.openEditModal = function(trackingNumber, title, description)
     {
-        console.log('openEditModal called with:', { trackingNumber, title, description });
         const modal = document.getElementById('editModal');
         if (modal) {
             // Populate the form fields
@@ -410,25 +410,71 @@ style.textContent = `
             document.getElementById('editTitle').value = title;
             document.getElementById('editDescription').value = description;
 
+            // Fetch and populate community checkboxes
+            fetch(`?page=claim&action=get_item_communities&id=${encodeURIComponent(trackingNumber)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.populateCommunityCheckboxes(data.communities || [], data.itemCommunities || []);
+                    }
+                })
+                .catch(error => console.error('Error loading communities:', error));
+
             // Show the modal
             modal.style.display = 'block';
-            console.log('Modal should now be visible');
-        } else {
-            console.error('Modal element not found!');
         }
     }
 
-    function openEditModalFromButton(button)
+    window.openEditModalFromButton = function(button)
     {
         const trackingNumber = button.getAttribute('data-tracking');
         const title = button.getAttribute('data-title');
         const description = button.getAttribute('data-description');
 
-        console.log('openEditModalFromButton called with:', { trackingNumber, title, description });
-        openEditModal(trackingNumber, title, description);
+        window.openEditModal(trackingNumber, title, description);
     }
 
-    function closeEditModal()
+    window.populateCommunityCheckboxes = function(allCommunities, itemCommunityIds)
+    {
+        const container = document.getElementById('editCommunityCheckboxes');
+        if (!container) {
+            return;
+        }
+
+        const isAll = itemCommunityIds.length === 0;
+        
+        let html = `
+            <div class="community-checkbox-item">
+                <input type="checkbox" 
+                       name="communities[]" 
+                       value="all" 
+                       id="edit_community_all" 
+                       ${isAll ? 'checked' : ''}
+                       onchange="handleEditAllCommunities(this)">
+                <label for="edit_community_all">All Communities</label>
+            </div>
+        `;
+
+        allCommunities.forEach(comm => {
+            const isChecked = !isAll && itemCommunityIds.includes(comm.id);
+            html += `
+                <div class="community-checkbox-item">
+                    <input type="checkbox" 
+                           name="communities[]" 
+                           value="${comm.id}" 
+                           id="edit_community_${comm.id}"
+                           class="specific-community"
+                           ${isChecked ? 'checked' : ''}
+                           onchange="handleEditSpecificCommunity()">
+                    <label for="edit_community_${comm.id}">${comm.full_name}</label>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+    }
+
+    window.closeEditModal = function()
     {
         const modal = document.getElementById('editModal');
         if (modal) {
@@ -436,7 +482,27 @@ style.textContent = `
         }
     }
 
-    function saveItemEdit()
+    // Make these functions globally accessible for inline handlers
+    window.handleEditAllCommunities = function(checkbox)
+    {
+        const specificCheckboxes = document.querySelectorAll('#editCommunityCheckboxes .specific-community');
+        if (checkbox.checked) {
+            specificCheckboxes.forEach(cb => cb.checked = false);
+        }
+    }
+
+    window.handleEditSpecificCommunity = function()
+    {
+        const allCheckbox = document.getElementById('edit_community_all');
+        const specificCheckboxes = document.querySelectorAll('#editCommunityCheckboxes .specific-community');
+        const anySpecificChecked = Array.from(specificCheckboxes).some(cb => cb.checked);
+        
+        if (anySpecificChecked && allCheckbox) {
+            allCheckbox.checked = false;
+        }
+    }
+
+    window.saveItemEdit = function()
     {
         const form = document.getElementById('editForm');
         const formData = new FormData(form);
@@ -449,12 +515,28 @@ style.textContent = `
             return;
         }
 
-        fetch('?page=claim&action=edit_item', {
+        // Collect community checkboxes
+        const communityCheckboxes = document.querySelectorAll('#editCommunityCheckboxes input[type="checkbox"]:checked');
+        const communities = Array.from(communityCheckboxes).map(cb => cb.value);
+
+        // Validate at least one community selected
+        if (communities.length === 0) {
+            showMessage('Please select at least one community', 'error');
+            return;
+        }
+
+        // Build the request body
+        let body = `action=edit_item&id=${encodeURIComponent(trackingNumber)}&title=${encodeURIComponent(title)}&description=${encodeURIComponent(description)}`;
+        communities.forEach(comm => {
+            body += `&communities[]=${encodeURIComponent(comm)}`;
+        });
+
+        fetch('?page=claim', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: `id=${encodeURIComponent(trackingNumber)}&title=${encodeURIComponent(title)}&description=${encodeURIComponent(description)}`
+            body: body
         })
         .then(response => response.json())
         .then(data => {
@@ -475,7 +557,7 @@ style.textContent = `
         });
     }
 
-    function showMessage(message, type = 'info')
+    window.showMessage = function(message, type = 'info')
     {
         // Create a simple message display
         const messageDiv = document.createElement('div');
@@ -513,7 +595,7 @@ style.textContent = `
     }
 
 // Mark item as gone
-    function markItemGone(trackingNumber)
+    window.markItemGone = function(trackingNumber)
     {
         const button = document.querySelector(`button[onclick = "markItemGone('${trackingNumber}')"]`);
         if (!button) {
@@ -558,7 +640,7 @@ style.textContent = `
     }
 
 // Re-list item (mark as not gone)
-    function relistItem(trackingNumber)
+    window.relistItem = function(trackingNumber)
     {
         const button = document.querySelector(`button[onclick = "relistItem('${trackingNumber}')"]`);
         if (!button) {
