@@ -1,24 +1,12 @@
 <?php
 
 /**
- * Communities management page template
+ * Communities page template - Public view, admin controls
  */
 
-// Check if user is logged in
-if (!isLoggedIn()) {
-    redirect('login');
-}
-
-// Check if user is admin
-if (!isAdmin()) {
-    setFlashMessage('You do not have permission to access this page', 'error');
-    redirect('home');
-}
-
-$currentUser = getCurrentUser();
-if (!$currentUser) {
-    redirect('login');
-}
+// Get current user (may be null for logged out users)
+$currentUser = isLoggedIn() ? getCurrentUser() : null;
+$isAdmin = isAdmin();
 
 // Get all communities
 $communities = getAllCommunities();
@@ -29,8 +17,8 @@ $flashMessage = showFlashMessage();
 
 <div class="page-header">
     <div class="container">
-        <h1>🏘️ Community Management</h1>
-        <p class="page-subtitle">Create and manage communities</p>
+        <h1>🏘️ Communities</h1>
+        <p class="page-subtitle">Browse local communities</p>
     </div>
 </div>
 
@@ -43,13 +31,15 @@ $flashMessage = showFlashMessage();
         <?php endif; ?>
 
         <div class="communities-container">
-            <!-- Add New Community Button -->
+            <!-- Admin Controls (only visible to administrators) -->
+            <?php if ($isAdmin): ?>
             <div class="action-bar">
                 <button id="addCommunityBtn" class="btn btn-primary">
                     ➕ Add New Community
                 </button>
                 <a href="?page=admin" class="btn btn-secondary">← Back to Admin</a>
             </div>
+            <?php endif; ?>
 
             <!-- Communities Table -->
             <div class="table-container">
@@ -62,13 +52,17 @@ $flashMessage = showFlashMessage();
                             <th>Description</th>
                             <th>Owner</th>
                             <th>Created</th>
+                            <?php if ($isAdmin): ?>
                             <th>Actions</th>
+                            <?php endif; ?>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($communities)): ?>
                             <tr>
-                                <td colspan="7" class="no-data">No communities found. Create one to get started!</td>
+                                <td colspan="<?php echo $isAdmin ? '7' : '6'; ?>" class="no-data">
+                                    <?php echo $isAdmin ? 'No communities found. Create one to get started!' : 'No communities available yet.'; ?>
+                                </td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($communities as $community): ?>
@@ -93,6 +87,7 @@ $flashMessage = showFlashMessage();
                                         }
                                         ?>
                                     </td>
+                                    <?php if ($isAdmin): ?>
                                     <td class="actions-cell">
                                         <button class="btn-icon btn-edit" onclick="editCommunity(<?php echo escape($community['id']); ?>)" title="Edit">
                                             ✏️
@@ -101,6 +96,7 @@ $flashMessage = showFlashMessage();
                                             🗑️
                                         </button>
                                     </td>
+                                    <?php endif; ?>
                                 </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>
