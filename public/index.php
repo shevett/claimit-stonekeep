@@ -1410,7 +1410,7 @@ $performanceData = [
                 
                 <ul class="nav-menu">
                     <li><a href="/?page=items" class="nav-link <?php echo $page === 'items' ? 'active' : ''; ?>">View available items</a></li>
-                    <li><a href="/?page=communities" class="nav-link <?php echo $page === 'communities' ? 'active' : ''; ?>">Communities</a></li>
+                    <li><a href="/?page=communities" class="nav-link <?php echo $page === 'communities' ? 'active' : ''; ?>">Browse communities</a></li>
                     <?php if ($isLoggedIn) : ?>
                         <li><a href="/?page=claim" class="nav-link <?php echo $page === 'claim' ? 'active' : ''; ?>">Make a new posting</a></li>
                         <li><a href="/?page=user-listings&id=<?php echo escape($currentUser['id']); ?>" class="nav-link <?php echo $page === 'user-listings' ? 'active' : ''; ?>">My Listings</a></li>
