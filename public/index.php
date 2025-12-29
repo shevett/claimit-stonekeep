@@ -841,7 +841,110 @@ if (isset($_GET['page']) && $_GET['page'] === 'admin' && isset($_GET['action']))
         exit;
     }
 
+    if ($action === 'get_user') {
+        if (!isset($_GET['user_id'])) {
+            echo json_encode(['success' => false, 'message' => 'User ID required']);
+            exit;
+        }
+
+        try {
+            $userId = $_GET['user_id'];
+            $user = getUserById($userId);
+            
+            if (!$user) {
+                echo json_encode(['success' => false, 'message' => 'User not found']);
+                exit;
+            }
+
+            // Get all communities
+            $communities = getAllCommunities();
+            
+            // Get user's community memberships
+            $userCommunities = getUserCommunityIds($userId);
+            
+            echo json_encode([
+                'success' => true,
+                'user' => $user,
+                'communities' => $communities,
+                'user_communities' => $userCommunities
+            ]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Error loading user: ' . $e->getMessage()]);
+        }
+        exit;
+    }
+
     echo json_encode(['success' => false, 'message' => 'Invalid action']);
+    exit;
+}
+
+// Handle admin POST requests for updating users
+if (isset($_POST['action']) && $_POST['action'] === 'update_user' && isset($_GET['page']) && $_GET['page'] === 'admin') {
+    header('Content-Type: application/json');
+
+    if (!isLoggedIn()) {
+        echo json_encode(['success' => false, 'message' => 'Authentication required']);
+        exit;
+    }
+
+    if (!isAdmin()) {
+        echo json_encode(['success' => false, 'message' => 'Administrator privileges required']);
+        exit;
+    }
+
+    if (!isset($_POST['user_id'])) {
+        echo json_encode(['success' => false, 'message' => 'User ID required']);
+        exit;
+    }
+
+    try {
+        $userId = $_POST['user_id'];
+        
+        // Load existing user data first
+        $existingUser = getUserById($userId);
+        if (!$existingUser) {
+            echo json_encode(['success' => false, 'message' => 'User not found']);
+            exit;
+        }
+        
+        // Merge admin updates with existing data (preserving name, email, etc.)
+        $updates = array_merge($existingUser, [
+            'display_name' => trim($_POST['display_name'] ?? ''),
+            'zipcode' => trim($_POST['zipcode'] ?? ''),
+            'is_admin' => isset($_POST['is_admin']) ? 1 : 0,
+            'email_notifications' => isset($_POST['email_notifications']) ? 1 : 0,
+            'new_listing_notifications' => isset($_POST['new_listing_notifications']) ? 1 : 0
+        ]);
+        
+        if (!updateUser($userId, $updates)) {
+            echo json_encode(['success' => false, 'message' => 'Failed to update user']);
+            exit;
+        }
+        
+        // Update community memberships
+        $selectedCommunities = isset($_POST['communities']) && is_array($_POST['communities']) ? $_POST['communities'] : [];
+        $currentCommunities = getUserCommunityIds($userId);
+        
+        // Remove communities that are no longer selected
+        foreach ($currentCommunities as $communityId) {
+            if (!in_array($communityId, $selectedCommunities)) {
+                leaveCommunity($userId, $communityId);
+            }
+        }
+        
+        // Add newly selected communities
+        foreach ($selectedCommunities as $communityId) {
+            if (!in_array($communityId, $currentCommunities)) {
+                joinCommunity($userId, (int)$communityId);
+            }
+        }
+        
+        echo json_encode(['success' => true, 'message' => 'User updated successfully']);
+    } catch (Exception $e) {
+        error_log("Error updating user: " . $e->getMessage());
+        echo json_encode(['success' => false, 'message' => 'Error updating user: ' . $e->getMessage()]);
+    }
+    
     exit;
 }
 
@@ -929,6 +1032,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
                         'short_name' => trim($_POST['short_name']),
                         'full_name' => trim($_POST['full_name']),
                         'description' => trim($_POST['description'] ?? ''),
+                        'private' => isset($_POST['private']) ? 1 : 0,
                         'owner_id' => trim($_POST['owner_id'])
                     ];
 
@@ -949,7 +1053,8 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
                     $data = [
                         'short_name' => trim($_POST['short_name']),
                         'full_name' => trim($_POST['full_name']),
-                        'description' => trim($_POST['description'] ?? '')
+                        'description' => trim($_POST['description'] ?? ''),
+                        'private' => isset($_POST['private']) ? 1 : 0
                     ];
 
                     $success = updateCommunity((int)$_POST['id'], $data);

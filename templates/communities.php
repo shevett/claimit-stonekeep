@@ -9,7 +9,16 @@ $currentUser = isLoggedIn() ? getCurrentUser() : null;
 $isAdmin = isAdmin();
 
 // Get all communities
-$communities = getAllCommunities();
+$allCommunities = getAllCommunities();
+
+// Filter out private communities for non-admins
+$communities = [];
+foreach ($allCommunities as $community) {
+    // Show all communities to admins, hide private ones from non-admins
+    if ($isAdmin || empty($community['private'])) {
+        $communities[] = $community;
+    }
+}
 
 // Get flash message if any
 $flashMessage = showFlashMessage();
@@ -168,6 +177,14 @@ $flashMessage = showFlashMessage();
                 <label for="description">Description</label>
                 <textarea id="description" name="description" rows="4" 
                           placeholder="Describe this community..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="private" name="private" value="1">
+                    <span>Make this community private, meaning a user must be a member of the community to see the items listed</span>
+                </label>
+                <small class="form-help">Private communities are only visible to members. Items in both private and General communities will be visible to everyone.</small>
             </div>
 
             <div class="form-group">
@@ -455,6 +472,27 @@ $flashMessage = showFlashMessage();
     border-color: #007bff;
 }
 
+.checkbox-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    cursor: pointer;
+    font-weight: normal !important;
+}
+
+.checkbox-label input[type="checkbox"] {
+    margin-top: 0.25rem;
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.checkbox-label span {
+    flex: 1;
+    line-height: 1.5;
+}
+
 .form-help {
     display: block;
     color: #666;
@@ -524,6 +562,7 @@ function editCommunity(id) {
                 document.getElementById('shortName').value = community.short_name;
                 document.getElementById('fullName').value = community.full_name;
                 document.getElementById('description').value = community.description || '';
+                document.getElementById('private').checked = community.private == 1 || community.private === true;
                 document.getElementById('ownerId').value = community.owner_id;
                 document.getElementById('communityModal').classList.add('show');
             } else {
@@ -579,6 +618,10 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('modalTitle').textContent = 'Add New Community';
         document.getElementById('communityForm').reset();
         document.getElementById('communityId').value = '';
+        // Default owner to current user
+        <?php if ($currentUser): ?>
+        document.getElementById('ownerId').value = '<?php echo escape($currentUser['id']); ?>';
+        <?php endif; ?>
         document.getElementById('communityModal').classList.add('show');
     });
 

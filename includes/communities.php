@@ -59,7 +59,7 @@ function getCommunityById($id)
 
 /**
  * Create a new community
- * @param array $data Community data (short_name, full_name, description, owner_id)
+ * @param array $data Community data (short_name, full_name, description, owner_id, private)
  * @return int|false The new community ID or false on failure
  */
 function createCommunity($data)
@@ -70,13 +70,14 @@ function createCommunity($data)
     }
 
     try {
-        $sql = "INSERT INTO communities (short_name, full_name, description, owner_id, created_at) 
-                VALUES (?, ?, ?, ?, NOW())";
+        $sql = "INSERT INTO communities (short_name, full_name, description, private, owner_id, created_at) 
+                VALUES (?, ?, ?, ?, ?, NOW())";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
             $data['short_name'],
             $data['full_name'],
             $data['description'] ?? null,
+            isset($data['private']) ? (int)$data['private'] : 0,
             $data['owner_id']
         ]);
         return (int)$pdo->lastInsertId();
@@ -89,7 +90,7 @@ function createCommunity($data)
 /**
  * Update a community
  * @param int $id Community ID
- * @param array $data Community data to update
+ * @param array $data Community data to update (short_name, full_name, description, private)
  * @return bool True on success, false on failure
  */
 function updateCommunity($id, $data)
@@ -101,13 +102,14 @@ function updateCommunity($id, $data)
 
     try {
         $sql = "UPDATE communities 
-                SET short_name = ?, full_name = ?, description = ?, updated_at = NOW() 
+                SET short_name = ?, full_name = ?, description = ?, private = ?, updated_at = NOW() 
                 WHERE id = ?";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
             $data['short_name'],
             $data['full_name'],
             $data['description'] ?? null,
+            isset($data['private']) ? (int)$data['private'] : 0,
             $id
         ]);
         return true;

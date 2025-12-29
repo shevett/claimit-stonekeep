@@ -147,12 +147,13 @@ $flashMessage = showFlashMessage();
                             <th>Last Login</th>
                             <th>Created</th>
                             <th>Notifications</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($allUsers)): ?>
                             <tr>
-                                <td colspan="9" class="no-data">No users found</td>
+                                <td colspan="10" class="no-data">No users found</td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($allUsers as $user): ?>
@@ -219,6 +220,11 @@ $flashMessage = showFlashMessage();
                                         echo !empty($notifications) ? escape(implode(', ', $notifications)) : '-';
                                         ?>
                                     </td>
+                                    <td class="actions-cell">
+                                        <button class="btn-icon btn-edit" onclick="editUser('<?php echo escape($user['id']); ?>')" title="Edit User">
+                                            ✏️
+                                        </button>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>
@@ -230,6 +236,79 @@ $flashMessage = showFlashMessage();
                 <strong>Total Users:</strong> <?php echo count($allUsers); ?>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div id="editUserModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Edit User</h2>
+            <button class="modal-close" onclick="closeEditUserModal()">&times;</button>
+        </div>
+        <form id="editUserForm">
+            <input type="hidden" id="editUserId" name="user_id">
+            
+            <div class="form-group">
+                <label for="editUserName">Name</label>
+                <input type="text" id="editUserName" name="name" readonly disabled class="readonly-field">
+                <small class="form-help">Name from Google account (read-only)</small>
+            </div>
+
+            <div class="form-group">
+                <label for="editUserEmail">Email</label>
+                <input type="email" id="editUserEmail" name="email" readonly disabled class="readonly-field">
+                <small class="form-help">Email from Google account (read-only)</small>
+            </div>
+
+            <div class="form-group">
+                <label for="editDisplayName">Display Name</label>
+                <input type="text" id="editDisplayName" name="display_name" maxlength="100">
+                <small class="form-help">Optional display name shown to other users</small>
+            </div>
+
+            <div class="form-group">
+                <label for="editZipcode">Zipcode</label>
+                <input type="text" id="editZipcode" name="zipcode" maxlength="10">
+            </div>
+
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="editIsAdmin" name="is_admin" value="1">
+                    <span>Administrator privileges</span>
+                </label>
+            </div>
+
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="editEmailNotifications" name="email_notifications" value="1">
+                    <span>Email notifications enabled</span>
+                </label>
+            </div>
+
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="editNewListingNotifications" name="new_listing_notifications" value="1">
+                    <span>New listing notifications enabled</span>
+                </label>
+            </div>
+
+            <div class="form-group">
+                <label>Community Memberships</label>
+                <small class="form-help" style="display: block; margin-bottom: 0.5rem;">Select which communities this user is subscribed to</small>
+                <div id="editUserCommunities" class="community-checkboxes">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button type="submit" class="btn btn-primary">
+                    <span class="btn-text">Save Changes</span>
+                    <span class="btn-loading" style="display: none;">Saving...</span>
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="closeEditUserModal()">Cancel</button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -656,6 +735,179 @@ $flashMessage = showFlashMessage();
         height: 24px;
     }
 }
+
+/* Edit User Modal */
+#editUserModal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+}
+
+#editUserModal.show {
+    display: flex;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: #333;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 2rem;
+    line-height: 1;
+    cursor: pointer;
+    color: #999;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+}
+
+.modal-close:hover {
+    color: #333;
+}
+
+#editUserForm {
+    padding: 1.5rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+
+.form-group input[type="text"],
+.form-group input[type="email"] {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-family: inherit;
+    transition: border-color 0.2s ease;
+}
+
+.form-group input[type="text"]:focus,
+.form-group input[type="email"]:focus {
+    outline: none;
+    border-color: #007bff;
+}
+
+.readonly-field {
+    background: #f8f9fa !important;
+    cursor: not-allowed;
+}
+
+.form-help {
+    display: block;
+    color: #666;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+    line-height: 1.4;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    cursor: pointer;
+    font-weight: normal !important;
+}
+
+.checkbox-label input[type="checkbox"] {
+    margin-top: 0.25rem;
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.checkbox-label span {
+    flex: 1;
+    line-height: 1.5;
+}
+
+.community-checkboxes {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 6px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.community-checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.community-checkbox-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.community-checkbox-item label {
+    cursor: pointer;
+    margin: 0 !important;
+    font-weight: normal !important;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e9ecef;
+}
+
+.btn-icon {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0.25rem;
+    transition: transform 0.2s ease;
+}
+
+.btn-icon:hover {
+    transform: scale(1.2);
+}
 </style>
 
 <script>
@@ -758,5 +1010,123 @@ function showMessage(message, type = 'info') {
         }
     }, 5000);
 }
+
+// Edit User Functions
+function editUser(userId) {
+    fetch('/?page=admin&action=get_user&user_id=' + encodeURIComponent(userId))
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const user = data.user;
+                const communities = data.communities || [];
+                const userCommunities = data.user_communities || [];
+                
+                // Populate form fields
+                document.getElementById('editUserId').value = user.id;
+                document.getElementById('editUserName').value = user.name || '';
+                document.getElementById('editUserEmail').value = user.email || '';
+                document.getElementById('editDisplayName').value = user.display_name || '';
+                document.getElementById('editZipcode').value = user.zipcode || '';
+                document.getElementById('editIsAdmin').checked = user.is_admin == 1;
+                document.getElementById('editEmailNotifications').checked = user.email_notifications == 1;
+                document.getElementById('editNewListingNotifications').checked = user.new_listing_notifications == 1;
+                
+                // Populate communities
+                const container = document.getElementById('editUserCommunities');
+                let html = '';
+                communities.forEach(comm => {
+                    const isChecked = userCommunities.includes(comm.id);
+                    html += `
+                        <div class="community-checkbox-item">
+                            <input type="checkbox" 
+                                   name="communities[]" 
+                                   value="${comm.id}" 
+                                   id="user_community_${comm.id}"
+                                   ${isChecked ? 'checked' : ''}>
+                            <label for="user_community_${comm.id}">${comm.full_name}</label>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+                
+                // Show modal
+                document.getElementById('editUserModal').classList.add('show');
+            } else {
+                showMessage('Error loading user: ' + (data.message || 'Unknown error'), 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showMessage('Error loading user', 'error');
+        });
+}
+
+function closeEditUserModal() {
+    document.getElementById('editUserModal').classList.remove('show');
+    document.getElementById('editUserForm').reset();
+}
+
+// Handle edit user form submission
+document.addEventListener('DOMContentLoaded', function() {
+    const editForm = document.getElementById('editUserForm');
+    if (editForm) {
+        editForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const btnText = submitBtn.querySelector('.btn-text');
+            const btnLoading = submitBtn.querySelector('.btn-loading');
+            
+            submitBtn.disabled = true;
+            btnText.style.display = 'none';
+            btnLoading.style.display = 'inline';
+            
+            const formData = new FormData(this);
+            const body = new URLSearchParams();
+            body.append('action', 'update_user');
+            
+            for (const [key, value] of formData.entries()) {
+                body.append(key, value);
+            }
+            
+            fetch('/?page=admin', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: body.toString()
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showMessage(data.message || 'User updated successfully!', 'success');
+                    closeEditUserModal();
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    showMessage('Error: ' + (data.message || 'Unknown error'), 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showMessage('Error saving user', 'error');
+            })
+            .finally(() => {
+                submitBtn.disabled = false;
+                btnText.style.display = 'inline';
+                btnLoading.style.display = 'none';
+            });
+        });
+    }
+    
+    // Close modal when clicking outside
+    const modal = document.getElementById('editUserModal');
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeEditUserModal();
+            }
+        });
+    }
+});
 </script>
 

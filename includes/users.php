@@ -104,7 +104,7 @@ function updateUser($userId, $userData)
             email = ?, name = ?, picture = ?, verified_email = ?, locale = ?,
             last_login = ?, display_name = ?, zipcode = ?,
             show_gone_items = ?, email_notifications = ?, new_listing_notifications = ?,
-            updated_at = ?
+            is_admin = ?, updated_at = ?
         WHERE id = ?";
 
         $stmt = $pdo->prepare($sql);
@@ -120,6 +120,7 @@ function updateUser($userId, $userData)
             isset($userData['show_gone_items']) ? (int)$userData['show_gone_items'] : 1,
             isset($userData['email_notifications']) ? (int)$userData['email_notifications'] : 1,
             isset($userData['new_listing_notifications']) ? (int)$userData['new_listing_notifications'] : 1,
+            isset($userData['is_admin']) ? (int)$userData['is_admin'] : 0,
             date('Y-m-d H:i:s'),
             $userId
         ]);

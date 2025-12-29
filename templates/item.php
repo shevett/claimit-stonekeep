@@ -42,6 +42,70 @@ try {
             'relisted_at' => $dbItem['relisted_at'],
             'relisted_by' => $dbItem['relisted_by']
         ];
+        
+        // Check if user has permission to view this item (private community check)
+        $itemCommunityIds = getItemCommunities($itemId);
+        
+        // If item has no communities, it's invisible (staging) - only owner/admin can see
+        if (empty($itemCommunityIds)) {
+            $currentUser = getCurrentUser();
+            $isOwner = $currentUser && $currentUser['id'] === $item['user_id'];
+            $isAdmin = isAdmin();
+            
+            if (!$isOwner && !$isAdmin) {
+                $error = 'Item not found.';
+                $item = null;
+            }
+        } else {
+            // Get all communities to check which are private
+            $allCommunities = getAllCommunities();
+            $communityMap = [];
+            foreach ($allCommunities as $comm) {
+                $communityMap[$comm['id']] = $comm;
+            }
+            
+            // Check if item is in General (1) or any non-private community
+            $isPublic = false;
+            foreach ($itemCommunityIds as $commId) {
+                if ($commId == 1) {
+                    // General community - always public
+                    $isPublic = true;
+                    break;
+                }
+                if (isset($communityMap[$commId]) && empty($communityMap[$commId]['private'])) {
+                    // Non-private community - public
+                    $isPublic = true;
+                    break;
+                }
+            }
+            
+            // If item is not public (only in private communities), check user membership
+            if (!$isPublic) {
+                $currentUser = getCurrentUser();
+                $hasAccess = false;
+                
+                if ($currentUser) {
+                    // Check if user is owner or admin
+                    if ($currentUser['id'] === $item['user_id'] || isAdmin()) {
+                        $hasAccess = true;
+                    } else {
+                        // Check if user is a member of at least one of the item's communities
+                        $userCommunities = getUserCommunityIds($currentUser['id']);
+                        foreach ($itemCommunityIds as $commId) {
+                            if (in_array($commId, $userCommunities)) {
+                                $hasAccess = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                if (!$hasAccess) {
+                    $error = 'Item not found.';
+                    $item = null;
+                }
+            }
+        }
     } else {
         $error = 'Item not found.';
     }
