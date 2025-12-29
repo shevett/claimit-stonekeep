@@ -545,7 +545,7 @@ p {
 
 /* Modern Main Content */
 .main-content {
-    min-height: calc(100vh - 140px);
+    min-height: auto;
 }
 
 /* Modern Hero Section */
@@ -1149,7 +1149,7 @@ footer {
 
     .hero-section,
     .page-header {
-        padding: var(--space-8) 0;
+        padding: var(--space-4) 0;
     }
 
     .hero-title {
@@ -1161,7 +1161,7 @@ footer {
     }
 
     .content-section {
-        padding: var(--space-8) 0;
+        padding: var(--space-4) 0;
     }
 
     .contact-form {
