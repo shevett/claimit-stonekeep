@@ -454,13 +454,13 @@ $flashMessage = showFlashMessage();
                                     </div>
                                     <div class="claim-date">Claimed <?php echo escape(date('M j, Y g:i A', strtotime($claim['claimed_at']))); ?></div>
                                 </div>
-                                <?php if ($isOwnItem) : ?>
+                                <?php if ($isOwnItem || isAdmin()) : ?>
                                     <div class="waitlist-actions">
                                         <?php if ($claim['user_email']) : ?>
                                             <a href="mailto:<?php echo escape($claim['user_email']); ?>?subject=Regarding your claim on <?php echo escape($item['title']); ?>&body=Hi <?php echo escape($claim['user_name']); ?>,%0D%0A%0D%0AI'm contacting you about your claim on my item: <?php echo escape($item['title']); ?>%0D%0A%0D%0A" 
-                                               class="btn btn-sm btn-outline-primary mailto-btn" 
+                                               class="btn btn-sm btn-primary" 
                                                title="Email <?php echo escape($claim['user_name']); ?>">
-                                                ✉️
+                                                📧 Contact
                                             </a>
                                         <?php endif; ?>
                                         <button onclick="removeClaimByOwner('<?php echo escape($item['id']); ?>', '<?php echo escape($claim['user_id']); ?>')" 
@@ -1140,14 +1140,22 @@ function addClaimToItem(trackingNumber) {
     button.innerHTML = '⏳ Adding to list...';
     
     // Send AJAX request
-    fetch('', {
+    fetch('/', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: `action=add_claim&id=${encodeURIComponent(trackingNumber)}`
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            return response.text().then(text => {
+                console.error('Response was not OK:', text);
+                throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+            });
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             // Show success message
@@ -1185,14 +1193,22 @@ function removeMyClaim(trackingNumber) {
     button.innerHTML = '⏳ Removing...';
     
     // Send AJAX request
-    fetch('', {
+    fetch('/', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: `action=remove_claim&id=${encodeURIComponent(trackingNumber)}`
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            return response.text().then(text => {
+                console.error('Response was not OK:', text);
+                throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+            });
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             // Show success message
@@ -1227,14 +1243,22 @@ function removeClaimByOwner(trackingNumber, claimUserId) {
     }
     
     // Send AJAX request
-    fetch('', {
+    fetch('/', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: `action=remove_claim_by_owner&id=${encodeURIComponent(trackingNumber)}&claim_user_id=${encodeURIComponent(claimUserId)}`
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            return response.text().then(text => {
+                console.error('Response was not OK:', text);
+                throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+            });
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             // Show success message
