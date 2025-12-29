@@ -1168,7 +1168,7 @@ function addClaimToItem(trackingNumber) {
     })
     .catch(error => {
         console.error('Error:', error);
-        showMessage('An error occurred. Please try again.', 'error');
+        showMessage('Network error while claiming item: ' + error.message, 'error');
         
         // Restore button
         button.disabled = false;

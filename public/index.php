@@ -1520,7 +1520,7 @@ $performanceData = [
         })
         .catch(error => {
             console.error('Error:', error);
-            showMessage('An error occurred while claiming the item', 'error');
+            showMessage('Network error while claiming item: ' + error.message, 'error');
             button.disabled = false;
             button.textContent = '🎯 Claim This!';
         });

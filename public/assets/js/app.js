@@ -562,7 +562,7 @@ style.textContent = `
 // Mark item as gone
     window.markItemGone = function(trackingNumber)
     {
-        const button = document.querySelector(`button[onclick = "markItemGone('${trackingNumber}')"]`);
+        const button = document.querySelector(`button[onclick="markItemGone('${trackingNumber}')"]`);
         if (!button) {
             return;
         }
@@ -578,7 +578,7 @@ style.textContent = `
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: `action = mark_gone & id = ${encodeURIComponent(trackingNumber)}`
+            body: `action=mark_gone&id=${encodeURIComponent(trackingNumber)}`
         })
         .then(response => response.json())
         .then(data => {
@@ -597,7 +597,7 @@ style.textContent = `
         })
         .catch(error => {
             console.error('Error marking item as gone:', error);
-            showMessage('An error occurred while marking item as gone', 'error');
+            showMessage('Network error while marking item as gone: ' + error.message, 'error');
             // Restore button
             button.disabled = false;
             button.innerHTML = originalText;
@@ -607,7 +607,7 @@ style.textContent = `
 // Re-list item (mark as not gone)
     window.relistItem = function(trackingNumber)
     {
-        const button = document.querySelector(`button[onclick = "relistItem('${trackingNumber}')"]`);
+        const button = document.querySelector(`button[onclick="relistItem('${trackingNumber}')"]`);
         if (!button) {
             return;
         }
@@ -623,7 +623,7 @@ style.textContent = `
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: `action = relist_item & id = ${encodeURIComponent(trackingNumber)}`
+            body: `action=relist_item&id=${encodeURIComponent(trackingNumber)}`
         })
         .then(response => response.json())
         .then(data => {
@@ -642,7 +642,7 @@ style.textContent = `
         })
         .catch(error => {
             console.error('Error re-listing item:', error);
-            showMessage('An error occurred while re-listing item', 'error');
+            showMessage('Network error while re-listing item: ' + error.message, 'error');
             // Restore button
             button.disabled = false;
             button.innerHTML = originalText;
