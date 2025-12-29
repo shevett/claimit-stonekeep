@@ -311,11 +311,18 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_item_communities' && isse
 }
 
 // Handle AJAX claim requests before any HTML output
-if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_claim', 'remove_claim_by_owner', 'delete_item', 'edit_item', 'rotate_image', 'mark_gone', 'relist_item', 'upload_additional_image', 'delete_image']) && isset($_POST['id'])) {
+// Support both POST body and GET parameters for action/id
+$ajaxAction = $_POST['action'] ?? $_GET['action'] ?? null;
+$ajaxId = $_POST['id'] ?? $_GET['id'] ?? null;
+
+error_log("Checking for AJAX request - action: " . ($ajaxAction ?? 'not set') . ", id: " . ($ajaxId ?? 'not set'));
+
+if ($ajaxAction && in_array($ajaxAction, ['add_claim', 'remove_claim', 'remove_claim_by_owner', 'delete_item', 'edit_item', 'rotate_image', 'mark_gone', 'relist_item', 'upload_additional_image', 'delete_image']) && $ajaxId) {
+    error_log("AJAX Handler reached - action: " . $ajaxAction . ", id: " . $ajaxId);
     header('Content-Type: application/json');
 
-    $trackingNumber = $_POST['id'];
-    $action = $_POST['action'];
+    $trackingNumber = $ajaxId;
+    $action = $ajaxAction;
 
     // Support both old format (YmdHis) and new format (YmdHis-xxxx)
     if (!preg_match('/^(\d{14}|\d{14}-[a-f0-9]{4})$/', $trackingNumber)) {
@@ -357,11 +364,11 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                 break;
 
             case 'remove_claim_by_owner':
-                if (!isset($_POST['claim_user_id'])) {
+                $claimUserId = $_POST['claim_user_id'] ?? $_GET['claim_user_id'] ?? null;
+                if (!$claimUserId) {
                     echo json_encode(['success' => false, 'message' => 'Claim user ID required']);
                     exit;
                 }
-                $claimUserId = $_POST['claim_user_id'];
                 removeClaimFromItem($trackingNumber, $claimUserId);
                 echo json_encode(['success' => true, 'message' => 'Claim removed successfully']);
                 break;

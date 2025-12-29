@@ -240,14 +240,22 @@ function addClaimToItem(trackingNumber) {
     button.innerHTML = '⏳ Claiming...';
     
     // Send AJAX request
-    fetch('', {
+    fetch('/', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: `action=add_claim&id=${encodeURIComponent(trackingNumber)}`
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            return response.text().then(text => {
+                console.error('Response was not OK:', text);
+                throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+            });
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             // Show success message
