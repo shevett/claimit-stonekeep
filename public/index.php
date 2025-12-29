@@ -87,13 +87,24 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1' && $_GET['page'] === 'home') {
             $showGoneItems = $currentUser ? getUserShowGoneItems($currentUser['id']) : false;
         }
 
+        // Determine which communities to show items from
+        $communityIds = [1]; // Default to General for anonymous users
+        if ($currentUser) {
+            // Get user's subscribed communities
+            $userCommunities = getUserCommunityIds($currentUser['id']);
+            if (!empty($userCommunities)) {
+                $communityIds = $userCommunities;
+            }
+            debugLog("User {$currentUser['id']} subscribed to communities: " . implode(', ', $communityIds));
+        }
+
         // Load items
         $items = [];
 
         if (hasAwsCredentials()) {
             $itemsStartTime = microtime(true);
-            debugLog("AJAX: Starting getAllItemsEfficiently");
-            $items = getAllItemsEfficiently($showGoneItems);
+            debugLog("AJAX: Starting getAllItemsEfficiently for communities: " . implode(', ', $communityIds));
+            $items = getAllItemsEfficiently($showGoneItems, $communityIds);
             $itemsEndTime = microtime(true);
             $itemsTime = round(($itemsEndTime - $itemsStartTime) * 1000, 2);
             debugLog("AJAX: getAllItemsEfficiently completed in {$itemsTime}ms, loaded " . count($items) . " items");
@@ -427,17 +438,14 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['add_claim', 'remove_
                 $communities = $_POST['communities'] ?? [];
                 $communityIds = [];
                 
-                // If "all" is not in the array, collect specific community IDs
-                if (!in_array('all', $communities)) {
-                    foreach ($communities as $commValue) {
-                        if ($commValue !== 'all' && is_numeric($commValue)) {
-                            $communityIds[] = (int)$commValue;
-                        }
+                // Collect selected community IDs (empty = invisible/staging)
+                foreach ($communities as $commValue) {
+                    if (is_numeric($commValue)) {
+                        $communityIds[] = (int)$commValue;
                     }
                 }
-                // If "all" is selected or array is empty, $communityIds stays empty (visible to all)
                 
-                // Save community associations
+                // Save community associations (empty array is allowed for staging)
                 setItemCommunities($trackingNumber, $communityIds);
                 
                 // Clear items cache since we updated an item

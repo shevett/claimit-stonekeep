@@ -140,6 +140,28 @@ function deleteCommunity($id)
 }
 
 /**
+ * Get all community IDs that a user is subscribed to
+ * @param string $userId User ID
+ * @return array Array of community IDs
+ */
+function getUserCommunityIds($userId)
+{
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return [];
+    }
+
+    try {
+        $stmt = $pdo->prepare("SELECT community_id FROM users_communities WHERE user_id = ?");
+        $stmt->execute([$userId]);
+        return $stmt->fetchAll(PDO::FETCH_COLUMN);
+    } catch (Exception $e) {
+        error_log("Error getting user communities: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
  * Check if a user is a member of a community
  * @param string $userId User ID
  * @param int $communityId Community ID
@@ -261,7 +283,7 @@ function getItemCommunities($itemId)
 /**
  * Set communities for an item
  * @param string $itemId Item ID
- * @param array $communityIds Array of community IDs (empty array means "All")
+ * @param array $communityIds Array of community IDs (empty array = invisible/staging, no communities)
  * @return bool True on success, false on failure
  */
 function setItemCommunities($itemId, $communityIds)
@@ -279,8 +301,8 @@ function setItemCommunities($itemId, $communityIds)
         $stmt = $pdo->prepare("DELETE FROM items_communities WHERE item_id = ?");
         $stmt->execute([$itemId]);
         
-        // If communityIds is empty, item is visible to all (no associations needed)
-        // Otherwise, add new associations
+        // Add new associations
+        // Empty array means item is not visible in any community (staging/invisible)
         if (!empty($communityIds)) {
             $sql = "INSERT INTO items_communities (item_id, community_id, created_at) VALUES (?, ?, NOW())";
             $stmt = $pdo->prepare($sql);

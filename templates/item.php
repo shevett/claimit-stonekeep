@@ -239,6 +239,27 @@ $flashMessage = showFlashMessage();
                                 ?>
                             </a>
                         </div>
+                        <div class="detail-item">
+                            <strong>Visible in:</strong>
+                            <span>
+                                <?php
+                                // Get communities this item is visible in
+                                $itemCommunityIds = getItemCommunities($item['id']);
+                                if (empty($itemCommunityIds)) {
+                                    echo '<em style="color: #999;">Not visible (staging)</em>';
+                                } else {
+                                    $allCommunities = getAllCommunities();
+                                    $communityNames = [];
+                                    foreach ($allCommunities as $comm) {
+                                        if (in_array($comm['id'], $itemCommunityIds)) {
+                                            $communityNames[] = escape($comm['short_name']);
+                                        }
+                                    }
+                                    echo implode(', ', $communityNames);
+                                }
+                                ?>
+                            </span>
+                        </div>
                         <?php
                         // Get active claims for this item
                         $activeClaims = getActiveClaims($item['id']);
@@ -443,7 +464,7 @@ $flashMessage = showFlashMessage();
                 <div class="form-group">
                     <label>Visible in Communities:</label>
                     <small style="color: #666; font-size: 0.875rem; display: block; margin-bottom: 0.5rem;">
-                        Select which communities can see this item (at least one required)
+                        Select which communities can see this item (leave empty for invisible/staging)
                     </small>
                     <div id="editCommunityCheckboxes" class="community-checkboxes">
                         <!-- Will be populated by JavaScript -->
@@ -749,19 +770,19 @@ $flashMessage = showFlashMessage();
 }
 
 .details-section {
-    margin-bottom: 2rem;
+    margin-bottom: 1.25rem;
 }
 
 .detail-grid {
     display: grid;
-    gap: 1rem;
+    gap: 0.5rem;
 }
 
 .detail-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.75rem 0;
+    padding: 0.5rem 0;
     border-bottom: 1px solid #f8f9fa;
 }
 
@@ -780,7 +801,7 @@ $flashMessage = showFlashMessage();
 }
 
 .actions-section {
-    margin-top: 3rem;
+    margin-top: 2rem;
 }
 
 .action-buttons {

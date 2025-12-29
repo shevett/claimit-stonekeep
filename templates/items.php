@@ -102,8 +102,18 @@ try {
         $showGoneItems = $currentUser ? getUserShowGoneItems($currentUser['id']) : false;
     }
 
-    // Use efficient function that batches S3 operations
-    $items = getAllItemsEfficiently($showGoneItems);
+    // Determine which communities to show items from
+    $communityIds = [1]; // Default to General for anonymous users
+    if ($currentUser) {
+        // Get user's subscribed communities
+        $userCommunities = getUserCommunityIds($currentUser['id']);
+        if (!empty($userCommunities)) {
+            $communityIds = $userCommunities;
+        }
+    }
+
+    // Use efficient function that batches S3 operations - filter by user's communities
+    $items = getAllItemsEfficiently($showGoneItems, $communityIds);
 } catch (Exception $e) {
     $error = $e->getMessage();
 }

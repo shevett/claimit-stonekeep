@@ -441,31 +441,18 @@ style.textContent = `
             return;
         }
 
-        const isAll = itemCommunityIds.length === 0;
-        
-        let html = `
-            <div class="community-checkbox-item">
-                <input type="checkbox" 
-                       name="communities[]" 
-                       value="all" 
-                       id="edit_community_all" 
-                       ${isAll ? 'checked' : ''}
-                       onchange="handleEditAllCommunities(this)">
-                <label for="edit_community_all">All Communities</label>
-            </div>
-        `;
+        let html = '';
 
         allCommunities.forEach(comm => {
-            const isChecked = !isAll && itemCommunityIds.includes(comm.id);
+            const isChecked = itemCommunityIds.includes(comm.id);
             html += `
                 <div class="community-checkbox-item">
                     <input type="checkbox" 
                            name="communities[]" 
                            value="${comm.id}" 
                            id="edit_community_${comm.id}"
-                           class="specific-community"
-                           ${isChecked ? 'checked' : ''}
-                           onchange="handleEditSpecificCommunity()">
+                           class="community-checkbox"
+                           ${isChecked ? 'checked' : ''}>
                     <label for="edit_community_${comm.id}">${comm.full_name}</label>
                 </div>
             `;
@@ -482,25 +469,7 @@ style.textContent = `
         }
     }
 
-    // Make these functions globally accessible for inline handlers
-    window.handleEditAllCommunities = function(checkbox)
-    {
-        const specificCheckboxes = document.querySelectorAll('#editCommunityCheckboxes .specific-community');
-        if (checkbox.checked) {
-            specificCheckboxes.forEach(cb => cb.checked = false);
-        }
-    }
-
-    window.handleEditSpecificCommunity = function()
-    {
-        const allCheckbox = document.getElementById('edit_community_all');
-        const specificCheckboxes = document.querySelectorAll('#editCommunityCheckboxes .specific-community');
-        const anySpecificChecked = Array.from(specificCheckboxes).some(cb => cb.checked);
-        
-        if (anySpecificChecked && allCheckbox) {
-            allCheckbox.checked = false;
-        }
-    }
+    // Community selection - no special handlers needed, checkboxes work independently
 
     window.saveItemEdit = function()
     {
@@ -519,11 +488,7 @@ style.textContent = `
         const communityCheckboxes = document.querySelectorAll('#editCommunityCheckboxes input[type="checkbox"]:checked');
         const communities = Array.from(communityCheckboxes).map(cb => cb.value);
 
-        // Validate at least one community selected
-        if (communities.length === 0) {
-            showMessage('Please select at least one community', 'error');
-            return;
-        }
+        // Empty selection is allowed (creates invisible/staging item)
 
         // Build the request body
         let body = `action=edit_item&id=${encodeURIComponent(trackingNumber)}&title=${encodeURIComponent(title)}&description=${encodeURIComponent(description)}`;

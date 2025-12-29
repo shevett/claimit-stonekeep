@@ -9,10 +9,11 @@
  * This function batches operations to avoid N+1 query problems
  *
  * @param bool $includeGoneItems Whether to include gone items
+ * @param int|array|null $communityId Filter by community ID(s) - single int, array of ints, or null for no filter
  * @return array Array of items
  */
 if (!function_exists('getAllItemsEfficiently')) {
-function getAllItemsEfficiently($includeGoneItems = false)
+function getAllItemsEfficiently($includeGoneItems = false, $communityId = null)
 {
     static $itemsCache = null;
     static $cacheTime = null;
@@ -27,7 +28,11 @@ function getAllItemsEfficiently($includeGoneItems = false)
     }
 
     // Create cache key based on parameters
-    $currentCacheKey = md5($includeGoneItems ? 'with_gone' : 'without_gone');
+    $communityKeyPart = is_array($communityId) ? implode(',', $communityId) : ($communityId ?? 'all');
+    $currentCacheKey = md5(
+        ($includeGoneItems ? 'with_gone' : 'without_gone') . 
+        '_comm_' . $communityKeyPart
+    );
 
     // Use longer cache for better performance (5 minutes)
     $cacheExpiry = 300; // 5 minutes cache for items
@@ -40,7 +45,7 @@ function getAllItemsEfficiently($includeGoneItems = false)
             $startTime = microtime(true);
 
             // Get items from database
-            $dbItems = getAllItemsFromDb($includeGoneItems);
+            $dbItems = getAllItemsFromDb($includeGoneItems, $communityId);
             debugLog("Loaded " . count($dbItems) . " items from database");
 
             // Get all claims from database in one query for efficiency
@@ -406,10 +411,11 @@ function isItemGone($itemData)
  * Get all items from database with optional filtering
  *
  * @param bool $includeGone Whether to include items marked as gone
+ * @param int|array|null $communityId Filter by community ID(s) - single int, array of ints, or null for no filter
  * @return array Array of items with all fields
  */
 if (!function_exists('getAllItemsFromDb')) {
-function getAllItemsFromDb($includeGone = false)
+function getAllItemsFromDb($includeGone = false, $communityId = null)
 {
     $pdo = getDbConnection();
     if (!$pdo) {
@@ -417,14 +423,40 @@ function getAllItemsFromDb($includeGone = false)
     }
 
     try {
-        $sql = "SELECT * FROM items";
-        if (!$includeGone) {
-            $sql .= " WHERE gone = 0";
+        $sql = "SELECT DISTINCT items.* FROM items";
+        $params = [];
+        
+        // Join with items_communities if filtering by community
+        if ($communityId !== null) {
+            // Handle both single ID and array of IDs
+            $communityIds = is_array($communityId) ? $communityId : [$communityId];
+            
+            // Only filter if we have community IDs
+            if (!empty($communityIds)) {
+                $sql .= " INNER JOIN items_communities ic ON items.id = ic.item_id";
+                $placeholders = implode(',', array_fill(0, count($communityIds), '?'));
+                $sql .= " WHERE ic.community_id IN ($placeholders)";
+                $params = array_merge($params, $communityIds);
+                
+                if (!$includeGone) {
+                    $sql .= " AND items.gone = 0";
+                }
+            } else {
+                // Empty array means no communities, return empty result
+                if (!$includeGone) {
+                    $sql .= " WHERE items.gone = 0";
+                }
+            }
+        } else {
+            if (!$includeGone) {
+                $sql .= " WHERE items.gone = 0";
+            }
         }
-        $sql .= " ORDER BY submitted_timestamp DESC";
+        
+        $sql .= " ORDER BY items.submitted_timestamp DESC";
 
         $stmt = $pdo->prepare($sql);
-        $stmt->execute();
+        $stmt->execute($params);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (Exception $e) {
@@ -498,10 +530,11 @@ function getItemFromDb($trackingNumber)
  * Create new item in database
  *
  * @param array $itemData Item data
+ * @param array|null $communityIds Array of community IDs to link item to (null = default to General)
  * @return bool Success status
  */
 if (!function_exists('createItemInDb')) {
-function createItemInDb($itemData)
+function createItemInDb($itemData, $communityIds = null)
 {
     $pdo = getDbConnection();
     if (!$pdo) {
@@ -511,6 +544,10 @@ function createItemInDb($itemData)
     try {
         $now = date('Y-m-d H:i:s');
 
+        // Start transaction
+        $pdo->beginTransaction();
+
+        // Insert item
         $stmt = $pdo->prepare("
             INSERT INTO items (
                 id, title, description, price, contact_email,
@@ -522,7 +559,7 @@ function createItemInDb($itemData)
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
 
-        return $stmt->execute([
+        $success = $stmt->execute([
             $itemData['id'],
             $itemData['title'],
             $itemData['description'],
@@ -544,7 +581,34 @@ function createItemInDb($itemData)
             $now,
             $now
         ]);
+
+        if (!$success) {
+            $pdo->rollBack();
+            return false;
+        }
+
+        // Link to communities (default to General if not specified)
+        if ($communityIds === null) {
+            $communityIds = [1]; // Default to General community
+        }
+
+        // Insert community associations
+        if (!empty($communityIds)) {
+            $stmt = $pdo->prepare("
+                INSERT INTO items_communities (item_id, community_id, created_at) 
+                VALUES (?, ?, NOW())
+            ");
+            foreach ($communityIds as $communityId) {
+                $stmt->execute([$itemData['id'], (int)$communityId]);
+            }
+        }
+
+        $pdo->commit();
+        return true;
     } catch (Exception $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         error_log("Error creating item in database: " . $e->getMessage());
         return false;
     }
