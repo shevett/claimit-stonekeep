@@ -493,9 +493,15 @@ p {
 
     .nav-container {
         flex-direction: column;
-        gap: var(--space-4);
+        gap: var(--space-2);
         min-height: auto;
-        padding: var(--space-4) var(--space-6);
+        padding: var(--space-2) var(--space-4);
+    }
+    
+    .nav-search {
+        flex: 1 1 auto;
+        max-width: 100%;
+        margin: 0;
     }
 
     .nav-user-menu {
@@ -1089,17 +1095,7 @@ footer {
 }
 
 @media (max-width: 768px) {
-    .nav-container {
-        flex-direction: column;
-        gap: var(--space-4);
-        padding: var(--space-4);
-    }
-
-    .nav-menu {
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: var(--space-4);
-    }
+    /* Nav styles moved to first @media block above to avoid duplication */
 
     .hero-title {
         font-size: 2.5rem;
@@ -1144,12 +1140,29 @@ footer {
 
 @media (max-width: 480px) {
     .container {
-        padding: 0 var(--space-4);
+        padding: 0 var(--space-3);
+    }
+
+    .navbar {
+        padding: var(--space-2) 0;
+    }
+
+    .nav-container {
+        gap: var(--space-1);
+        padding: var(--space-2) var(--space-3);
+    }
+
+    .nav-logo {
+        font-size: 1.5rem;
+    }
+
+    .nav-menu {
+        gap: var(--space-1);
     }
 
     .hero-section,
     .page-header {
-        padding: var(--space-4) 0;
+        padding: var(--space-3) 0;
     }
 
     .hero-title {
@@ -1157,15 +1170,15 @@ footer {
     }
 
     .features-section {
-        padding: var(--space-8) 0;
+        padding: var(--space-6) 0;
     }
 
     .content-section {
-        padding: var(--space-4) 0;
+        padding: var(--space-3) 0;
     }
 
     .contact-form {
-        padding: var(--space-4);
+        padding: var(--space-3);
     }
 }
 
