@@ -398,6 +398,52 @@ style.textContent = `
         }
     }
 
+// Mobile menu toggle functionality
+    window.toggleMobileMenu = function()
+    {
+        const menu = document.getElementById('navMenu');
+        const hamburger = document.querySelector('.hamburger-menu');
+        
+        if (menu && hamburger) {
+            menu.classList.toggle('active');
+            hamburger.classList.toggle('active');
+        }
+    }
+
+    // Close mobile menu when clicking on a link or outside
+    document.addEventListener('DOMContentLoaded', function() {
+        const menu = document.getElementById('navMenu');
+        const hamburger = document.querySelector('.hamburger-menu');
+        const navbar = document.querySelector('.navbar');
+        
+        if (menu) {
+            // Close when clicking links (except user dropdown trigger)
+            const links = menu.querySelectorAll('a, button');
+            links.forEach(link => {
+                link.addEventListener('click', function() {
+                    if (!this.classList.contains('nav-user-trigger')) {
+                        menu.classList.remove('active');
+                        if (hamburger) {
+                            hamburger.classList.remove('active');
+                        }
+                    }
+                });
+            });
+            
+            // Close when clicking outside
+            document.addEventListener('click', function(e) {
+                if (menu.classList.contains('active') && 
+                    navbar && 
+                    !navbar.contains(e.target)) {
+                    menu.classList.remove('active');
+                    if (hamburger) {
+                        hamburger.classList.remove('active');
+                    }
+                }
+            });
+        }
+    });
+
 
 // Edit Modal Functions
     // Make these functions globally accessible for inline handlers

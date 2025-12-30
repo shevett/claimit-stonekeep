@@ -1330,13 +1330,20 @@ $performanceData = [
                     <span>ClaimIt</span>
                 </a>
                 
+                <!-- Hamburger Menu Button (Mobile Only) -->
+                <button class="hamburger-menu" onclick="toggleMobileMenu()" aria-label="Toggle menu">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                
                 <!-- Search Box -->
                 <div class="nav-search">
                     <input type="text" id="searchInput" placeholder="Search items..." autocomplete="off">
                     <button id="clearSearch" style="display: none;" title="Clear search">&times;</button>
                 </div>
                 
-                <ul class="nav-menu">
+                <ul class="nav-menu" id="navMenu">
                     <li><a href="/?page=items" class="nav-link <?php echo $page === 'items' ? 'active' : ''; ?>">View available items</a></li>
                     <li><a href="/?page=communities" class="nav-link <?php echo $page === 'communities' ? 'active' : ''; ?>">Browse communities</a></li>
                     <?php if ($isLoggedIn) : ?>
