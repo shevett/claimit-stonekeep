@@ -150,6 +150,13 @@ $imageUrl = $item['image_url'] ?? null;
                     🗑️ Delete
                 </button>
             <?php endif; ?>
+            
+            <!-- Share button - always visible -->
+            <button onclick="shareItem('<?php echo escape($item['id']); ?>', '<?php echo htmlspecialchars($item['title'] ?? '', ENT_QUOTES, 'UTF-8'); ?>')" 
+                    class="btn btn-secondary share-btn" 
+                    title="Share this item">
+                🔗 Share
+            </button>
         </div>
     <?php elseif ($context === 'dashboard' && ($isOwnListings || isAdmin())) : ?>
         <!-- Action buttons for dashboard context (own listings or admin view) -->
@@ -184,6 +191,13 @@ $imageUrl = $item['image_url'] ?? null;
                     🗑️ Delete
                 </button>
             <?php endif; ?>
+            
+            <!-- Share button - always visible -->
+            <button onclick="shareItem('<?php echo escape($item['id']); ?>', '<?php echo htmlspecialchars($item['title'] ?? '', ENT_QUOTES, 'UTF-8'); ?>')" 
+                    class="btn btn-secondary share-btn" 
+                    title="Share this item">
+                🔗 Share
+            </button>
         </div>
     <?php elseif ($context === 'claimed') : ?>
         <!-- Display claim status for claimed items -->

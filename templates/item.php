@@ -425,6 +425,13 @@ $flashMessage = showFlashMessage();
                                 🗑️ Delete
                             </button>
                         <?php endif; ?>
+                        
+                        <!-- Share button - always visible -->
+                        <button onclick="shareItem('<?php echo escape($item['id']); ?>', '<?php echo htmlspecialchars($item['title'] ?? '', ENT_QUOTES, 'UTF-8'); ?>')" 
+                                class="btn btn-secondary btn-large share-btn" 
+                                title="Share this item">
+                            🔗 Share
+                        </button>
                     </div>
                 </div>
                 
@@ -1578,6 +1585,41 @@ function deleteImage(trackingNumber, imageIndex) {
         console.error('Error:', error);
         showMessage('An error occurred while deleting the image', 'error');
     });
+}
+
+// Share item to clipboard
+function shareItem(trackingNumber, title) {
+    // Build the share text: title + URL
+    const url = window.location.origin + '/?page=item&id=' + encodeURIComponent(trackingNumber);
+    const shareText = title + '\n' + url;
+    
+    // Copy to clipboard
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(shareText)
+            .then(() => {
+                showMessage('Share info copied to clipboard', 'success');
+            })
+            .catch(err => {
+                console.error('Failed to copy to clipboard:', err);
+                showMessage('Failed to copy to clipboard', 'error');
+            });
+    } else {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = shareText;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            showMessage('Share info copied to clipboard', 'success');
+        } catch (err) {
+            console.error('Failed to copy to clipboard:', err);
+            showMessage('Failed to copy to clipboard', 'error');
+        }
+        document.body.removeChild(textArea);
+    }
 }
 </script>
 

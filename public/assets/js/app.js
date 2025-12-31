@@ -695,6 +695,41 @@ style.textContent = `
         });
     }
 
+// Share item to clipboard
+    window.shareItem = function(trackingNumber, title) {
+        // Build the share text: title + URL
+        const url = window.location.origin + '/?page=item&id=' + encodeURIComponent(trackingNumber);
+        const shareText = title + '\n' + url;
+        
+        // Copy to clipboard
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(shareText)
+                .then(() => {
+                    showMessage('Share info copied to clipboard', 'success');
+                })
+                .catch(err => {
+                    console.error('Failed to copy to clipboard:', err);
+                    showMessage('Failed to copy to clipboard', 'error');
+                });
+        } else {
+            // Fallback for older browsers
+            const textArea = document.createElement('textarea');
+            textArea.value = shareText;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-999999px';
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showMessage('Share info copied to clipboard', 'success');
+            } catch (err) {
+                console.error('Failed to copy to clipboard:', err);
+                showMessage('Failed to copy to clipboard', 'error');
+            }
+            document.body.removeChild(textArea);
+        }
+    }
+
 // Handle edit form submission
     document.addEventListener('DOMContentLoaded', function () {
         const editForm = document.getElementById('editForm');
