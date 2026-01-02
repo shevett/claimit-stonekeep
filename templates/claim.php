@@ -133,6 +133,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             // Create item data for database
+            // Handle community associations BEFORE creating the item
+            $communities = $_POST['communities'] ?? [];
+            $communityIds = [];
+            
+            // Collect selected community IDs (empty = invisible/staging)
+            foreach ($communities as $commValue) {
+                if (is_numeric($commValue)) {
+                    $communityIds[] = (int)$commValue;
+                }
+            }
+            
+            // If no communities selected, pass null to allow default or empty
+            $communityIdsForCreate = !empty($communityIds) ? $communityIds : null;
+
             $itemData = [
                 'id' => $trackingNumber,
                 'title' => $title,
@@ -149,24 +163,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'submitted_timestamp' => time()
             ];
 
-            // Save item to database
-            if (!createItemInDb($itemData)) {
+            // Save item to database with community associations
+            // This will trigger Slack notifications to the correct communities
+            if (!createItemInDb($itemData, $communityIdsForCreate)) {
                 throw new Exception('Failed to save item to database');
             }
-
-            // Handle community associations
-            $communities = $_POST['communities'] ?? [];
-            $communityIds = [];
-            
-            // Collect selected community IDs (empty = invisible/staging)
-            foreach ($communities as $commValue) {
-                if (is_numeric($commValue)) {
-                    $communityIds[] = (int)$commValue;
-                }
-            }
-            
-            // Save community associations (empty array is allowed for staging)
-            setItemCommunities($trackingNumber, $communityIds);
 
             // Clear items cache since we added a new item
             clearItemsCache();

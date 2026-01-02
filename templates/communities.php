@@ -188,6 +188,28 @@ $flashMessage = showFlashMessage();
             </div>
 
             <div class="form-group">
+                <label for="slackWebhookUrl">Slack Webhook URL</label>
+                <input type="url" id="slackWebhookUrl" name="slack_webhook_url" 
+                       placeholder="https://hooks.slack.com/services/YOUR/WEBHOOK/URL">
+                <small class="form-help">Enter your Slack incoming webhook URL to receive notifications when items are posted to this community.</small>
+            </div>
+
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="slackEnabled" name="slack_enabled" value="1">
+                    <span>Enable Slack notifications for this community</span>
+                </label>
+                <small class="form-help">When enabled, a message will be posted to Slack whenever a new item is posted to this community.</small>
+            </div>
+
+            <div class="form-group">
+                <button type="button" class="btn btn-secondary" id="testSlackBtn" onclick="testSlackWebhook()">
+                    🧪 Send Test Message
+                </button>
+                <small class="form-help">Test your Slack webhook before enabling notifications.</small>
+            </div>
+
+            <div class="form-group">
                 <label for="ownerId">Owner ID <span class="required">*</span></label>
                 <input type="text" id="ownerId" name="owner_id" required 
                        placeholder="User ID of the community owner">
@@ -563,6 +585,8 @@ function editCommunity(id) {
                 document.getElementById('fullName').value = community.full_name;
                 document.getElementById('description').value = community.description || '';
                 document.getElementById('private').checked = community.private == 1 || community.private === true;
+                document.getElementById('slackWebhookUrl').value = community.slack_webhook_url || '';
+                document.getElementById('slackEnabled').checked = community.slack_enabled == 1 || community.slack_enabled === true;
                 document.getElementById('ownerId').value = community.owner_id;
                 document.getElementById('communityModal').classList.add('show');
             } else {
@@ -764,6 +788,65 @@ function showMessage(message, type = 'info') {
             messageDiv.parentNode.removeChild(messageDiv);
         }
     }, 5000);
+}
+
+// Test Slack webhook
+function testSlackWebhook() {
+    const webhookUrl = document.getElementById('slackWebhookUrl').value.trim();
+    
+    if (!webhookUrl) {
+        showMessage('Please enter a Slack webhook URL first', 'error');
+        return;
+    }
+    
+    // Validate webhook URL format
+    if (!webhookUrl.startsWith('https://hooks.slack.com/services/')) {
+        showMessage('Invalid Slack webhook URL format. It should start with https://hooks.slack.com/services/', 'error');
+        return;
+    }
+    
+    const testBtn = document.getElementById('testSlackBtn');
+    const originalText = testBtn.innerHTML;
+    testBtn.disabled = true;
+    testBtn.innerHTML = '⏳ Sending...';
+    
+    // Send test request to server
+    fetch('?page=communities&action=test_slack', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'webhook_url=' + encodeURIComponent(webhookUrl)
+    })
+    .then(response => {
+        console.log('Response status:', response.status);
+        console.log('Response headers:', response.headers);
+        return response.text().then(text => {
+            console.log('Raw response:', text);
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                console.error('Failed to parse JSON:', e);
+                throw new Error('Server returned invalid JSON: ' + text.substring(0, 200));
+            }
+        });
+    })
+    .then(data => {
+        console.log('Parsed data:', data);
+        if (data.success) {
+            showMessage('Test message sent successfully! Check your Slack channel.', 'success');
+        } else {
+            showMessage('Test failed: ' + (data.message || 'Unknown error'), 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showMessage('Error sending test message: ' + error.message, 'error');
+    })
+    .finally(() => {
+        testBtn.disabled = false;
+        testBtn.innerHTML = originalText;
+    });
 }
 </script>
 

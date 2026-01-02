@@ -70,15 +70,17 @@ function createCommunity($data)
     }
 
     try {
-        $sql = "INSERT INTO communities (short_name, full_name, description, private, owner_id, created_at) 
-                VALUES (?, ?, ?, ?, ?, NOW())";
+        $sql = "INSERT INTO communities (short_name, full_name, description, private, owner_id, slack_webhook_url, slack_enabled, created_at) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, NOW())";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
             $data['short_name'],
             $data['full_name'],
             $data['description'] ?? null,
             isset($data['private']) ? (int)$data['private'] : 0,
-            $data['owner_id']
+            $data['owner_id'],
+            $data['slack_webhook_url'] ?? null,
+            isset($data['slack_enabled']) ? (int)$data['slack_enabled'] : 0
         ]);
         return (int)$pdo->lastInsertId();
     } catch (Exception $e) {
@@ -102,7 +104,7 @@ function updateCommunity($id, $data)
 
     try {
         $sql = "UPDATE communities 
-                SET short_name = ?, full_name = ?, description = ?, private = ?, updated_at = NOW() 
+                SET short_name = ?, full_name = ?, description = ?, private = ?, slack_webhook_url = ?, slack_enabled = ?, updated_at = NOW() 
                 WHERE id = ?";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
@@ -110,6 +112,8 @@ function updateCommunity($id, $data)
             $data['full_name'],
             $data['description'] ?? null,
             isset($data['private']) ? (int)$data['private'] : 0,
+            $data['slack_webhook_url'] ?? null,
+            isset($data['slack_enabled']) ? (int)$data['slack_enabled'] : 0,
             $id
         ]);
         return true;
