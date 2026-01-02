@@ -401,6 +401,11 @@ if ($ajaxAction && in_array($ajaxAction, ['add_claim', 'remove_claim', 'remove_c
                     }
                 }
 
+                // Delete the item from the database
+                if (!deleteItemFromDb($trackingNumber)) {
+                    throw new Exception('Failed to delete item from database');
+                }
+
                 // Clear caches since we deleted an item
                 clearItemsCache();
                 clearImageUrlCache();
