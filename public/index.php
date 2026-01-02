@@ -1040,6 +1040,8 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
                         'full_name' => trim($_POST['full_name']),
                         'description' => trim($_POST['description'] ?? ''),
                         'private' => isset($_POST['private']) ? 1 : 0,
+                        'slack_webhook_url' => !empty($_POST['slack_webhook_url']) ? trim($_POST['slack_webhook_url']) : null,
+                        'slack_enabled' => isset($_POST['slack_enabled']) ? 1 : 0,
                         'owner_id' => trim($_POST['owner_id'])
                     ];
 
@@ -1061,7 +1063,9 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
                         'short_name' => trim($_POST['short_name']),
                         'full_name' => trim($_POST['full_name']),
                         'description' => trim($_POST['description'] ?? ''),
-                        'private' => isset($_POST['private']) ? 1 : 0
+                        'private' => isset($_POST['private']) ? 1 : 0,
+                        'slack_webhook_url' => !empty($_POST['slack_webhook_url']) ? trim($_POST['slack_webhook_url']) : null,
+                        'slack_enabled' => isset($_POST['slack_enabled']) ? 1 : 0
                     ];
 
                     $success = updateCommunity((int)$_POST['id'], $data);
@@ -1083,6 +1087,70 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
                         echo json_encode(['success' => true, 'message' => 'Community deleted successfully']);
                     } else {
                         echo json_encode(['success' => false, 'message' => 'Failed to delete community']);
+                    }
+                    break;
+
+                case 'test_slack':
+                    if (empty($_POST['webhook_url'])) {
+                        echo json_encode(['success' => false, 'message' => 'Webhook URL required']);
+                        exit;
+                    }
+
+                    $webhookUrl = trim($_POST['webhook_url']);
+
+                    // Validate webhook URL format
+                    if (!filter_var($webhookUrl, FILTER_VALIDATE_URL) || 
+                        !str_starts_with($webhookUrl, 'https://hooks.slack.com/services/')) {
+                        echo json_encode(['success' => false, 'message' => 'Invalid Slack webhook URL format']);
+                        exit;
+                    }
+
+                    // Send test message to Slack
+                    $testMessage = [
+                        'text' => '🧪 Test message from ClaimIt',
+                        'blocks' => [
+                            [
+                                'type' => 'section',
+                                'text' => [
+                                    'type' => 'mrkdwn',
+                                    'text' => "*Test Message from ClaimIt*\n\nIf you can see this message, your Slack webhook is configured correctly! :white_check_mark:"
+                                ]
+                            ],
+                            [
+                                'type' => 'context',
+                                'elements' => [
+                                    [
+                                        'type' => 'mrkdwn',
+                                        'text' => '_Sent at ' . date('Y-m-d H:i:s') . '_'
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ];
+
+                    try {
+                        $ch = curl_init($webhookUrl);
+                        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
+                        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($testMessage));
+                        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+                        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+
+                        $response = curl_exec($ch);
+                        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                        $curlError = curl_error($ch);
+                        curl_close($ch);
+
+                        if ($httpCode === 200 && $response === 'ok') {
+                            echo json_encode(['success' => true, 'message' => 'Test message sent successfully!']);
+                        } else {
+                            $errorMsg = $curlError ?: "Slack returned HTTP $httpCode";
+                            error_log("Slack webhook test failed: $errorMsg, Response: $response");
+                            echo json_encode(['success' => false, 'message' => "Failed to send message: $errorMsg"]);
+                        }
+                    } catch (Exception $e) {
+                        error_log("Slack webhook test error: " . $e->getMessage());
+                        echo json_encode(['success' => false, 'message' => 'Error sending test message: ' . $e->getMessage()]);
                     }
                     break;
 
