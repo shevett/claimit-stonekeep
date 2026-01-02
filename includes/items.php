@@ -666,3 +666,49 @@ function updateItemInDb($trackingNumber, $updates)
     }
 }
 }
+
+/**
+ * Delete item from database
+ *
+ * @param string $trackingNumber The item tracking number
+ * @return bool Success status
+ */
+if (!function_exists('deleteItemFromDb')) {
+function deleteItemFromDb($trackingNumber)
+{
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return false;
+    }
+
+    try {
+        $pdo->beginTransaction();
+
+        // Delete from items_communities first (foreign key constraint)
+        $stmt = $pdo->prepare("DELETE FROM items_communities WHERE item_id = ?");
+        $stmt->execute([$trackingNumber]);
+
+        // Delete claims associated with this item
+        $stmt = $pdo->prepare("DELETE FROM claims WHERE item_id = ?");
+        $stmt->execute([$trackingNumber]);
+
+        // Delete the item itself
+        $stmt = $pdo->prepare("DELETE FROM items WHERE id = ?");
+        $success = $stmt->execute([$trackingNumber]);
+
+        $pdo->commit();
+        
+        if ($success) {
+            error_log("Item {$trackingNumber} deleted from database");
+        }
+        
+        return $success;
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        error_log("Error deleting item from database: " . $e->getMessage());
+        return false;
+    }
+}
+}
