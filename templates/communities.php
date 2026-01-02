@@ -818,8 +818,21 @@ function testSlackWebhook() {
         },
         body: 'webhook_url=' + encodeURIComponent(webhookUrl)
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('Response status:', response.status);
+        console.log('Response headers:', response.headers);
+        return response.text().then(text => {
+            console.log('Raw response:', text);
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                console.error('Failed to parse JSON:', e);
+                throw new Error('Server returned invalid JSON: ' + text.substring(0, 200));
+            }
+        });
+    })
     .then(data => {
+        console.log('Parsed data:', data);
         if (data.success) {
             showMessage('Test message sent successfully! Check your Slack channel.', 'success');
         } else {
@@ -828,7 +841,7 @@ function testSlackWebhook() {
     })
     .catch(error => {
         console.error('Error:', error);
-        showMessage('Error sending test message', 'error');
+        showMessage('Error sending test message: ' + error.message, 'error');
     })
     .finally(() => {
         testBtn.disabled = false;

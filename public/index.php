@@ -1024,8 +1024,14 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
     }
 
     // Handle POST requests (create, update, delete)
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-        $action = $_POST['action'];
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        // Action can be in either GET or POST
+        $action = $_GET['action'] ?? $_POST['action'] ?? null;
+        
+        if (!$action) {
+            echo json_encode(['success' => false, 'message' => 'Action required']);
+            exit;
+        }
 
         try {
             switch ($action) {
@@ -1129,6 +1135,9 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
                     ];
 
                     try {
+                        error_log("Slack webhook test - sending to: " . $webhookUrl);
+                        error_log("Slack webhook test - message: " . json_encode($testMessage));
+                        
                         $ch = curl_init($webhookUrl);
                         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
                         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($testMessage));
@@ -1141,11 +1150,14 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
                         $curlError = curl_error($ch);
                         curl_close($ch);
 
-                        if ($httpCode === 200 && $response === 'ok') {
-                            echo json_encode(['success' => true, 'message' => 'Test message sent successfully!']);
+                        error_log("Slack webhook test - HTTP code: $httpCode, Response: '$response', cURL Error: '$curlError'");
+
+                        // Slack returns "ok" on success (case insensitive, might have whitespace)
+                        if ($httpCode === 200 && trim(strtolower($response)) === 'ok') {
+                            echo json_encode(['success' => true, 'message' => 'Test message sent successfully! Check your Slack channel.']);
                         } else {
-                            $errorMsg = $curlError ?: "Slack returned HTTP $httpCode";
-                            error_log("Slack webhook test failed: $errorMsg, Response: $response");
+                            $errorMsg = $curlError ?: "Slack returned HTTP $httpCode with response: $response";
+                            error_log("Slack webhook test failed: $errorMsg");
                             echo json_encode(['success' => false, 'message' => "Failed to send message: $errorMsg"]);
                         }
                     } catch (Exception $e) {
