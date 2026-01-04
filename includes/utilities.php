@@ -387,17 +387,14 @@ function generateOpenGraphTags($page, $data = [])
 
                 // Add image if available
                 if (isset($item['image_key']) && $item['image_key']) {
-                    $awsService = getAwsService();
-                    if ($awsService) {
-                        try {
-                            $imageUrl = $awsService->getPresignedUrl($item['image_key'], 3600);
-                            $metaTags['image'] = $imageUrl;
-                            $metaTags['image_width'] = '1200';
-                            $metaTags['image_height'] = '630';
-                        } catch (Exception $e) {
-                            // Image not available, skip
-                        }
-                    }
+                    // Use permanent CloudFront URL for Open Graph metadata
+                    // This ensures Slack and other platforms can cache the image URL indefinitely
+                    // without it expiring (unlike presigned URLs which expire after 1 hour)
+                    require_once __DIR__ . '/images.php';
+                    $imageUrl = getCloudFrontUrl($item['image_key']);
+                    $metaTags['image'] = $imageUrl;
+                    $metaTags['image_width'] = '1200';
+                    $metaTags['image_height'] = '630';
                 }
             } else {
                 // Fallback when item data is not available
