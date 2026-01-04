@@ -17,21 +17,23 @@ function sendSlackItemNotification($webhookUrl, $item, $community) {
         return false;
     }
 
-    // Build the item URL
+    // Build the item URL and user listings URL
     $baseUrl = getBaseUrl();
     $itemUrl = $baseUrl . '/?page=item&id=' . urlencode($item['id']);
+    $userUrl = $baseUrl . '/?page=user-listings&id=' . urlencode($item['user_id']);
+    $userName = $item['user_name'] ?? 'Unknown User';
 
     error_log("Preparing Slack notification for item {$item['id']}, URL: $itemUrl");
 
     // Create a simple message with the URL - Slack will unfurl it automatically
     $message = [
-        'text' => "📦 New item posted in {$community['short_name']}: {$item['title']}",
+        'text' => "📦 New item posted in {$community['short_name']} by {$userName}: {$item['title']}",
         'blocks' => [
             [
                 'type' => 'section',
                 'text' => [
                     'type' => 'mrkdwn',
-                    'text' => "*New item posted in {$community['short_name']}*\n\n<{$itemUrl}|{$item['title']}>"
+                    'text' => "*New item posted in {$community['short_name']} by <{$userUrl}|{$userName}>*\n\n<{$itemUrl}|{$item['title']}>"
                 ]
             ]
         ],
