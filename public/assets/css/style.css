@@ -1709,6 +1709,31 @@ footer {
     object-fit: contain;
 }
 
+/* GONE Badge */
+.gone-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: rgba(220, 38, 38, 0.95);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    z-index: 10;
+}
+
+/* Dim gone items slightly */
+.item-gone {
+    opacity: 0.75;
+}
+
+.item-gone:hover {
+    opacity: 0.85;
+}
+
 /* Loading indicator styles */
 .loading-indicator {
     display: flex;

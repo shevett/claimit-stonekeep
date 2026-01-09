@@ -186,6 +186,10 @@ $flashMessage = showFlashMessage();
                                 ↻
                             </button>
                         <?php endif; ?>
+                        
+                        <?php if ($isItemGone) : ?>
+                            <div class="gone-badge">GONE</div>
+                        <?php endif; ?>
                     </div>
                     
                     <?php if (count($allImages) > 1) : ?>
