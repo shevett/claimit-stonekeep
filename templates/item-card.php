@@ -36,7 +36,7 @@ $isItemGone = $item['is_item_gone'] ?? false;
 $imageUrl = $item['image_url'] ?? null;
 ?>
 
-<div class="item-card">
+<div class="item-card <?php echo $isItemGone ? 'item-gone' : ''; ?>">
     <a href="?page=item&id=<?php echo escape($item['id']); ?>" class="item-link">
         <div class="item-image-container">
             <?php if ($imageUrl) : ?>
@@ -52,6 +52,10 @@ $imageUrl = $item['image_url'] ?? null;
                     <span>🖼️</span>
                     <p>No Image</p>
                 </div>
+            <?php endif; ?>
+            
+            <?php if ($isItemGone) : ?>
+                <div class="gone-badge">GONE</div>
             <?php endif; ?>
         </div>
 
