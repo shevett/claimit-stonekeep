@@ -332,7 +332,21 @@ $flashMessage = showFlashMessage();
                         // Get active claims for this item
                         $activeClaims = getActiveClaims($item['id']);
                         $primaryClaim = getPrimaryClaim($item['id']);
+                        $claimCount = count($activeClaims);
                         ?>
+                        
+                        <div class="detail-item">
+                            <strong>Interest:</strong>
+                            <span>
+                                <?php if ($claimCount === 0) : ?>
+                                    <span style="color: #28a745;">No one has claimed this yet</span>
+                                <?php elseif ($claimCount === 1) : ?>
+                                    <span style="color: #ffc107;">1 person has claimed this</span>
+                                <?php else : ?>
+                                    <span style="color: #dc3545;"><?php echo $claimCount; ?> people have claimed this</span>
+                                <?php endif; ?>
+                            </span>
+                        </div>
                         
                         <?php if ($primaryClaim) : ?>
                             <div class="detail-item">
@@ -348,13 +362,6 @@ $flashMessage = showFlashMessage();
                                     ?>
                                 </span>
                                 <span class="claim-date">(<?php echo escape(date('M j, Y', strtotime($primaryClaim['claimed_at']))); ?>)</span>
-                            </div>
-                        <?php endif; ?>
-                        
-                        <?php if (count($activeClaims) > 1) : ?>
-                            <div class="detail-item">
-                                <strong>Waitlist:</strong>
-                                <span><?php echo count($activeClaims) - 1; ?> person<?php echo (count($activeClaims) - 1) !== 1 ? 's' : ''; ?> waiting</span>
                             </div>
                         <?php endif; ?>
                     </div>
@@ -419,7 +426,7 @@ $flashMessage = showFlashMessage();
                                 <button onclick="markItemGone('<?php echo escape($item['id']); ?>')" 
                                         class="btn btn-warning btn-large" 
                                         title="Mark this item as gone">
-                                    ✅ Gone!
+                                    ✅ Mark as Gone
                                 </button>
                             <?php endif; ?>
                             
