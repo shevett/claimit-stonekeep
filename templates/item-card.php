@@ -145,7 +145,7 @@ $imageUrl = $item['image_url'] ?? null;
                 <?php else : ?>
                     <button onclick="markItemGone('<?php echo escape($item['id']); ?>')"
                             class="btn btn-warning">
-                        ✅ Gone!
+                        ✅ Mark as Gone
                     </button>
                 <?php endif; ?>
 
@@ -186,7 +186,7 @@ $imageUrl = $item['image_url'] ?? null;
                 <?php else : ?>
                     <button onclick="markItemGone('<?php echo escape($item['id']); ?>')"
                             class="btn btn-warning">
-                        ✅ Gone!
+                        ✅ Mark as Gone
                     </button>
                 <?php endif; ?>
 
