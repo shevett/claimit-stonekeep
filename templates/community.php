@@ -23,14 +23,45 @@ $currentUser = isLoggedIn() ? getCurrentUser() : null;
 $isMember = $currentUser ? isUserInCommunity($currentUser['id'], $communityId) : false;
 $memberCount = getCommunityMemberCount($communityId);
 
+// Check if user wants to see gone items
+$showGoneItems = false;
+if ($currentUser) {
+    $showGoneItems = getUserShowGoneItems($currentUser['id']);
+}
+
+// Get items for this community
+$items = [];
+try {
+    // Pass the community ID to filter items
+    $items = getAllItemsEfficiently($showGoneItems, $communityId);
+} catch (Exception $e) {
+    error_log("Error loading items for community: " . $e->getMessage());
+    $items = [];
+}
+
 // Get flash message if any
 $flashMessage = showFlashMessage();
 ?>
 
 <div class="page-header">
     <div class="container">
-        <h1>🏘️ <?php echo escape($community['full_name']); ?></h1>
-        <p class="page-subtitle"><?php echo escape($community['short_name']); ?></p>
+        <div class="community-header">
+            <div class="community-title">
+                <h1>🏘️ <?php echo escape($community['full_name']); ?></h1>
+            </div>
+            <div class="community-header-actions">
+                <?php if ($currentUser): ?>
+                    <button id="membershipBtn" 
+                            class="btn <?php echo $isMember ? 'btn-secondary' : 'btn-primary'; ?>" 
+                            onclick="toggleMembership(<?php echo $communityId; ?>, <?php echo $isMember ? 'true' : 'false'; ?>)">
+                        <?php echo $isMember ? '✓ Member' : '+ Join'; ?>
+                    </button>
+                <?php else: ?>
+                    <a href="/?page=login" class="btn btn-primary">Log in to join</a>
+                <?php endif; ?>
+                <a href="/?page=communities" class="btn btn-secondary">← Back</a>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -42,119 +73,101 @@ $flashMessage = showFlashMessage();
             </div>
         <?php endif; ?>
 
-        <div class="community-detail">
-            <div class="community-info">
-                <div class="info-section">
-                    <h3>About</h3>
-                    <p><?php echo nl2br(escape($community['description'] ?? 'No description available.')); ?></p>
+        <!-- Items Grid -->
+        <?php if (empty($items)) : ?>
+            <div class="no-items">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📦</div>
+                    <h3>No Items Yet</h3>
+                    <p>This community doesn't have any items posted yet.</p>
+                    <?php if ($currentUser): ?>
+                        <a href="/?page=claim" class="btn btn-primary">Post the First Item</a>
+                    <?php endif; ?>
                 </div>
-
-                <div class="info-section">
-                    <h3>Details</h3>
-                    <ul class="community-stats">
-                        <li><strong>Members:</strong> <?php echo escape($memberCount); ?></li>
-                        <li><strong>Owner:</strong> 
-                            <?php if ($community['owner_name']): ?>
-                                <a href="/?page=user-listings&id=<?php echo escape($community['owner_id']); ?>" class="owner-link">
-                                    <?php echo escape($community['owner_name']); ?>
-                                </a>
-                            <?php else: ?>
-                                <span style="color: #999; font-style: italic;">Unknown</span>
-                            <?php endif; ?>
-                        </li>
-                        <li><strong>Created:</strong> 
-                            <?php 
-                            if ($community['created_at']) {
-                                $date = new DateTime($community['created_at']);
-                                echo escape($date->format('F j, Y'));
-                            } else {
-                                echo '-';
-                            }
-                            ?>
-                        </li>
-                    </ul>
-                </div>
-
-                <?php if ($currentUser): ?>
-                <div class="info-section">
-                    <button id="membershipBtn" 
-                            class="btn <?php echo $isMember ? 'btn-secondary' : 'btn-primary'; ?>" 
-                            onclick="toggleMembership(<?php echo $communityId; ?>, <?php echo $isMember ? 'true' : 'false'; ?>)">
-                        <?php echo $isMember ? '✓ Leave Community' : '+ Join Community'; ?>
-                    </button>
-                </div>
-                <?php else: ?>
-                <div class="info-section">
-                    <p class="login-prompt">
-                        <a href="/?page=login" class="btn btn-primary">Log in to join this community</a>
-                    </p>
-                </div>
-                <?php endif; ?>
             </div>
-
-            <div class="community-actions">
-                <a href="/?page=communities" class="btn btn-secondary">← Back to Communities</a>
+        <?php else : ?>
+            <div class="items-grid">
+                <?php foreach ($items as $item) : ?>
+                    <?php
+                    // Set context for the unified template
+                    $context = 'listing';
+                    $isOwnListings = false;
+                    ?>
+                    <?php include __DIR__ . '/item-card.php'; ?>
+                <?php endforeach; ?>
             </div>
-        </div>
+        <?php endif; ?>
     </div>
 </div>
 
 <style>
-.community-detail {
-    max-width: 800px;
-    margin: 0 auto;
+/* Override default page-header padding for tighter spacing */
+.page-header {
+    padding: 1.5rem 0 !important;
 }
 
-.community-info {
-    background: white;
-    border-radius: 12px;
-    padding: 2rem;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    margin-bottom: 1.5rem;
+.community-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 2rem;
 }
 
-.info-section {
-    margin-bottom: 2rem;
-}
-
-.info-section:last-child {
-    margin-bottom: 0;
-}
-
-.info-section h3 {
-    margin-top: 0;
-    margin-bottom: 1rem;
-    color: #333;
-    font-size: 1.25rem;
-}
-
-.info-section p {
-    color: #666;
-    line-height: 1.6;
-}
-
-.community-stats {
-    list-style: none;
-    padding: 0;
+.community-title h1 {
     margin: 0;
 }
 
-.community-stats li {
-    padding: 0.5rem 0;
-    border-bottom: 1px solid #f0f0f0;
+.community-header-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
 }
 
-.community-stats li:last-child {
-    border-bottom: none;
+/* Items Grid */
+.items-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 2rem;
+    margin-top: 2rem;
 }
 
-.community-stats strong {
-    color: #333;
-    margin-right: 0.5rem;
+.item-card {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border: 1px solid #e9ecef;
 }
 
-.community-actions {
+.item-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.no-items {
     text-align: center;
+    padding: 4rem 2rem;
+}
+
+.empty-state {
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.empty-state-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+}
+
+.empty-state h3 {
+    margin-bottom: 1rem;
+    color: var(--gray-700, #333);
+}
+
+.empty-state p {
+    color: var(--gray-500, #666);
+    margin-bottom: 2rem;
 }
 
 .btn {
@@ -187,24 +200,20 @@ $flashMessage = showFlashMessage();
     background: #545b62;
 }
 
-.owner-link {
-    color: #007bff;
-    text-decoration: none;
-    font-weight: 500;
-}
-
-.owner-link:hover {
-    text-decoration: underline;
-}
-
-.login-prompt {
-    text-align: center;
-    padding: 1rem;
-}
-
 @media (max-width: 768px) {
-    .community-info {
-        padding: 1.5rem;
+    .community-header {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .community-header-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .items-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
     }
 }
 </style>
