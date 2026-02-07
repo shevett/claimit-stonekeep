@@ -404,6 +404,10 @@ $flashMessage = showFlashMessage();
                                     ❌ Cannot claim
                                 </button>
                             <?php endif; ?>
+                        <?php elseif (!$isOwnItem && !$currentUser && !$isItemGone) : ?>
+                            <a href="/?page=auth&action=google" class="btn btn-primary btn-large claim-btn" title="Sign in with Google to claim this item">
+                                🏆 Claim this item
+                            </a>
                         <?php endif; ?>
                         
                         <?php if ($canEditItem) : ?>
