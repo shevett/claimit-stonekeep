@@ -17,7 +17,7 @@ jobs:
       with:
         host: ${{ secrets.HOST }}
         username: ${{ secrets.USERNAME }}
-        key: ${{ secrets.SSH_KEY }}
+        key: ${{ secrets.NEW_SECRET }}
         port: ${{ secrets.PORT }}
         script: |
           set -e  # Exit on error
