@@ -138,14 +138,14 @@ $flashMessage = showFlashMessage();
                 <table class="user-table">
                     <thead>
                         <tr>
-                            <th>Name</th>
-                            <th>Email</th>
-                            <th>Display Name</th>
-                            <th>Admin</th>
-                            <th>Verified</th>
-                            <th>Last Login</th>
-                            <th>Created</th>
-                            <th>Notifications</th>
+                            <th class="sortable" data-col="0">Name <span class="sort-indicator"></span></th>
+                            <th class="sortable" data-col="1">Email <span class="sort-indicator"></span></th>
+                            <th class="sortable" data-col="2">Display Name <span class="sort-indicator"></span></th>
+                            <th class="sortable" data-col="3">Admin <span class="sort-indicator"></span></th>
+                            <th class="sortable" data-col="4">Verified <span class="sort-indicator"></span></th>
+                            <th class="sortable" data-col="5">Last Login <span class="sort-indicator"></span></th>
+                            <th class="sortable" data-col="6">Created <span class="sort-indicator"></span></th>
+                            <th class="sortable" data-col="7">Notifications <span class="sort-indicator"></span></th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -186,8 +186,8 @@ $flashMessage = showFlashMessage();
                                             <span class="badge badge-warning">✗</span>
                                         <?php endif; ?>
                                     </td>
-                                    <td class="date-cell">
-                                        <?php 
+                                    <td class="date-cell" data-sort-value="<?php echo $user['last_login'] ? strtotime($user['last_login']) : 0; ?>">
+                                        <?php
                                         if ($user['last_login']) {
                                             $date = new DateTime($user['last_login']);
                                             echo escape($date->format('M j, Y g:i A'));
@@ -196,8 +196,8 @@ $flashMessage = showFlashMessage();
                                         }
                                         ?>
                                     </td>
-                                    <td class="date-cell">
-                                        <?php 
+                                    <td class="date-cell" data-sort-value="<?php echo $user['created_at'] ? strtotime($user['created_at']) : 0; ?>">
+                                        <?php
                                         if ($user['created_at']) {
                                             $date = new DateTime($user['created_at']);
                                             echo escape($date->format('M j, Y'));
@@ -906,6 +906,33 @@ $flashMessage = showFlashMessage();
 .btn-icon:hover {
     transform: scale(1.2);
 }
+
+.user-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.user-table th.sortable:hover {
+    background: #e9ecef;
+}
+
+.sort-indicator {
+    display: inline-block;
+    width: 1em;
+    text-align: center;
+    font-size: 0.75em;
+    color: #adb5bd;
+}
+
+.user-table th.sort-asc .sort-indicator::after {
+    content: '▲';
+    color: #495057;
+}
+
+.user-table th.sort-desc .sort-indicator::after {
+    content: '▼';
+    color: #495057;
+}
 </style>
 
 <script>
@@ -1125,6 +1152,68 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    initTableSort();
 });
+
+function initTableSort() {
+    const table = document.querySelector('.user-table');
+    if (!table) return;
+
+    const headers = table.querySelectorAll('th.sortable');
+    let currentCol = 5; // Last Login
+    let currentAsc = false; // descending by default
+
+    headers.forEach(th => {
+        th.addEventListener('click', function() {
+            const col = parseInt(this.dataset.col);
+            if (col === currentCol) {
+                currentAsc = !currentAsc;
+            } else {
+                currentCol = col;
+                currentAsc = true;
+            }
+            sortTable(table, currentCol, currentAsc);
+            headers.forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
+            this.classList.add(currentAsc ? 'sort-asc' : 'sort-desc');
+        });
+    });
+
+    // Apply default sort
+    sortTable(table, currentCol, currentAsc);
+    headers[currentCol].classList.add('sort-desc');
+}
+
+function sortTable(table, col, asc) {
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+
+    // Skip the "no data" row
+    if (rows.length === 1 && rows[0].querySelector('.no-data')) return;
+
+    rows.sort((a, b) => {
+        const cellA = a.querySelectorAll('td')[col];
+        const cellB = b.querySelectorAll('td')[col];
+        if (!cellA || !cellB) return 0;
+
+        const sortValA = cellA.dataset.sortValue;
+        const sortValB = cellB.dataset.sortValue;
+
+        let valA, valB;
+        if (sortValA !== undefined && sortValB !== undefined) {
+            valA = parseFloat(sortValA);
+            valB = parseFloat(sortValB);
+        } else {
+            valA = cellA.textContent.trim().toLowerCase();
+            valB = cellB.textContent.trim().toLowerCase();
+        }
+
+        if (valA < valB) return asc ? -1 : 1;
+        if (valA > valB) return asc ? 1 : -1;
+        return 0;
+    });
+
+    rows.forEach(row => tbody.appendChild(row));
+}
 </script>
 

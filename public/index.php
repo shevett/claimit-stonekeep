@@ -56,6 +56,8 @@ require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../config/config.php';
 
 // Start session (after session settings are configured)
+ini_set('session.gc_maxlifetime', 86400);     // 24 hours
+session_set_cookie_params(86400);
 session_start();
 
 

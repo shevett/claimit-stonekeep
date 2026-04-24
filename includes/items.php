@@ -339,8 +339,9 @@ function markItemAsGone($trackingNumber)
         throw new Exception('User must be logged in');
     }
 
-    // Check if user owns this item
-    if (!currentUserOwnsItem($trackingNumber)) {
+    // Check if user owns this item or is an admin
+    $item = getItemFromDb($trackingNumber);
+    if (!$item || !canUserEditItem($item['user_id'])) {
         throw new Exception('You can only mark your own items as gone');
     }
 
