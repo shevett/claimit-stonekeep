@@ -210,6 +210,28 @@ $flashMessage = showFlashMessage();
             </div>
 
             <div class="form-group">
+                <label for="discordWebhookUrl">Discord Webhook URL</label>
+                <input type="url" id="discordWebhookUrl" name="discord_webhook_url"
+                       placeholder="https://discord.com/api/webhooks/YOUR/WEBHOOK/URL">
+                <small class="form-help">Enter your Discord incoming webhook URL to receive notifications when items are posted to this community.</small>
+            </div>
+
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="discordEnabled" name="discord_enabled" value="1">
+                    <span>Enable Discord notifications for this community</span>
+                </label>
+                <small class="form-help">When enabled, a message will be posted to Discord whenever a new item is posted to this community.</small>
+            </div>
+
+            <div class="form-group">
+                <button type="button" class="btn btn-secondary" id="testDiscordBtn" onclick="testDiscordWebhook()">
+                    🧪 Send Test Message
+                </button>
+                <small class="form-help">Test your Discord webhook before enabling notifications.</small>
+            </div>
+
+            <div class="form-group">
                 <label for="ownerId">Owner ID <span class="required">*</span></label>
                 <input type="text" id="ownerId" name="owner_id" required 
                        placeholder="User ID of the community owner">
@@ -587,6 +609,8 @@ function editCommunity(id) {
                 document.getElementById('private').checked = community.private == 1 || community.private === true;
                 document.getElementById('slackWebhookUrl').value = community.slack_webhook_url || '';
                 document.getElementById('slackEnabled').checked = community.slack_enabled == 1 || community.slack_enabled === true;
+                document.getElementById('discordWebhookUrl').value = community.discord_webhook_url || '';
+                document.getElementById('discordEnabled').checked = community.discord_enabled == 1 || community.discord_enabled === true;
                 document.getElementById('ownerId').value = community.owner_id;
                 document.getElementById('communityModal').classList.add('show');
             } else {
@@ -841,6 +865,50 @@ function testSlackWebhook() {
     })
     .catch(error => {
         console.error('Error:', error);
+        showMessage('Error sending test message: ' + error.message, 'error');
+    })
+    .finally(() => {
+        testBtn.disabled = false;
+        testBtn.innerHTML = originalText;
+    });
+}
+
+// Test Discord webhook
+function testDiscordWebhook() {
+    const webhookUrl = document.getElementById('discordWebhookUrl').value.trim();
+
+    if (!webhookUrl) {
+        showMessage('Please enter a Discord webhook URL first', 'error');
+        return;
+    }
+
+    if (!webhookUrl.match(/^https:\/\/discord(?:app)?\.com\/api\/webhooks\//)) {
+        showMessage('Invalid Discord webhook URL format. It should start with https://discord.com/api/webhooks/', 'error');
+        return;
+    }
+
+    const testBtn = document.getElementById('testDiscordBtn');
+    const originalText = testBtn.innerHTML;
+    testBtn.disabled = true;
+    testBtn.innerHTML = '⏳ Sending...';
+
+    fetch('?page=communities&action=test_discord', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'webhook_url=' + encodeURIComponent(webhookUrl)
+    })
+    .then(response => response.text().then(text => {
+        try { return JSON.parse(text); }
+        catch (e) { throw new Error('Server returned invalid JSON: ' + text.substring(0, 200)); }
+    }))
+    .then(data => {
+        if (data.success) {
+            showMessage('Test message sent successfully! Check your Discord channel.', 'success');
+        } else {
+            showMessage('Test failed: ' + (data.message || 'Unknown error'), 'error');
+        }
+    })
+    .catch(error => {
         showMessage('Error sending test message: ' + error.message, 'error');
     })
     .finally(() => {

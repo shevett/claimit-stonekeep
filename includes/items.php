@@ -606,7 +606,7 @@ function createItemInDb($itemData, $communityIds = null)
 
         $pdo->commit();
         
-        // Send Slack notifications to communities (after successful commit)
+        // Send notifications to communities (after successful commit)
         if (!empty($communityIds)) {
             require_once __DIR__ . '/slack.php';
             try {
@@ -615,8 +615,17 @@ function createItemInDb($itemData, $communityIds = null)
                     error_log("Sent $notificationsSent Slack notification(s) for item {$itemData['id']}");
                 }
             } catch (Exception $e) {
-                // Don't fail the item creation if notifications fail
                 error_log("Failed to send Slack notifications for item {$itemData['id']}: " . $e->getMessage());
+            }
+
+            require_once __DIR__ . '/discord.php';
+            try {
+                $notificationsSent = sendDiscordNotificationsToCommunities($itemData, $communityIds);
+                if ($notificationsSent > 0) {
+                    error_log("Sent $notificationsSent Discord notification(s) for item {$itemData['id']}");
+                }
+            } catch (Exception $e) {
+                error_log("Failed to send Discord notifications for item {$itemData['id']}: " . $e->getMessage());
             }
         }
         

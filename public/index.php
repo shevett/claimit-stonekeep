@@ -1055,6 +1055,8 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
                         'private' => isset($_POST['private']) ? 1 : 0,
                         'slack_webhook_url' => !empty($_POST['slack_webhook_url']) ? trim($_POST['slack_webhook_url']) : null,
                         'slack_enabled' => isset($_POST['slack_enabled']) ? 1 : 0,
+                        'discord_webhook_url' => !empty($_POST['discord_webhook_url']) ? trim($_POST['discord_webhook_url']) : null,
+                        'discord_enabled' => isset($_POST['discord_enabled']) ? 1 : 0,
                         'owner_id' => trim($_POST['owner_id'])
                     ];
 
@@ -1078,7 +1080,9 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
                         'description' => trim($_POST['description'] ?? ''),
                         'private' => isset($_POST['private']) ? 1 : 0,
                         'slack_webhook_url' => !empty($_POST['slack_webhook_url']) ? trim($_POST['slack_webhook_url']) : null,
-                        'slack_enabled' => isset($_POST['slack_enabled']) ? 1 : 0
+                        'slack_enabled' => isset($_POST['slack_enabled']) ? 1 : 0,
+                        'discord_webhook_url' => !empty($_POST['discord_webhook_url']) ? trim($_POST['discord_webhook_url']) : null,
+                        'discord_enabled' => isset($_POST['discord_enabled']) ? 1 : 0
                     ];
 
                     $success = updateCommunity((int)$_POST['id'], $data);
@@ -1169,6 +1173,61 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
                         }
                     } catch (Exception $e) {
                         error_log("Slack webhook test error: " . $e->getMessage());
+                        echo json_encode(['success' => false, 'message' => 'Error sending test message: ' . $e->getMessage()]);
+                    }
+                    break;
+
+                case 'test_discord':
+                    if (empty($_POST['webhook_url'])) {
+                        echo json_encode(['success' => false, 'message' => 'Webhook URL required']);
+                        exit;
+                    }
+
+                    $webhookUrl = trim($_POST['webhook_url']);
+
+                    if (!filter_var($webhookUrl, FILTER_VALIDATE_URL) ||
+                        !preg_match('#^https://discord(?:app)?\.com/api/webhooks/#', $webhookUrl)) {
+                        echo json_encode(['success' => false, 'message' => 'Invalid Discord webhook URL format']);
+                        exit;
+                    }
+
+                    $testMessage = [
+                        'embeds' => [
+                            [
+                                'title' => 'Test Message from ClaimIt',
+                                'description' => "If you can see this, your Discord webhook is configured correctly! ✅",
+                                'color' => 5814783,
+                                'footer' => ['text' => 'Sent at ' . date('Y-m-d H:i:s')]
+                            ]
+                        ]
+                    ];
+
+                    try {
+                        error_log("Discord webhook test - sending to: " . $webhookUrl);
+
+                        $ch = curl_init($webhookUrl);
+                        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
+                        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($testMessage));
+                        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+                        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+
+                        $response = curl_exec($ch);
+                        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                        $curlError = curl_error($ch);
+                        curl_close($ch);
+
+                        error_log("Discord webhook test - HTTP code: $httpCode, Response: '$response', cURL Error: '$curlError'");
+
+                        if ($httpCode === 204) {
+                            echo json_encode(['success' => true, 'message' => 'Test message sent successfully! Check your Discord channel.']);
+                        } else {
+                            $errorMsg = $curlError ?: "Discord returned HTTP $httpCode with response: $response";
+                            error_log("Discord webhook test failed: $errorMsg");
+                            echo json_encode(['success' => false, 'message' => "Failed to send message: $errorMsg"]);
+                        }
+                    } catch (Exception $e) {
+                        error_log("Discord webhook test error: " . $e->getMessage());
                         echo json_encode(['success' => false, 'message' => 'Error sending test message: ' . $e->getMessage()]);
                     }
                     break;
