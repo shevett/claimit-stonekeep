@@ -319,7 +319,7 @@ $ajaxId = $_POST['id'] ?? $_GET['id'] ?? null;
 
 error_log("Checking for AJAX request - action: " . ($ajaxAction ?? 'not set') . ", id: " . ($ajaxId ?? 'not set'));
 
-if ($ajaxAction && in_array($ajaxAction, ['add_claim', 'remove_claim', 'remove_claim_by_owner', 'delete_item', 'edit_item', 'rotate_image', 'mark_gone', 'relist_item', 'upload_additional_image', 'delete_image']) && $ajaxId) {
+if ($ajaxAction && in_array($ajaxAction, ['add_claim', 'remove_claim', 'remove_claim_by_owner', 'delete_item', 'edit_item', 'rotate_image', 'mark_gone', 'relist_item', 'upload_additional_image', 'delete_image', 'republish_item']) && $ajaxId) {
     error_log("AJAX Handler reached - action: " . $ajaxAction . ", id: " . $ajaxId);
     header('Content-Type: application/json');
 
@@ -695,6 +695,34 @@ if ($ajaxAction && in_array($ajaxAction, ['add_claim', 'remove_claim', 'remove_c
                     echo json_encode(['success' => true, 'message' => 'Item re-listed successfully']);
                 } catch (Exception $e) {
                     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+                }
+                break;
+
+            case 'republish_item':
+                $communityId = isset($_POST['community_id']) ? (int)$_POST['community_id'] : 0;
+                if ($communityId <= 0) {
+                    echo json_encode(['success' => false, 'message' => 'Invalid community ID']);
+                    exit;
+                }
+                $item = getItemFromDb($trackingNumber);
+                if (!$item || !canUserEditItem($item['user_id'] ?? null)) {
+                    echo json_encode(['success' => false, 'message' => 'Permission denied']);
+                    exit;
+                }
+                $itemCommunityIds = getItemCommunities($trackingNumber);
+                if (!in_array((string)$communityId, array_map('strval', $itemCommunityIds))) {
+                    echo json_encode(['success' => false, 'message' => 'Item is not in that community']);
+                    exit;
+                }
+                require_once __DIR__ . '/../includes/slack.php';
+                require_once __DIR__ . '/../includes/discord.php';
+                $slackCount   = sendItemNotificationsToCommunities($item, [$communityId]);
+                $discordCount = sendDiscordNotificationsToCommunities($item, [$communityId]);
+                $total = $slackCount + $discordCount;
+                if ($total > 0) {
+                    echo json_encode(['success' => true, 'message' => "Re-published ($total notification(s) sent)", 'slack_count' => $slackCount, 'discord_count' => $discordCount]);
+                } else {
+                    echo json_encode(['success' => true, 'message' => 'Re-publish triggered — no active webhooks configured for that community', 'slack_count' => 0, 'discord_count' => 0]);
                 }
                 break;
         }

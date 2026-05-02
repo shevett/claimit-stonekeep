@@ -123,6 +123,18 @@ if ($error) {
 }
 
 $flashMessage = showFlashMessage();
+
+// Pre-load community details for the re-publish modal (owner/admin only)
+$republishCommunities = [];
+$canEditItem = canUserEditItem($item['user_id'] ?? null);
+if ($canEditItem && !empty($itemCommunityIds)) {
+    foreach ($itemCommunityIds as $commId) {
+        $comm = getCommunityById($commId);
+        if ($comm) {
+            $republishCommunities[] = $comm;
+        }
+    }
+}
 ?>
 
 <div class="page-header">
@@ -434,10 +446,15 @@ $flashMessage = showFlashMessage();
                                 </button>
                             <?php endif; ?>
                             
-                            <button onclick="deleteItem('<?php echo escape($item['id']); ?>')" 
-                                    class="btn btn-danger btn-large delete-btn" 
+                            <button onclick="deleteItem('<?php echo escape($item['id']); ?>')"
+                                    class="btn btn-danger btn-large delete-btn"
                                     title="Delete this item">
                                 🗑️ Delete
+                            </button>
+                            <button onclick="openRepublishModal()"
+                                    class="btn btn-secondary btn-large"
+                                    title="Re-send this item's notification to a community">
+                                📣 Re-publish...
                             </button>
                         <?php endif; ?>
                         
@@ -523,6 +540,35 @@ $flashMessage = showFlashMessage();
         <div class="modal-footer">
             <button type="button" class="btn btn-secondary" onclick="hideDeleteModal()">Cancel</button>
             <button type="button" class="btn btn-danger" onclick="confirmDelete()">Delete Item</button>
+        </div>
+    </div>
+</div>
+
+<!-- Re-publish Modal -->
+<div id="republishModalOverlay" class="modal-overlay" onclick="closeRepublishModal()"></div>
+<div id="republishModal" class="delete-modal" style="max-width:480px;width:90vw;">
+    <div class="modal-content" style="max-width:480px;width:90vw;">
+        <div class="modal-header">
+            <h3>📣 Re-publish to Community</h3>
+        </div>
+        <div class="modal-body">
+            <p>Select a community to re-send this item's notification:</p>
+            <?php if (empty($republishCommunities)) : ?>
+                <p><em>This item is not currently in any community.</em></p>
+            <?php else : ?>
+                <?php foreach ($republishCommunities as $comm) : ?>
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid #eee;">
+                        <span><?= htmlspecialchars($comm['short_name'], ENT_QUOTES, 'UTF-8') ?></span>
+                        <button class="btn btn-sm btn-primary"
+                                onclick="republishToCommunity('<?= htmlspecialchars($item['id'], ENT_QUOTES) ?>', <?= (int)$comm['id'] ?>, this)">
+                            Re-publish
+                        </button>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeRepublishModal()">Close</button>
         </div>
     </div>
 </div>
@@ -1389,7 +1435,50 @@ function confirmDelete() {
     });
 }
 
+// Re-publish Modal
+function openRepublishModal() {
+    const modal = document.getElementById('republishModal');
+    const overlay = document.getElementById('republishModalOverlay');
+    modal.style.display = 'block';
+    overlay.style.display = 'block';
+    setTimeout(() => { overlay.classList.add('show'); modal.classList.add('show'); }, 10);
+    document.addEventListener('keydown', handleRepublishModalKeydown);
+}
 
+function closeRepublishModal() {
+    const modal = document.getElementById('republishModal');
+    const overlay = document.getElementById('republishModalOverlay');
+    modal.classList.remove('show');
+    overlay.classList.remove('show');
+    document.removeEventListener('keydown', handleRepublishModalKeydown);
+    setTimeout(() => { modal.style.display = 'none'; overlay.style.display = 'none'; }, 300);
+}
+
+function handleRepublishModalKeydown(e) {
+    if (e.key === 'Escape') closeRepublishModal();
+}
+
+function republishToCommunity(trackingNumber, communityId, btn) {
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '⏳';
+    const fd = new FormData();
+    fd.append('action', 'republish_item');
+    fd.append('id', trackingNumber);
+    fd.append('community_id', communityId);
+    fetch(window.location.href, { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = orig;
+            showMessage(data.message || (data.success ? 'Re-published!' : 'Failed.'), data.success ? 'success' : 'error');
+        })
+        .catch(() => {
+            btn.disabled = false;
+            btn.innerHTML = orig;
+            showMessage('An error occurred. Please try again.', 'error');
+        });
+}
 
 // Switch main image when clicking thumbnail
 function switchMainImage(imageKey, imageUrl) {
