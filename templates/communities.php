@@ -188,25 +188,25 @@ $flashMessage = showFlashMessage();
             </div>
 
             <div class="form-group">
-                <label for="slackWebhookUrl">Slack Webhook URL</label>
-                <input type="url" id="slackWebhookUrl" name="slack_webhook_url" 
-                       placeholder="https://hooks.slack.com/services/YOUR/WEBHOOK/URL">
-                <small class="form-help">Enter your Slack incoming webhook URL to receive notifications when items are posted to this community.</small>
+                <label for="slackWebhookUrl">Slack or Discord webhook URL</label>
+                <input type="url" id="slackWebhookUrl" name="slack_webhook_url"
+                       placeholder="Slack: https://hooks.slack.com/services/… or Discord: https://discord.com/api/webhooks/…">
+                <small class="form-help">Slack incoming webhook or Discord channel webhook. ClaimIt sends the correct format for each when new items are posted.</small>
             </div>
 
             <div class="form-group">
                 <label class="checkbox-label">
                     <input type="checkbox" id="slackEnabled" name="slack_enabled" value="1">
-                    <span>Enable Slack notifications for this community</span>
+                    <span>Enable webhook notifications for this community</span>
                 </label>
-                <small class="form-help">When enabled, a message will be posted to Slack whenever a new item is posted to this community.</small>
+                <small class="form-help">When enabled, a message is posted to your Slack or Discord channel whenever a new item is posted to this community.</small>
             </div>
 
             <div class="form-group">
                 <button type="button" class="btn btn-secondary" id="testSlackBtn" onclick="testSlackWebhook()">
                     🧪 Send Test Message
                 </button>
-                <small class="form-help">Test your Slack webhook before enabling notifications.</small>
+                <small class="form-help">Test your webhook before enabling notifications.</small>
             </div>
 
             <div class="form-group">
@@ -814,18 +814,19 @@ function showMessage(message, type = 'info') {
     }, 5000);
 }
 
-// Test Slack webhook
+// Test Slack or Discord webhook
 function testSlackWebhook() {
     const webhookUrl = document.getElementById('slackWebhookUrl').value.trim();
-    
+
     if (!webhookUrl) {
-        showMessage('Please enter a Slack webhook URL first', 'error');
+        showMessage('Please enter a webhook URL first', 'error');
         return;
     }
-    
-    // Validate webhook URL format
-    if (!webhookUrl.startsWith('https://hooks.slack.com/services/')) {
-        showMessage('Invalid Slack webhook URL format. It should start with https://hooks.slack.com/services/', 'error');
+
+    const isSlack = webhookUrl.startsWith('https://hooks.slack.com/services/');
+    const isDiscord = /^https:\/\/(www\.)?discord(app)?\.com\/api\/webhooks\//i.test(webhookUrl);
+    if (!isSlack && !isDiscord) {
+        showMessage('Invalid webhook URL. Use Slack (hooks.slack.com/services/…) or Discord (discord.com/api/webhooks/…).', 'error');
         return;
     }
     
@@ -858,7 +859,7 @@ function testSlackWebhook() {
     .then(data => {
         console.log('Parsed data:', data);
         if (data.success) {
-            showMessage('Test message sent successfully! Check your Slack channel.', 'success');
+            showMessage(data.message || 'Test message sent successfully!', 'success');
         } else {
             showMessage('Test failed: ' + (data.message || 'Unknown error'), 'error');
         }
