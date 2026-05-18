@@ -9,7 +9,7 @@
         <div class="contact-grid">
             <div class="contact-info">
                 <h2>Get in Touch</h2>
-                <p>Have questions about your claim or need assistance? We're here to help!</p>
+                <p>Have questions or need assistance? We're here to help!</p>
                 
                 <div class="contact-item">
                     <h3>📧 Email</h3>

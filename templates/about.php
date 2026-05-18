@@ -24,6 +24,12 @@
                     <li>Keep a list of people who have asked about it or want it</li>
                     <li>If the first person doesn't follow through, it can go to the next person</li>
                 </ul>
+
+                <h3>Want To Help Us Out?</h3>
+                <p>Claimit is an open source project, and always looking for feedback.</p>
+                <ul>
+                    <li><a href="https://github.com/shevett/claimit-stonekeep/issues">Issue Tracker</a> - Found a problem or have a suggestion? Open up a ticket or see if it's being worked on!</li>
+                </ul>
             </div>
             <div class="content-image">
                 <img src="/assets/images/claimit-excited-grab.jpg" 
