@@ -269,6 +269,160 @@ function getCommunityMemberCount($communityId)
 }
 
 /**
+ * Check if a user owns a community
+ * @param string $userId User ID
+ * @param int $communityId Community ID
+ * @return bool True if user is the owner of the community
+ */
+function isCommunityOwner($userId, $communityId)
+{
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return false;
+    }
+
+    try {
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM communities WHERE id = ? AND owner_id = ?");
+        $stmt->execute([$communityId, $userId]);
+        return $stmt->fetchColumn() > 0;
+    } catch (Exception $e) {
+        error_log("Error checking community owner: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get the list of administrators of a community (excluding the implicit owner).
+ * @param int $communityId Community ID
+ * @return array List of admin user rows (id, name, display_name, email, created_at)
+ */
+function getCommunityAdministrators($communityId)
+{
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return [];
+    }
+
+    try {
+        $sql = "SELECT u.id, u.name, u.display_name, u.email, ca.created_at
+                FROM community_administrators ca
+                JOIN users u ON ca.user_id = u.id
+                WHERE ca.community_id = ?
+                ORDER BY COALESCE(u.display_name, u.name) ASC";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$communityId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Error getting community administrators: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Add a user as a community administrator (idempotent).
+ * @param string $userId User ID
+ * @param int $communityId Community ID
+ * @return bool True on success
+ */
+function addCommunityAdministrator($userId, $communityId)
+{
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return false;
+    }
+
+    try {
+        $sql = "INSERT INTO community_administrators (user_id, community_id, created_at)
+                VALUES (?, ?, NOW())
+                ON DUPLICATE KEY UPDATE user_id = user_id";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$userId, $communityId]);
+        return true;
+    } catch (Exception $e) {
+        error_log("Error adding community administrator: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Remove a user as a community administrator.
+ * @param string $userId User ID
+ * @param int $communityId Community ID
+ * @return bool True on success
+ */
+function removeCommunityAdministrator($userId, $communityId)
+{
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return false;
+    }
+
+    try {
+        $stmt = $pdo->prepare("DELETE FROM community_administrators WHERE user_id = ? AND community_id = ?");
+        $stmt->execute([$userId, $communityId]);
+        return true;
+    } catch (Exception $e) {
+        error_log("Error removing community administrator: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Check if a user is an administrator of a community. The owner is implicitly an administrator.
+ * @param string $userId User ID
+ * @param int $communityId Community ID
+ * @return bool True if user owns the community or has a row in community_administrators
+ */
+function isCommunityAdministrator($userId, $communityId)
+{
+    if (isCommunityOwner($userId, $communityId)) {
+        return true;
+    }
+
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return false;
+    }
+
+    try {
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM community_administrators WHERE user_id = ? AND community_id = ?");
+        $stmt->execute([$userId, $communityId]);
+        return $stmt->fetchColumn() > 0;
+    } catch (Exception $e) {
+        error_log("Error checking community administrator: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get communities owned by a user.
+ * @param string $userId User ID
+ * @return array Array of community rows with owner_name (like getAllCommunities)
+ */
+function getCommunitiesOwnedByUser($userId)
+{
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return [];
+    }
+
+    try {
+        $sql = "SELECT c.*,
+                       COALESCE(u.display_name, u.name) as owner_name
+                FROM communities c
+                LEFT JOIN users u ON c.owner_id = u.id
+                WHERE c.owner_id = ?
+                ORDER BY c.short_name ASC";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$userId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Error getting communities owned by user: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
  * Get communities associated with an item
  * @param string $itemId Item ID
  * @return array Array of community IDs

@@ -47,6 +47,28 @@ function getUserById($userId)
 }
 
 /**
+ * Look up a user by email address (case-insensitive).
+ * Returns the user row or null if not found.
+ */
+function getUserByEmail($email)
+{
+    try {
+        $pdo = getDbConnection();
+        if ($pdo === null) {
+            return null;
+        }
+
+        $stmt = $pdo->prepare("SELECT id, email, name, display_name FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1");
+        $stmt->execute([trim($email)]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $user ?: null;
+    } catch (Exception $e) {
+        error_log("Error getting user by email: " . $e->getMessage());
+        return null;
+    }
+}
+
+/**
  * Create a new user in database
  * Returns true on success, false on failure
  */

@@ -8,14 +8,23 @@
 $currentUser = isLoggedIn() ? getCurrentUser() : null;
 $isAdmin = isAdmin();
 
+// Communities the current user owns (for showing the Edit affordance to non-site-admin owners)
+$ownedCommunityIds = [];
+if ($currentUser) {
+    foreach (getCommunitiesOwnedByUser($currentUser['id']) as $owned) {
+        $ownedCommunityIds[] = (int)$owned['id'];
+    }
+}
+$canManageAny = $isAdmin || !empty($ownedCommunityIds);
+
 // Get all communities
 $allCommunities = getAllCommunities();
 
-// Filter out private communities for non-admins
+// Filter out private communities for non-admins, but always show ones the current user owns
 $communities = [];
 foreach ($allCommunities as $community) {
-    // Show all communities to admins, hide private ones from non-admins
-    if ($isAdmin || empty($community['private'])) {
+    $userOwnsThis = $currentUser && in_array((int)$community['id'], $ownedCommunityIds, true);
+    if ($isAdmin || empty($community['private']) || $userOwnsThis) {
         $communities[] = $community;
     }
 }
@@ -65,7 +74,7 @@ $flashMessage = showFlashMessage();
                             <?php if ($currentUser): ?>
                             <th>Membership</th>
                             <?php endif; ?>
-                            <?php if ($isAdmin): ?>
+                            <?php if ($canManageAny): ?>
                             <th>Actions</th>
                             <?php endif; ?>
                         </tr>
@@ -73,10 +82,14 @@ $flashMessage = showFlashMessage();
                     <tbody>
                         <?php if (empty($communities)): ?>
                             <tr>
-                                <?php 
+                                <?php
                                 $colspan = 7; // Base columns (ID, Short Name, Full Name, Description, Members, Owner, Created)
-                                if ($currentUser) $colspan++; // Add membership column
-                                if ($isAdmin) $colspan++; // Add actions column
+                                if ($currentUser) {
+                                    $colspan++; // Add membership column
+                                }
+                                if ($canManageAny) {
+                                    $colspan++; // Add actions column
+                                }
                                 ?>
                                 <td colspan="<?php echo $colspan; ?>" class="no-data">
                                     <?php echo $isAdmin ? 'No communities found. Create one to get started!' : 'No communities available yet.'; ?>
@@ -130,14 +143,19 @@ $flashMessage = showFlashMessage();
                                         </button>
                                     </td>
                                     <?php endif; ?>
-                                    <?php if ($isAdmin): ?>
+                                    <?php if ($canManageAny): ?>
                                     <td class="actions-cell">
-                                        <button class="btn-icon btn-edit" onclick="editCommunity(<?php echo escape($community['id']); ?>)" title="Edit">
-                                            ✏️
-                                        </button>
-                                        <button class="btn-icon btn-delete" onclick="deleteCommunity(<?php echo escape($community['id']); ?>)" title="Delete">
-                                            🗑️
-                                        </button>
+                                        <?php $rowOwned = in_array((int)$community['id'], $ownedCommunityIds, true); ?>
+                                        <?php if ($isAdmin || $rowOwned): ?>
+                                            <button class="btn-icon btn-edit" onclick="editCommunity(<?php echo escape($community['id']); ?>)" title="Edit">
+                                                ✏️
+                                            </button>
+                                        <?php endif; ?>
+                                        <?php if ($isAdmin): ?>
+                                            <button class="btn-icon btn-delete" onclick="deleteCommunity(<?php echo escape($community['id']); ?>)" title="Delete">
+                                                🗑️
+                                            </button>
+                                        <?php endif; ?>
                                     </td>
                                     <?php endif; ?>
                                 </tr>
@@ -233,8 +251,30 @@ $flashMessage = showFlashMessage();
 
             <div class="form-group">
                 <label for="ownerId">Owner ID <span class="required">*</span></label>
-                <input type="text" id="ownerId" name="owner_id" required 
-                       placeholder="User ID of the community owner">
+                <input type="text" id="ownerId" name="owner_id" required
+                       placeholder="User ID of the community owner"
+                       <?php echo $isAdmin ? '' : 'readonly'; ?>>
+                <?php if (!$isAdmin): ?>
+                <small class="form-help">Only a site administrator can transfer ownership.</small>
+                <?php endif; ?>
+            </div>
+
+            <div class="form-group community-admins-section" id="communityAdminsSection" style="display: none;">
+                <label>Administrators</label>
+                <small class="form-help">Administrators help manage this community. The owner is implicitly an administrator and cannot be removed here.</small>
+
+                <div id="adminListBody" class="admin-list">
+                    <div class="admin-list-empty">Loading…</div>
+                </div>
+
+                <div class="admin-add-row">
+                    <input type="email" id="adminEmailInput" placeholder="Enter user's email"
+                           onkeydown="if (event.key === 'Enter') { event.preventDefault(); addCommunityAdmin(); }">
+                    <button type="button" class="btn btn-secondary" id="addAdminBtn" onclick="addCommunityAdmin()">
+                        ➕ Add administrator
+                    </button>
+                </div>
+                <div id="adminFormFeedback" class="admin-form-feedback" style="display: none;"></div>
             </div>
 
             <div class="modal-actions">
@@ -552,6 +592,79 @@ $flashMessage = showFlashMessage();
     border-top: 1px solid #e9ecef;
 }
 
+.community-admins-section {
+    border-top: 1px solid #e9ecef;
+    padding-top: 1rem;
+}
+
+.admin-list {
+    margin: 0.75rem 0;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.admin-list-empty {
+    padding: 0.75rem 1rem;
+    color: #666;
+    font-style: italic;
+}
+
+.admin-list-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid #f1f1f1;
+    gap: 0.75rem;
+}
+
+.admin-list-row:last-child {
+    border-bottom: none;
+}
+
+.admin-list-row .admin-name {
+    font-weight: 500;
+}
+
+.admin-list-row .admin-email {
+    color: #666;
+    font-size: 0.875rem;
+}
+
+.admin-add-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.admin-add-row input[type="email"] {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    font-size: 1rem;
+}
+
+.admin-form-feedback {
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
+
+.admin-form-feedback.error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.admin-form-feedback.success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
 .alert {
     padding: 1rem;
     border-radius: 6px;
@@ -612,6 +725,15 @@ function editCommunity(id) {
                 document.getElementById('discordWebhookUrl').value = community.discord_webhook_url || '';
                 document.getElementById('discordEnabled').checked = community.discord_enabled == 1 || community.discord_enabled === true;
                 document.getElementById('ownerId').value = community.owner_id;
+
+                // Show the administrators section when editing
+                const adminsSection = document.getElementById('communityAdminsSection');
+                if (adminsSection) {
+                    adminsSection.style.display = '';
+                    setAdminFeedback('', null);
+                    loadCommunityAdmins(id);
+                }
+
                 document.getElementById('communityModal').classList.add('show');
             } else {
                 showMessage('Error loading community: ' + (data.message || 'Unknown error'), 'error');
@@ -621,6 +743,149 @@ function editCommunity(id) {
             console.error('Error:', error);
             showMessage('Error loading community', 'error');
         });
+}
+
+// Load administrators for the currently-edited community
+function loadCommunityAdmins(id) {
+    const listEl = document.getElementById('adminListBody');
+    if (!listEl) return;
+    listEl.innerHTML = '<div class="admin-list-empty">Loading…</div>';
+    fetch('?page=communities&action=get_admins&id=' + encodeURIComponent(id))
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderAdminList(data.administrators || []);
+            } else {
+                listEl.innerHTML = '<div class="admin-list-empty">Error: ' + escapeHtml(data.message || 'Unknown error') + '</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading admins:', error);
+            listEl.innerHTML = '<div class="admin-list-empty">Error loading administrators</div>';
+        });
+}
+
+function renderAdminList(admins) {
+    const listEl = document.getElementById('adminListBody');
+    if (!listEl) return;
+    if (!admins.length) {
+        listEl.innerHTML = '<div class="admin-list-empty">No administrators yet.</div>';
+        return;
+    }
+    const rows = admins.map(a => {
+        const name = a.display_name || a.name || a.email || a.id;
+        return '<div class="admin-list-row">'
+            + '<div>'
+            + '<div class="admin-name">' + escapeHtml(name) + '</div>'
+            + '<div class="admin-email">' + escapeHtml(a.email || '') + '</div>'
+            + '</div>'
+            + '<button type="button" class="btn-icon btn-delete admin-remove-btn" title="Remove" data-user-id="' + escapeHtml(a.id) + '">🗑️</button>'
+            + '</div>';
+    }).join('');
+    listEl.innerHTML = rows;
+    listEl.querySelectorAll('.admin-remove-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            removeCommunityAdmin(this.getAttribute('data-user-id'));
+        });
+    });
+}
+
+function setAdminFeedback(message, type) {
+    const el = document.getElementById('adminFormFeedback');
+    if (!el) return;
+    if (!message) {
+        el.style.display = 'none';
+        el.textContent = '';
+        el.className = 'admin-form-feedback';
+        return;
+    }
+    el.textContent = message;
+    el.className = 'admin-form-feedback ' + (type || 'error');
+    el.style.display = '';
+}
+
+function addCommunityAdmin() {
+    setAdminFeedback('', null);
+    if (!editingCommunityId) {
+        setAdminFeedback('Save the community first before adding administrators.', 'error');
+        return;
+    }
+    const emailInput = document.getElementById('adminEmailInput');
+    const email = emailInput.value.trim();
+    if (!email) {
+        setAdminFeedback('Enter an email address.', 'error');
+        emailInput.focus();
+        return;
+    }
+    const btn = document.getElementById('addAdminBtn');
+    btn.disabled = true;
+    const body = new URLSearchParams();
+    body.append('action', 'add_admin');
+    body.append('id', editingCommunityId);
+    body.append('email', email);
+    fetch('?page=communities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString()
+    })
+    .then(response => response.text())
+    .then(text => {
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            console.error('Non-JSON response from add_admin:', text);
+            throw new Error('Server returned an unexpected response');
+        }
+        if (data.success) {
+            emailInput.value = '';
+            renderAdminList(data.administrators || []);
+            setAdminFeedback(data.message || 'Administrator added', 'success');
+            showMessage(data.message || 'Administrator added', 'success');
+        } else {
+            setAdminFeedback(data.message || 'User not found', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error adding admin:', error);
+        setAdminFeedback(error.message || 'Error adding administrator', 'error');
+    })
+    .finally(() => {
+        btn.disabled = false;
+    });
+}
+
+function removeCommunityAdmin(userId) {
+    if (!editingCommunityId) return;
+    if (!confirm('Remove this administrator from the community?')) return;
+    const body = new URLSearchParams();
+    body.append('action', 'remove_admin');
+    body.append('id', editingCommunityId);
+    body.append('user_id', userId);
+    fetch('?page=communities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString()
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            renderAdminList(data.administrators || []);
+            showMessage(data.message || 'Administrator removed', 'success');
+        } else {
+            showMessage(data.message || 'Failed to remove administrator', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error removing admin:', error);
+        showMessage('Error removing administrator', 'error');
+    });
+}
+
+function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, function(c) {
+        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
 }
 
 // Delete community
@@ -655,23 +920,36 @@ function deleteCommunity(id) {
 function closeModal() {
     document.getElementById('communityModal').classList.remove('show');
     document.getElementById('communityForm').reset();
+    const adminsSection = document.getElementById('communityAdminsSection');
+    if (adminsSection) {
+        adminsSection.style.display = 'none';
+    }
+    setAdminFeedback('', null);
     editingCommunityId = null;
 }
 
 // Wait for DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
-    // Add new community button
-    document.getElementById('addCommunityBtn').addEventListener('click', function() {
-        editingCommunityId = null;
-        document.getElementById('modalTitle').textContent = 'Add New Community';
-        document.getElementById('communityForm').reset();
-        document.getElementById('communityId').value = '';
-        // Default owner to current user
-        <?php if ($currentUser): ?>
-        document.getElementById('ownerId').value = '<?php echo escape($currentUser['id']); ?>';
-        <?php endif; ?>
-        document.getElementById('communityModal').classList.add('show');
-    });
+    // Add new community button (only present for site admins)
+    const addBtn = document.getElementById('addCommunityBtn');
+    if (addBtn) {
+        addBtn.addEventListener('click', function() {
+            editingCommunityId = null;
+            document.getElementById('modalTitle').textContent = 'Add New Community';
+            document.getElementById('communityForm').reset();
+            document.getElementById('communityId').value = '';
+            // Admins section only applies to existing communities
+            const adminsSection = document.getElementById('communityAdminsSection');
+            if (adminsSection) {
+                adminsSection.style.display = 'none';
+            }
+            // Default owner to current user
+            <?php if ($currentUser): ?>
+            document.getElementById('ownerId').value = '<?php echo escape($currentUser['id']); ?>';
+            <?php endif; ?>
+            document.getElementById('communityModal').classList.add('show');
+        });
+    }
 
     // Submit form
     document.getElementById('communityForm').addEventListener('submit', function(e) {

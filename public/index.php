@@ -1030,14 +1030,9 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['join', 'leave']) && 
 if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['action']) || (isset($_POST['action']) && $_SERVER['REQUEST_METHOD'] === 'POST'))) {
     header('Content-Type: application/json');
 
-    // Check authentication and authorization
+    // Check authentication
     if (!isLoggedIn()) {
         echo json_encode(['success' => false, 'message' => 'Authentication required']);
-        exit;
-    }
-
-    if (!isAdmin()) {
-        echo json_encode(['success' => false, 'message' => 'Administrator privileges required']);
         exit;
     }
 
@@ -1047,10 +1042,53 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
         exit;
     }
 
-    // Handle GET request for single community
-    if (isset($_GET['action']) && $_GET['action'] === 'get' && isset($_GET['id'])) {
-        $community = getCommunityById((int)$_GET['id']);
+    $action = $_GET['action'] ?? $_POST['action'] ?? null;
+    if (!$action) {
+        echo json_encode(['success' => false, 'message' => 'Action required']);
+        exit;
+    }
+
+    // The community ID arrives in either GET or POST depending on the action shape
+    $requestCommunityId = null;
+    if (isset($_GET['id'])) {
+        $requestCommunityId = (int)$_GET['id'];
+    } elseif (isset($_POST['id'])) {
+        $requestCommunityId = (int)$_POST['id'];
+    }
+
+    $siteAdmin = isAdmin();
+    $adminOnlyActions = ['create', 'delete'];
+    $ownerOrAdminActions = ['get', 'update', 'get_admins', 'add_admin', 'remove_admin'];
+    $testActions = ['test_slack', 'test_discord'];
+
+    if (in_array($action, $adminOnlyActions, true)) {
+        if (!$siteAdmin) {
+            echo json_encode(['success' => false, 'message' => 'Administrator privileges required']);
+            exit;
+        }
+    } elseif (in_array($action, $ownerOrAdminActions, true)) {
+        if (!$siteAdmin) {
+            if (!$requestCommunityId || !isCommunityOwner($currentUser['id'], $requestCommunityId)) {
+                echo json_encode(['success' => false, 'message' => 'Not authorized for this community']);
+                exit;
+            }
+        }
+    } elseif (in_array($action, $testActions, true)) {
+        if (!$siteAdmin && count(getCommunitiesOwnedByUser($currentUser['id'])) === 0) {
+            echo json_encode(['success' => false, 'message' => 'Not authorized']);
+            exit;
+        }
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Invalid action']);
+        exit;
+    }
+
+    // Handle GET-style read actions
+    if ($action === 'get' && $requestCommunityId) {
+        $community = getCommunityById($requestCommunityId);
         if ($community) {
+            $community['viewer_is_site_admin'] = $siteAdmin;
+            $community['viewer_is_owner'] = ($community['owner_id'] === $currentUser['id']);
             echo json_encode(['success' => true, 'community' => $community]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Community not found']);
@@ -1058,16 +1096,16 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
         exit;
     }
 
-    // Handle POST requests (create, update, delete)
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        // Action can be in either GET or POST
-        $action = $_GET['action'] ?? $_POST['action'] ?? null;
-        
-        if (!$action) {
-            echo json_encode(['success' => false, 'message' => 'Action required']);
-            exit;
-        }
+    if ($action === 'get_admins' && $requestCommunityId) {
+        echo json_encode([
+            'success' => true,
+            'administrators' => getCommunityAdministrators($requestCommunityId)
+        ]);
+        exit;
+    }
 
+    // Remaining actions are POST-driven
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             switch ($action) {
                 case 'create':
@@ -1259,6 +1297,51 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
                     } catch (Exception $e) {
                         error_log("Discord webhook test error: " . $e->getMessage());
                         echo json_encode(['success' => false, 'message' => 'Error sending test message: ' . $e->getMessage()]);
+                    }
+                    break;
+
+                case 'add_admin':
+                    $cid = (int)($_POST['id'] ?? 0);
+                    $email = trim($_POST['email'] ?? '');
+                    if (!$cid || $email === '') {
+                        echo json_encode(['success' => false, 'message' => 'Community ID and email are required']);
+                        exit;
+                    }
+                    $userToAdd = getUserByEmail($email);
+                    if (!$userToAdd) {
+                        echo json_encode(['success' => false, 'message' => 'No user found with that email address']);
+                        exit;
+                    }
+                    if (isCommunityOwner($userToAdd['id'], $cid)) {
+                        echo json_encode(['success' => false, 'message' => 'That user already owns this community']);
+                        exit;
+                    }
+                    if (addCommunityAdministrator($userToAdd['id'], $cid)) {
+                        echo json_encode([
+                            'success' => true,
+                            'message' => 'Administrator added',
+                            'administrators' => getCommunityAdministrators($cid)
+                        ]);
+                    } else {
+                        echo json_encode(['success' => false, 'message' => 'Failed to add administrator']);
+                    }
+                    break;
+
+                case 'remove_admin':
+                    $cid = (int)($_POST['id'] ?? 0);
+                    $uid = trim($_POST['user_id'] ?? '');
+                    if (!$cid || $uid === '') {
+                        echo json_encode(['success' => false, 'message' => 'Community ID and user ID are required']);
+                        exit;
+                    }
+                    if (removeCommunityAdministrator($uid, $cid)) {
+                        echo json_encode([
+                            'success' => true,
+                            'message' => 'Administrator removed',
+                            'administrators' => getCommunityAdministrators($cid)
+                        ]);
+                    } else {
+                        echo json_encode(['success' => false, 'message' => 'Failed to remove administrator']);
                     }
                     break;
 
