@@ -106,3 +106,22 @@ vendor/bin/phinx migrate -e development
 ```
 
 Static analysis: `vendor/bin/phpstan` | Code style: `vendor/bin/phpcs` (PSR-12)
+
+## Developer Entry Points
+
+Authentication:
+- src/AuthService.php
+- includes/auth.php
+
+Items:
+- includes/items.php
+
+Claims:
+- includes/claims.php
+
+Communities:
+- includes/communities.php
+
+Image handling:
+- includes/images.php
+- src/AwsService.php
