@@ -22,6 +22,7 @@ if (!$community) {
 $currentUser = isLoggedIn() ? getCurrentUser() : null;
 $isMember = $currentUser ? isUserInCommunity($currentUser['id'], $communityId) : false;
 $memberCount = getCommunityMemberCount($communityId);
+$isModerator = $currentUser && (isAdmin() || isCommunityModerator($currentUser['id'], $communityId));
 
 // Check if user wants to see gone items
 $showGoneItems = false;
@@ -29,11 +30,11 @@ if ($currentUser) {
     $showGoneItems = getUserShowGoneItems($currentUser['id']);
 }
 
-// Get items for this community
+// Get items for this community (moderators also see pending/hidden items)
 $items = [];
 try {
     // Pass the community ID to filter items
-    $items = getAllItemsEfficiently($showGoneItems, $communityId);
+    $items = getAllItemsEfficiently($showGoneItems, $communityId, $isModerator);
 } catch (Exception $e) {
     error_log("Error loading items for community: " . $e->getMessage());
     $items = [];
@@ -50,13 +51,13 @@ $flashMessage = showFlashMessage();
                 <h1>🏘️ <?php echo escape($community['full_name']); ?></h1>
             </div>
             <div class="community-header-actions">
-                <?php if ($currentUser): ?>
+                <?php if ($currentUser) : ?>
                     <button id="membershipBtn" 
                             class="btn <?php echo $isMember ? 'btn-secondary' : 'btn-primary'; ?>" 
                             onclick="toggleMembership(<?php echo $communityId; ?>, <?php echo $isMember ? 'true' : 'false'; ?>)">
                         <?php echo $isMember ? '✓ Member' : '+ Join'; ?>
                     </button>
-                <?php else: ?>
+                <?php else : ?>
                     <a href="/?page=login" class="btn btn-primary">Log in to join</a>
                 <?php endif; ?>
                 <a href="/?page=communities" class="btn btn-secondary">← Back</a>
@@ -78,9 +79,9 @@ $flashMessage = showFlashMessage();
             <div class="no-items">
                 <div class="empty-state">
                     <div class="empty-state-icon">📦</div>
-                    <h3>No Items Yet</h3>
-                    <p>This community doesn't have any items posted yet.</p>
-                    <?php if ($currentUser): ?>
+                    <h3>No Items Visible</h3>
+                    <p>Either this community doesn't have any items posted, or your current filters do not result in any being shown.  Some communities hide items from users whohave not logged in yet.</p>
+                    <?php if ($currentUser) : ?>
                         <a href="/?page=claim" class="btn btn-primary">Post the First Item</a>
                     <?php endif; ?>
                 </div>

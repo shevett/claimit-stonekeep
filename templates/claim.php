@@ -136,14 +136,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Handle community associations BEFORE creating the item
             $communities = $_POST['communities'] ?? [];
             $communityIds = [];
-            
+
             // Collect selected community IDs (empty = invisible/staging)
             foreach ($communities as $commValue) {
                 if (is_numeric($commValue)) {
                     $communityIds[] = (int)$commValue;
                 }
             }
-            
+
             // If no communities selected, pass null to allow default or empty
             $communityIdsForCreate = !empty($communityIds) ? $communityIds : null;
 
@@ -283,10 +283,10 @@ $flashMessage = showFlashMessage();
                 <div class="community-checkboxes">
                     <?php
                     $allCommunities = getAllCommunities();
-                    foreach ($allCommunities as $comm):
+                    foreach ($allCommunities as $comm) :
                         // Default to General (community 1) being checked
                         $isChecked = ($comm['id'] == 1);
-                    ?>
+                        ?>
                     <div class="community-checkbox-item">
                         <input type="checkbox" 
                                name="communities[]" 

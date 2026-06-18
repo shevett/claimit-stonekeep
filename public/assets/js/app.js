@@ -379,8 +379,7 @@ style.textContent = `
     document.head.appendChild(style);
 
 // User dropdown functionality - make globally accessible for inline handlers
-    window.toggleUserDropdown = function()
-    {
+    window.toggleUserDropdown = function () {
         const dropdown = document.querySelector('.nav-user-dropdown');
         const dropdownMenu = document.getElementById('userDropdown');
 
@@ -399,11 +398,10 @@ style.textContent = `
     }
 
 // Mobile menu toggle functionality
-    window.toggleMobileMenu = function()
-    {
+    window.toggleMobileMenu = function () {
         const menu = document.getElementById('navMenu');
         const hamburger = document.querySelector('.hamburger-menu');
-        
+
         if (menu && hamburger) {
             menu.classList.toggle('active');
             hamburger.classList.toggle('active');
@@ -411,16 +409,16 @@ style.textContent = `
     }
 
     // Close mobile menu when clicking on a link or outside
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         const menu = document.getElementById('navMenu');
         const hamburger = document.querySelector('.hamburger-menu');
         const navbar = document.querySelector('.navbar');
-        
+
         if (menu) {
             // Close when clicking links (except user dropdown trigger)
             const links = menu.querySelectorAll('a, button');
             links.forEach(link => {
-                link.addEventListener('click', function() {
+                link.addEventListener('click', function () {
                     if (!this.classList.contains('nav-user-trigger')) {
                         menu.classList.remove('active');
                         if (hamburger) {
@@ -429,11 +427,11 @@ style.textContent = `
                     }
                 });
             });
-            
+
             // Close when clicking outside
-            document.addEventListener('click', function(e) {
-                if (menu.classList.contains('active') && 
-                    navbar && 
+            document.addEventListener('click', function (e) {
+                if (menu.classList.contains('active') &&
+                    navbar &&
                     !navbar.contains(e.target)) {
                     menu.classList.remove('active');
                     if (hamburger) {
@@ -447,8 +445,7 @@ style.textContent = `
 
 // Edit Modal Functions
     // Make these functions globally accessible for inline handlers
-    window.openEditModal = function(trackingNumber, title, description)
-    {
+    window.openEditModal = function (trackingNumber, title, description) {
         const modal = document.getElementById('editModal');
         if (modal) {
             // Populate the form fields
@@ -457,7 +454,7 @@ style.textContent = `
             document.getElementById('editDescription').value = description;
 
             // Fetch and populate community checkboxes
-            fetch(`?page=claim&action=get_item_communities&id=${encodeURIComponent(trackingNumber)}`)
+            fetch(` ? page = claim & action = get_item_communities & id = ${encodeURIComponent(trackingNumber)}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
@@ -471,8 +468,7 @@ style.textContent = `
         }
     }
 
-    window.openEditModalFromButton = function(button)
-    {
+    window.openEditModalFromButton = function (button) {
         const trackingNumber = button.getAttribute('data-tracking');
         const title = button.getAttribute('data-title');
         const description = button.getAttribute('data-description');
@@ -480,8 +476,7 @@ style.textContent = `
         window.openEditModal(trackingNumber, title, description);
     }
 
-    window.populateCommunityCheckboxes = function(allCommunities, itemCommunityIds)
-    {
+    window.populateCommunityCheckboxes = function (allCommunities, itemCommunityIds) {
         const container = document.getElementById('editCommunityCheckboxes');
         if (!container) {
             return;
@@ -492,23 +487,23 @@ style.textContent = `
         allCommunities.forEach(comm => {
             const isChecked = itemCommunityIds.includes(comm.id);
             html += `
-                <div class="community-checkbox-item">
-                    <input type="checkbox" 
-                           name="communities[]" 
-                           value="${comm.id}" 
-                           id="edit_community_${comm.id}"
-                           class="community-checkbox"
-                           ${isChecked ? 'checked' : ''}>
-                    <label for="edit_community_${comm.id}">${comm.full_name}</label>
-                </div>
-            `;
+                < div class = "community-checkbox-item" >
+                    < input type = "checkbox"
+                           name = "communities[]"
+                           value = "${comm.id}"
+                           id = "edit_community_${comm.id}"
+            class = "community-checkbox"
+                           ${isChecked ? 'checked' : ''} >
+                    < label for = "edit_community_${comm.id}" > ${
+                comm.full_name} < / label >
+                    <  / div >
+                    `;
         });
 
         container.innerHTML = html;
     }
 
-    window.closeEditModal = function()
-    {
+    window.closeEditModal = function () {
         const modal = document.getElementById('editModal');
         if (modal) {
             modal.style.display = 'none';
@@ -517,8 +512,7 @@ style.textContent = `
 
     // Community selection - no special handlers needed, checkboxes work independently
 
-    window.saveItemEdit = function()
-    {
+    window.saveItemEdit = function () {
         const form = document.getElementById('editForm');
         const formData = new FormData(form);
         const trackingNumber = formData.get('trackingNumber');
@@ -537,9 +531,9 @@ style.textContent = `
         // Empty selection is allowed (creates invisible/staging item)
 
         // Build the request body
-        let body = `action=edit_item&id=${encodeURIComponent(trackingNumber)}&title=${encodeURIComponent(title)}&description=${encodeURIComponent(description)}`;
+        let body = `action = edit_item & id = ${encodeURIComponent(trackingNumber)} & title = ${encodeURIComponent(title)} & description = ${encodeURIComponent(description)}`;
         communities.forEach(comm => {
-            body += `&communities[]=${encodeURIComponent(comm)}`;
+            body += ` & communities[] = ${encodeURIComponent(comm)}`;
         });
 
         fetch('?page=claim', {
@@ -568,8 +562,7 @@ style.textContent = `
         });
     }
 
-    window.showMessage = function(message, type = 'info')
-    {
+    window.showMessage = function (message, type = 'info') {
         // Create a simple message display
         const messageDiv = document.createElement('div');
         messageDiv.className = `message message - ${type}`;
@@ -606,9 +599,8 @@ style.textContent = `
     }
 
 // Mark item as gone
-    window.markItemGone = function(trackingNumber)
-    {
-        const button = document.querySelector(`button[onclick="markItemGone('${trackingNumber}')"]`);
+    window.markItemGone = function (trackingNumber) {
+        const button = document.querySelector(`button[onclick = "markItemGone('${trackingNumber}')"]`);
         if (!button) {
             return;
         }
@@ -624,7 +616,7 @@ style.textContent = `
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: `action=mark_gone&id=${encodeURIComponent(trackingNumber)}`
+            body: `action = mark_gone & id = ${encodeURIComponent(trackingNumber)}`
         })
         .then(response => response.json())
         .then(data => {
@@ -651,9 +643,8 @@ style.textContent = `
     }
 
 // Re-list item (mark as not gone)
-    window.relistItem = function(trackingNumber)
-    {
-        const button = document.querySelector(`button[onclick="relistItem('${trackingNumber}')"]`);
+    window.relistItem = function (trackingNumber) {
+        const button = document.querySelector(`button[onclick = "relistItem('${trackingNumber}')"]`);
         if (!button) {
             return;
         }
@@ -669,7 +660,7 @@ style.textContent = `
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: `action=relist_item&id=${encodeURIComponent(trackingNumber)}`
+            body: `action = relist_item & id = ${encodeURIComponent(trackingNumber)}`
         })
         .then(response => response.json())
         .then(data => {
@@ -695,12 +686,56 @@ style.textContent = `
         });
     }
 
+// Toggle an item's visibility (online/hidden) within a specific community
+    window.toggleItemVisibility = function (trackingNumber, communityId) {
+        const button = document.querySelector(`button[onclick = "toggleItemVisibility('${trackingNumber}', ${communityId})"]`);
+        if (!button) {
+            return;
+        }
+
+        // Show loading state
+        const originalText = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '⏳';
+
+        // Send AJAX request
+        fetch('', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `action = toggle_item_visibility & id = ${encodeURIComponent(trackingNumber)} & community_id = ${encodeURIComponent(communityId)}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showMessage(data.message, 'success');
+                // Reload the page to show updated status
+                setTimeout(() => {
+                    window.location.reload(true); // Force hard reload
+                }, 500);
+            } else {
+                showMessage(data.message, 'error');
+                // Restore button
+                button.disabled = false;
+                button.innerHTML = originalText;
+            }
+        })
+        .catch(error => {
+            console.error('Error toggling item visibility:', error);
+            showMessage('Network error while toggling item visibility: ' + error.message, 'error');
+            // Restore button
+            button.disabled = false;
+            button.innerHTML = originalText;
+        });
+    }
+
 // Share item to clipboard
-    window.shareItem = function(trackingNumber, title) {
+    window.shareItem = function (trackingNumber, title) {
         // Build the share text: title + URL
         const url = window.location.origin + '/?page=item&id=' + encodeURIComponent(trackingNumber);
         const shareText = title + '\n' + url;
-        
+
         // Copy to clipboard
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(shareText)

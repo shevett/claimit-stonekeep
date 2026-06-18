@@ -2,10 +2,10 @@
 
 /**
  * ClaimIt Application Functions
- * 
+ *
  * REFACTORED STRUCTURE:
  * Functions are now organized in modular files for better maintainability.
- * 
+ *
  * All functions have been successfully migrated to the following modules:
  * - core.php: Database, escaping, redirects, CSRF
  * - auth.php: Authentication and authorization
@@ -32,4 +32,3 @@ require_once __DIR__ . '/communities.php';
 // ============================================================================
 // DATABASE HELPER FUNCTIONS FOR ITEMS AND CLAIMS
 // ============================================================================
-

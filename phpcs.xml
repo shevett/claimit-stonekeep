@@ -5,6 +5,11 @@
     <!-- Use PSR-12 as base standard -->
     <rule ref="PSR12"/>
 
+    <!-- Templates routinely mix long inline HTML/PHP on one line; not worth enforcing -->
+    <rule ref="Generic.Files.LineLength">
+        <exclude name="Generic.Files.LineLength.TooLong"/>
+    </rule>
+
     <!-- Check these directories -->
     <file>public</file>
     <file>src</file>

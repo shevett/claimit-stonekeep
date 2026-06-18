@@ -15,7 +15,7 @@ function getAuthService()
     // This ensures fresh initialization on each request
     if ($authService === null) {
         try {
-            $authService = new AuthService();
+            $authService = new \ClaimIt\AuthService();
         } catch (Exception $e) {
             error_log('Failed to initialize Auth service: ' . $e->getMessage());
             return null;
@@ -132,4 +132,3 @@ function canUserEditItem($itemUserId)
     // User can edit if they own the item OR if they are an admin
     return ($currentUser['id'] === $itemUserId) || isAdmin();
 }
-

@@ -8,226 +8,226 @@
  * Add current user to item's claims list
  */
 if (!function_exists('addClaimToItem')) {
-function addClaimToItem($trackingNumber)
-{
-    $currentUser = getCurrentUser();
-    if (!$currentUser) {
-        throw new Exception('User must be logged in to claim items');
-    }
+    function addClaimToItem($trackingNumber)
+    {
+        $currentUser = getCurrentUser();
+        if (!$currentUser) {
+            throw new Exception('User must be logged in to claim items');
+        }
 
-    // Check if user can claim this item
-    if (!canUserClaim($trackingNumber, $currentUser['id'])) {
-        throw new Exception('You cannot claim this item');
-    }
+        // Check if user can claim this item
+        if (!canUserClaim($trackingNumber, $currentUser['id'])) {
+            throw new Exception('You cannot claim this item');
+        }
 
-    // Get current item data from database
-    $item = getItemFromDb($trackingNumber);
-    if (!$item) {
-        throw new Exception('Item not found');
-    }
-    $data = $item; // For compatibility with email code below
+        // Get current item data from database
+        $item = getItemFromDb($trackingNumber);
+        if (!$item) {
+            throw new Exception('Item not found');
+        }
+        $data = $item; // For compatibility with email code below
 
-    // Create new claim
-    $newClaim = [
+        // Create new claim
+        $newClaim = [
         'user_id' => $currentUser['id'],
         'user_name' => $currentUser['name'],
         'user_email' => $currentUser['email'],
         'claimed_at' => date('Y-m-d H:i:s'),
         'status' => 'active'
-    ];
+        ];
 
-    // Save claim to database
-    if (!createClaimInDb($trackingNumber, $newClaim)) {
-        throw new Exception('Failed to save claim to database');
-    }
+        // Save claim to database
+        if (!createClaimInDb($trackingNumber, $newClaim)) {
+            throw new Exception('Failed to save claim to database');
+        }
 
-    // Send email notification to item owner (if different from claimer)
-    try {
-        if ($data['user_id'] !== $currentUser['id']) {
-            $emailService = getEmailService();
-            if ($emailService) {
-                // Get item owner information
-                $itemOwner = [
+        // Send email notification to item owner (if different from claimer)
+        try {
+            if ($data['user_id'] !== $currentUser['id']) {
+                $emailService = getEmailService();
+                if ($emailService) {
+                    // Get item owner information
+                    $itemOwner = [
                     'id' => $data['user_id'],
                     'email' => $data['user_email'] ?? '',
                     'name' => $data['user_name'] ?? 'Unknown'
-                ];
+                    ];
 
-                // Prepare item data for email
-                $itemForEmail = [
+                    // Prepare item data for email
+                    $itemForEmail = [
                     'id' => $trackingNumber,
                     'title' => $data['title'] ?? 'Untitled Item',
                     'description' => $data['description'] ?? '',
                     'type' => $data['type'] ?? 'Unknown',
                     'created_at' => $data['created_at'] ?? date('Y-m-d H:i:s'),
                     'image_key' => $data['image_key'] ?? null
-                ];
+                    ];
 
-                // Send notification
-                $emailService->sendItemClaimedNotification($itemOwner, $itemForEmail, $currentUser);
+                    // Send notification
+                    $emailService->sendItemClaimedNotification($itemOwner, $itemForEmail, $currentUser);
+                }
             }
+        } catch (Exception $e) {
+            // Log error but don't fail the claim process
+            error_log("Failed to send email notification for claim on item $trackingNumber: " . $e->getMessage());
         }
-    } catch (Exception $e) {
-        // Log error but don't fail the claim process
-        error_log("Failed to send email notification for claim on item $trackingNumber: " . $e->getMessage());
-    }
 
-    return $newClaim;
-}
+        return $newClaim;
+    }
 }
 
 /**
  * Remove a specific claim from an item (owner only)
  */
 if (!function_exists('removeClaimFromItem')) {
-function removeClaimFromItem($trackingNumber, $claimUserId)
-{
-    $currentUser = getCurrentUser();
-    if (!$currentUser) {
-        throw new Exception('User must be logged in');
-    }
+    function removeClaimFromItem($trackingNumber, $claimUserId)
+    {
+        $currentUser = getCurrentUser();
+        if (!$currentUser) {
+            throw new Exception('User must be logged in');
+        }
 
-    // Check if current user owns the item
-    if (!currentUserOwnsItem($trackingNumber)) {
-        throw new Exception('Only the item owner can remove claims');
-    }
+        // Check if current user owns the item
+        if (!currentUserOwnsItem($trackingNumber)) {
+            throw new Exception('Only the item owner can remove claims');
+        }
 
-    // Find the claim in database
-    $pdo = getDbConnection();
-    if (!$pdo) {
-        throw new Exception('Database connection failed');
-    }
+        // Find the claim in database
+        $pdo = getDbConnection();
+        if (!$pdo) {
+            throw new Exception('Database connection failed');
+        }
 
-    $stmt = $pdo->prepare("
+        $stmt = $pdo->prepare("
         UPDATE claims 
         SET status = 'removed', updated_at = ?
         WHERE item_id = ? AND user_id = ? AND status = 'active'
     ");
 
-    $stmt->execute([date('Y-m-d H:i:s'), $trackingNumber, $claimUserId]);
+        $stmt->execute([date('Y-m-d H:i:s'), $trackingNumber, $claimUserId]);
 
-    if ($stmt->rowCount() === 0) {
-        throw new Exception('Claim not found or already removed');
+        if ($stmt->rowCount() === 0) {
+            throw new Exception('Claim not found or already removed');
+        }
+
+        return true;
     }
-
-    return true;
-}
 }
 
 /**
  * Remove current user's own claim from an item
  */
 if (!function_exists('removeMyClaim')) {
-function removeMyClaim($trackingNumber)
-{
-    $currentUser = getCurrentUser();
-    if (!$currentUser) {
-        throw new Exception('User must be logged in');
-    }
+    function removeMyClaim($trackingNumber)
+    {
+        $currentUser = getCurrentUser();
+        if (!$currentUser) {
+            throw new Exception('User must be logged in');
+        }
 
-    // Remove claim from database
-    $pdo = getDbConnection();
-    if (!$pdo) {
-        throw new Exception('Database connection failed');
-    }
+        // Remove claim from database
+        $pdo = getDbConnection();
+        if (!$pdo) {
+            throw new Exception('Database connection failed');
+        }
 
-    $stmt = $pdo->prepare("
+        $stmt = $pdo->prepare("
         UPDATE claims 
         SET status = 'removed', updated_at = ?
         WHERE item_id = ? AND user_id = ? AND status = 'active'
     ");
 
-    $stmt->execute([date('Y-m-d H:i:s'), $trackingNumber, $currentUser['id']]);
+        $stmt->execute([date('Y-m-d H:i:s'), $trackingNumber, $currentUser['id']]);
 
-    if ($stmt->rowCount() === 0) {
-        throw new Exception('You do not have an active claim on this item');
+        if ($stmt->rowCount() === 0) {
+            throw new Exception('You do not have an active claim on this item');
+        }
+
+        return true;
     }
-
-    return true;
-}
 }
 
 /**
  * Get all active claims for an item in chronological order
  */
 if (!function_exists('getActiveClaims')) {
-function getActiveClaims($trackingNumber)
-{
-    // Get claims from database - already uses the helper function
-    return getClaimsForItem($trackingNumber);
-}
+    function getActiveClaims($trackingNumber)
+    {
+        // Get claims from database - already uses the helper function
+        return getClaimsForItem($trackingNumber);
+    }
 }
 
 /**
  * Get the primary (first) active claim for an item
  */
 if (!function_exists('getPrimaryClaim')) {
-function getPrimaryClaim($trackingNumber)
-{
-    $activeClaims = getActiveClaims($trackingNumber);
-    return !empty($activeClaims) ? $activeClaims[0] : null;
-}
+    function getPrimaryClaim($trackingNumber)
+    {
+        $activeClaims = getActiveClaims($trackingNumber);
+        return !empty($activeClaims) ? $activeClaims[0] : null;
+    }
 }
 
 /**
  * Check if a user has an active claim on an item
  */
 if (!function_exists('isUserClaimed')) {
-function isUserClaimed($trackingNumber, $userId)
-{
-    $activeClaims = getActiveClaims($trackingNumber);
+    function isUserClaimed($trackingNumber, $userId)
+    {
+        $activeClaims = getActiveClaims($trackingNumber);
 
-    foreach ($activeClaims as $claim) {
-        if ($claim['user_id'] === $userId) {
-            return true;
+        foreach ($activeClaims as $claim) {
+            if ($claim['user_id'] === $userId) {
+                return true;
+            }
         }
-    }
 
-    return false;
-}
+        return false;
+    }
 }
 
 /**
  * Check if a user can claim an item
  */
 if (!function_exists('canUserClaim')) {
-function canUserClaim($trackingNumber, $userId)
-{
-    // User must be logged in
-    if (!$userId) {
-        return false;
-    }
+    function canUserClaim($trackingNumber, $userId)
+    {
+        // User must be logged in
+        if (!$userId) {
+            return false;
+        }
 
-    // Check if user already has an active claim
-    if (isUserClaimed($trackingNumber, $userId)) {
-        return false;
-    }
+        // Check if user already has an active claim
+        if (isUserClaimed($trackingNumber, $userId)) {
+            return false;
+        }
 
-    // Check if user owns the item
-    if (currentUserOwnsItem($trackingNumber)) {
-        return false;
-    }
+        // Check if user owns the item
+        if (currentUserOwnsItem($trackingNumber)) {
+            return false;
+        }
 
-    return true;
-}
+        return true;
+    }
 }
 
 /**
  * Get user's position in the waitlist for an item
  */
 if (!function_exists('getUserClaimPosition')) {
-function getUserClaimPosition($trackingNumber, $userId)
-{
-    $activeClaims = getActiveClaims($trackingNumber);
+    function getUserClaimPosition($trackingNumber, $userId)
+    {
+        $activeClaims = getActiveClaims($trackingNumber);
 
-    foreach ($activeClaims as $index => $claim) {
-        if ($claim['user_id'] === $userId) {
-            return $index + 1; // Position is 1-based
+        foreach ($activeClaims as $index => $claim) {
+            if ($claim['user_id'] === $userId) {
+                return $index + 1; // Position is 1-based
+            }
         }
-    }
 
-    return null; // User not in waitlist
-}
+        return null; // User not in waitlist
+    }
 }
 
 /**
@@ -235,78 +235,78 @@ function getUserClaimPosition($trackingNumber, $userId)
  * Uses the same efficient pattern as getAllItemsEfficiently
  */
 if (!function_exists('getItemsClaimedByUserOptimized')) {
-function getItemsClaimedByUserOptimized($userId)
-{
-    static $claimedItemsCache = [];
-    static $cacheTime = [];
+    function getItemsClaimedByUserOptimized($userId)
+    {
+        static $claimedItemsCache = [];
+        static $cacheTime = [];
 
-    // Create cache key
-    $currentCacheKey = md5($userId . '_claimed');
+        // Create cache key
+        $currentCacheKey = md5($userId . '_claimed');
 
-    // Use longer cache (5 minutes)
-    $cacheExpiry = 300;
+        // Use longer cache (5 minutes)
+        $cacheExpiry = 300;
 
-    // Check cache first
-    if (isset($claimedItemsCache[$currentCacheKey]) && isset($cacheTime[$currentCacheKey]) && (time() - $cacheTime[$currentCacheKey]) < $cacheExpiry) {
-        return $claimedItemsCache[$currentCacheKey];
-    }
-
-    try {
-        $startTime = microtime(true);
-
-        // Get claimed items from database
-        $dbItems = getClaimedItemsByUser($userId);
-        debugLog("Loaded " . count($dbItems) . " claimed items for user {$userId} from database");
-
-        // Get all claims for these items  to determine position
-        $trackingNumbers = array_column($dbItems, 'id');
-        if (!empty($trackingNumbers)) {
-            $pdo = getDbConnection();
-            $placeholders = implode(',', array_fill(0, count($trackingNumbers), '?'));
-            $stmt = $pdo->prepare("SELECT * FROM claims WHERE item_id IN ($placeholders) AND status = 'active' ORDER BY claimed_at ASC");
-            $stmt->execute($trackingNumbers);
-            $allClaims = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } else {
-            $allClaims = [];
+        // Check cache first
+        if (isset($claimedItemsCache[$currentCacheKey]) && isset($cacheTime[$currentCacheKey]) && (time() - $cacheTime[$currentCacheKey]) < $cacheExpiry) {
+            return $claimedItemsCache[$currentCacheKey];
         }
 
-        // Group claims by item
-        $claimsByItem = [];
-        foreach ($allClaims as $claim) {
-            $trackingNumber = $claim['item_id'];
-            if (!isset($claimsByItem[$trackingNumber])) {
-                $claimsByItem[$trackingNumber] = [];
-            }
-            $claimsByItem[$trackingNumber][] = $claim;
-        }
+        try {
+            $startTime = microtime(true);
 
-        // Process each item
-        $claimedItems = [];
+            // Get claimed items from database
+            $dbItems = getClaimedItemsByUser($userId);
+            debugLog("Loaded " . count($dbItems) . " claimed items for user {$userId} from database");
 
-        foreach ($dbItems as $dbItem) {
-            $trackingNumber = $dbItem['id'];
-
-            // Get image key and URL
-            $imageKey = $dbItem['image_file'];
-            $imageUrl = null;
-            if ($imageKey) {
-                $imageUrl = getCloudFrontUrl($imageKey);
+            // Get all claims for these items  to determine position
+            $trackingNumbers = array_column($dbItems, 'id');
+            if (!empty($trackingNumbers)) {
+                $pdo = getDbConnection();
+                $placeholders = implode(',', array_fill(0, count($trackingNumbers), '?'));
+                $stmt = $pdo->prepare("SELECT * FROM claims WHERE item_id IN ($placeholders) AND status = 'active' ORDER BY claimed_at ASC");
+                $stmt->execute($trackingNumbers);
+                $allClaims = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            } else {
+                $allClaims = [];
             }
 
-            // Find user's claim and position
-            $activeClaims = $claimsByItem[$trackingNumber] ?? [];
-            $userClaim = null;
-            $claimPosition = 0;
-
-            foreach ($activeClaims as $index => $claim) {
-                if ($claim['user_id'] === $userId) {
-                    $userClaim = $claim;
-                    $claimPosition = $index + 1;
-                    break;
+            // Group claims by item
+            $claimsByItem = [];
+            foreach ($allClaims as $claim) {
+                $trackingNumber = $claim['item_id'];
+                if (!isset($claimsByItem[$trackingNumber])) {
+                    $claimsByItem[$trackingNumber] = [];
                 }
+                $claimsByItem[$trackingNumber][] = $claim;
             }
 
-            $claimedItems[] = [
+            // Process each item
+            $claimedItems = [];
+
+            foreach ($dbItems as $dbItem) {
+                $trackingNumber = $dbItem['id'];
+
+                // Get image key and URL
+                $imageKey = $dbItem['image_file'];
+                $imageUrl = null;
+                if ($imageKey) {
+                    $imageUrl = getCloudFrontUrl($imageKey);
+                }
+
+                // Find user's claim and position
+                $activeClaims = $claimsByItem[$trackingNumber] ?? [];
+                $userClaim = null;
+                $claimPosition = 0;
+
+                foreach ($activeClaims as $index => $claim) {
+                    if ($claim['user_id'] === $userId) {
+                        $userClaim = $claim;
+                        $claimPosition = $index + 1;
+                        break;
+                    }
+                }
+
+                $claimedItems[] = [
                 'id' => $trackingNumber,
                 'title' => $dbItem['title'],
                 'description' => $dbItem['description'],
@@ -324,23 +324,23 @@ function getItemsClaimedByUserOptimized($userId)
                 'claim_position' => $claimPosition,
                 'is_primary_claim' => $claimPosition === 1,
                 'total_claims' => count($activeClaims)
-            ];
+                ];
+            }
+
+            $endTime = microtime(true);
+            $totalTime = round(($endTime - $startTime) * 1000, 2);
+            debugLog("Performance: Loaded claimed items from database in {$totalTime}ms");
+
+            // Cache the results
+            $claimedItemsCache[$currentCacheKey] = $claimedItems;
+            $cacheTime[$currentCacheKey] = time();
+
+            return $claimedItems;
+        } catch (Exception $e) {
+            error_log('Error loading claimed items: ' . $e->getMessage());
+            return [];
         }
-
-        $endTime = microtime(true);
-        $totalTime = round(($endTime - $startTime) * 1000, 2);
-        debugLog("Performance: Loaded claimed items from database in {$totalTime}ms");
-
-        // Cache the results
-        $claimedItemsCache[$currentCacheKey] = $claimedItems;
-        $cacheTime[$currentCacheKey] = time();
-
-        return $claimedItems;
-    } catch (Exception $e) {
-        error_log('Error loading claimed items: ' . $e->getMessage());
-        return [];
     }
-}
 }
 
 /**
@@ -350,27 +350,27 @@ function getItemsClaimedByUserOptimized($userId)
  * @return array Array of claims
  */
 if (!function_exists('getClaimsForItem')) {
-function getClaimsForItem($trackingNumber)
-{
-    $pdo = getDbConnection();
-    if (!$pdo) {
-        return [];
-    }
+    function getClaimsForItem($trackingNumber)
+    {
+        $pdo = getDbConnection();
+        if (!$pdo) {
+            return [];
+        }
 
-    try {
-        $stmt = $pdo->prepare("
+        try {
+            $stmt = $pdo->prepare("
             SELECT * FROM claims 
             WHERE item_id = ? AND status = 'active'
             ORDER BY claimed_at ASC
         ");
-        $stmt->execute([$trackingNumber]);
+            $stmt->execute([$trackingNumber]);
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Exception $e) {
-        error_log("Error getting claims from database: " . $e->getMessage());
-        return [];
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Exception $e) {
+            error_log("Error getting claims from database: " . $e->getMessage());
+            return [];
+        }
     }
-}
 }
 
 /**
@@ -380,29 +380,29 @@ function getClaimsForItem($trackingNumber)
  * @return array Array of items with claim info
  */
 if (!function_exists('getClaimedItemsByUser')) {
-function getClaimedItemsByUser($userId)
-{
-    $pdo = getDbConnection();
-    if (!$pdo) {
-        return [];
-    }
+    function getClaimedItemsByUser($userId)
+    {
+        $pdo = getDbConnection();
+        if (!$pdo) {
+            return [];
+        }
 
-    try {
-        $stmt = $pdo->prepare("
+        try {
+            $stmt = $pdo->prepare("
             SELECT i.*, c.claimed_at, c.status as claim_status, c.id as claim_id
             FROM items i
             INNER JOIN claims c ON i.id = c.item_id
             WHERE c.user_id = ?
             ORDER BY c.claimed_at DESC
         ");
-        $stmt->execute([$userId]);
+            $stmt->execute([$userId]);
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Exception $e) {
-        error_log("Error getting claimed items from database: " . $e->getMessage());
-        return [];
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Exception $e) {
+            error_log("Error getting claimed items from database: " . $e->getMessage());
+            return [];
+        }
     }
-}
 }
 
 /**
@@ -413,38 +413,38 @@ function getClaimedItemsByUser($userId)
  * @return bool Success status
  */
 if (!function_exists('createClaimInDb')) {
-function createClaimInDb($trackingNumber, $claimData)
-{
-    $pdo = getDbConnection();
-    if (!$pdo) {
-        return false;
-    }
+    function createClaimInDb($trackingNumber, $claimData)
+    {
+        $pdo = getDbConnection();
+        if (!$pdo) {
+            return false;
+        }
 
-    try {
-        $now = date('Y-m-d H:i:s');
+        try {
+            $now = date('Y-m-d H:i:s');
 
-        $stmt = $pdo->prepare("
+            $stmt = $pdo->prepare("
             INSERT INTO claims (
                 item_id, user_id, user_name, user_email,
                 claimed_at, status, created_at, updated_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ");
 
-        return $stmt->execute([
-            $trackingNumber,
-            $claimData['user_id'],
-            $claimData['user_name'],
-            $claimData['user_email'],
-            $claimData['claimed_at'] ?? $now,
-            $claimData['status'] ?? 'active',
-            $now,
-            $now
-        ]);
-    } catch (Exception $e) {
-        error_log("Error creating claim in database: " . $e->getMessage());
-        return false;
+            return $stmt->execute([
+                $trackingNumber,
+                $claimData['user_id'],
+                $claimData['user_name'],
+                $claimData['user_email'],
+                $claimData['claimed_at'] ?? $now,
+                $claimData['status'] ?? 'active',
+                $now,
+                $now
+            ]);
+        } catch (Exception $e) {
+            error_log("Error creating claim in database: " . $e->getMessage());
+            return false;
+        }
     }
-}
 }
 
 /**
@@ -455,24 +455,24 @@ function createClaimInDb($trackingNumber, $claimData)
  * @return bool True if user has claimed this item
  */
 if (!function_exists('hasUserClaimedItem')) {
-function hasUserClaimedItem($trackingNumber, $userId)
-{
-    $pdo = getDbConnection();
-    if (!$pdo) {
-        return false;
-    }
+    function hasUserClaimedItem($trackingNumber, $userId)
+    {
+        $pdo = getDbConnection();
+        if (!$pdo) {
+            return false;
+        }
 
-    try {
-        $stmt = $pdo->prepare("
+        try {
+            $stmt = $pdo->prepare("
             SELECT COUNT(*) FROM claims 
             WHERE item_id = ? AND user_id = ? AND status = 'active'
         ");
-        $stmt->execute([$trackingNumber, $userId]);
+            $stmt->execute([$trackingNumber, $userId]);
 
-        return $stmt->fetchColumn() > 0;
-    } catch (Exception $e) {
-        error_log("Error checking claim in database: " . $e->getMessage());
-        return false;
+            return $stmt->fetchColumn() > 0;
+        } catch (Exception $e) {
+            error_log("Error checking claim in database: " . $e->getMessage());
+            return false;
+        }
     }
-}
 }

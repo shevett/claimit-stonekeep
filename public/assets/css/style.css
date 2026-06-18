@@ -1725,6 +1725,22 @@ footer {
     z-index: 10;
 }
 
+/* PENDING APPROVAL Badge */
+.pending-badge {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    background: rgba(217, 119, 6, 0.95);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    z-index: 10;
+}
+
 /* Dim gone items slightly */
 .item-gone {
     opacity: 0.75;

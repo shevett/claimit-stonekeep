@@ -150,15 +150,15 @@ $flashMessage = showFlashMessage();
                         </tr>
                     </thead>
                     <tbody>
-                        <?php if (empty($allUsers)): ?>
+                        <?php if (empty($allUsers)) : ?>
                             <tr>
                                 <td colspan="9" class="no-data">No users found</td>
                             </tr>
-                        <?php else: ?>
-                            <?php foreach ($allUsers as $user): ?>
+                        <?php else : ?>
+                            <?php foreach ($allUsers as $user) : ?>
                                 <tr>
                                     <td class="user-name">
-                                        <?php if (!empty($user['picture'])): ?>
+                                        <?php if (!empty($user['picture'])) : ?>
                                             <img src="<?php echo escape($user['picture']); ?>" alt="" class="user-avatar">
                                         <?php endif; ?>
                                         <span><?php echo escape($user['name']); ?></span>
@@ -166,23 +166,23 @@ $flashMessage = showFlashMessage();
                     <td><?php echo escape($user['email']); ?></td>
                     <td><?php echo escape($user['display_name'] ?? '-'); ?></td>
                     <td>
-                        <?php 
+                                <?php
                         // Check if user is super admin (defined in config)
-                        $isSuperAdmin = defined('ADMIN_USER_ID') && $user['id'] === ADMIN_USER_ID;
-                        $isAdmin = isset($user['is_admin']) && $user['is_admin'];
-                        
-                        if ($isSuperAdmin): ?>
+                                $isSuperAdmin = defined('ADMIN_USER_ID') && $user['id'] === ADMIN_USER_ID;
+                                $isAdmin = isset($user['is_admin']) && $user['is_admin'];
+
+                                if ($isSuperAdmin) : ?>
                             <span class="badge badge-super-admin">SUPER</span>
-                        <?php elseif ($isAdmin): ?>
+                                <?php elseif ($isAdmin) : ?>
                             <span class="badge badge-admin">Yes</span>
-                        <?php else: ?>
+                                <?php else : ?>
                             <span class="badge badge-user">No</span>
-                        <?php endif; ?>
+                                <?php endif; ?>
                                     </td>
                                     <td>
-                                        <?php if ($user['verified_email']): ?>
+                                        <?php if ($user['verified_email']) : ?>
                                             <span class="badge badge-success">✓</span>
-                                        <?php else: ?>
+                                        <?php else : ?>
                                             <span class="badge badge-warning">✗</span>
                                         <?php endif; ?>
                                     </td>

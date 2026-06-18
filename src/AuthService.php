@@ -1,5 +1,7 @@
 <?php
 
+namespace ClaimIt;
+
 /**
  * Authentication service for Google OAuth integration
  */
@@ -162,5 +164,4 @@ class AuthService
             redirect('login');
         }
     }
-
 }

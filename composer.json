@@ -23,6 +23,9 @@
             "ClaimIt\\Tests\\": "tests/"
         }
     },
+    "scripts": {
+        "check": "bash scripts/check.sh"
+    },
     "config": {
         "optimize-autoloader": true,
         "prefer-stable": true,

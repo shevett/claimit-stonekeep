@@ -42,16 +42,16 @@ try {
             'relisted_at' => $dbItem['relisted_at'],
             'relisted_by' => $dbItem['relisted_by']
         ];
-        
+
         // Check if user has permission to view this item (private community check)
         $itemCommunityIds = getItemCommunities($itemId);
-        
+
         // If item has no communities, it's invisible (staging) - only owner/admin can see
         if (empty($itemCommunityIds)) {
             $currentUser = getCurrentUser();
             $isOwner = $currentUser && $currentUser['id'] === $item['user_id'];
             $isAdmin = isAdmin();
-            
+
             if (!$isOwner && !$isAdmin) {
                 $error = 'Item not found.';
                 $item = null;
@@ -63,7 +63,7 @@ try {
             foreach ($allCommunities as $comm) {
                 $communityMap[$comm['id']] = $comm;
             }
-            
+
             // Check if item is in General (1) or any non-private community
             $isPublic = false;
             foreach ($itemCommunityIds as $commId) {
@@ -78,12 +78,12 @@ try {
                     break;
                 }
             }
-            
+
             // If item is not public (only in private communities), check user membership
             if (!$isPublic) {
                 $currentUser = getCurrentUser();
                 $hasAccess = false;
-                
+
                 if ($currentUser) {
                     // Check if user is owner or admin
                     if ($currentUser['id'] === $item['user_id'] || isAdmin()) {
@@ -99,7 +99,7 @@ try {
                         }
                     }
                 }
-                
+
                 if (!$hasAccess) {
                     $error = 'Item not found.';
                     $item = null;

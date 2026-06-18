@@ -291,19 +291,19 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['id
 // Handle GET request for item communities (for edit modal)
 if (isset($_GET['action']) && $_GET['action'] === 'get_item_communities' && isset($_GET['id'])) {
     header('Content-Type: application/json');
-    
+
     $trackingNumber = $_GET['id'];
-    
+
     // Support both old format (YmdHis) and new format (YmdHis-xxxx)
     if (!preg_match('/^(\d{14}|\d{14}-[a-f0-9]{4})$/', $trackingNumber)) {
         echo json_encode(['success' => false, 'message' => 'Invalid tracking number']);
         exit;
     }
-    
+
     // Get all communities and the item's current communities
     $allCommunities = getAllCommunities();
     $itemCommunities = getItemCommunities($trackingNumber);
-    
+
     echo json_encode([
         'success' => true,
         'communities' => $allCommunities,
@@ -319,7 +319,7 @@ $ajaxId = $_POST['id'] ?? $_GET['id'] ?? null;
 
 error_log("Checking for AJAX request - action: " . ($ajaxAction ?? 'not set') . ", id: " . ($ajaxId ?? 'not set'));
 
-if ($ajaxAction && in_array($ajaxAction, ['add_claim', 'remove_claim', 'remove_claim_by_owner', 'delete_item', 'edit_item', 'rotate_image', 'mark_gone', 'relist_item', 'upload_additional_image', 'delete_image', 'republish_item']) && $ajaxId) {
+if ($ajaxAction && in_array($ajaxAction, ['add_claim', 'remove_claim', 'remove_claim_by_owner', 'delete_item', 'edit_item', 'rotate_image', 'mark_gone', 'relist_item', 'upload_additional_image', 'delete_image', 'republish_item', 'toggle_item_visibility']) && $ajaxId) {
     error_log("AJAX Handler reached - action: " . $ajaxAction . ", id: " . $ajaxId);
     header('Content-Type: application/json');
 
@@ -451,17 +451,17 @@ if ($ajaxAction && in_array($ajaxAction, ['add_claim', 'remove_claim', 'remove_c
                 // Handle community associations
                 $communities = $_POST['communities'] ?? [];
                 $communityIds = [];
-                
+
                 // Collect selected community IDs (empty = invisible/staging)
                 foreach ($communities as $commValue) {
                     if (is_numeric($commValue)) {
                         $communityIds[] = (int)$commValue;
                     }
                 }
-                
+
                 // Save community associations (empty array is allowed for staging)
                 setItemCommunities($trackingNumber, $communityIds);
-                
+
                 // Clear items cache since we updated an item
                 clearItemsCache();
 
@@ -725,6 +725,26 @@ if ($ajaxAction && in_array($ajaxAction, ['add_claim', 'remove_claim', 'remove_c
                     echo json_encode(['success' => true, 'message' => 'Re-publish triggered — no active webhooks configured for that community', 'slack_count' => 0, 'discord_count' => 0]);
                 }
                 break;
+
+            case 'toggle_item_visibility':
+                $communityId = isset($_POST['community_id']) ? (int)$_POST['community_id'] : 0;
+                if ($communityId <= 0) {
+                    echo json_encode(['success' => false, 'message' => 'Invalid community ID']);
+                    exit;
+                }
+                if (!isAdmin() && !isCommunityModerator($currentUser['id'], $communityId)) {
+                    echo json_encode(['success' => false, 'message' => 'Permission denied']);
+                    exit;
+                }
+                $newStatus = toggleItemCommunityStatus($trackingNumber, $communityId);
+                if ($newStatus === false) {
+                    echo json_encode(['success' => false, 'message' => 'Item is not posted to that community']);
+                    exit;
+                }
+                clearItemsCache();
+                $message = $newStatus === 'hidden' ? 'Item hidden from this community' : 'Item made visible in this community';
+                echo json_encode(['success' => true, 'message' => $message, 'status' => $newStatus]);
+                break;
         }
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);
@@ -892,7 +912,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'admin' && isset($_GET['action']))
         try {
             $userId = $_GET['user_id'];
             $user = getUserById($userId);
-            
+
             if (!$user) {
                 echo json_encode(['success' => false, 'message' => 'User not found']);
                 exit;
@@ -900,10 +920,10 @@ if (isset($_GET['page']) && $_GET['page'] === 'admin' && isset($_GET['action']))
 
             // Get all communities
             $communities = getAllCommunities();
-            
+
             // Get user's community memberships
             $userCommunities = getUserCommunityIds($userId);
-            
+
             echo json_encode([
                 'success' => true,
                 'user' => $user,
@@ -941,14 +961,14 @@ if (isset($_POST['action']) && $_POST['action'] === 'update_user' && isset($_GET
 
     try {
         $userId = $_POST['user_id'];
-        
+
         // Load existing user data first
         $existingUser = getUserById($userId);
         if (!$existingUser) {
             echo json_encode(['success' => false, 'message' => 'User not found']);
             exit;
         }
-        
+
         // Merge admin updates with existing data (preserving name, email, etc.)
         $updates = array_merge($existingUser, [
             'display_name' => trim($_POST['display_name'] ?? ''),
@@ -957,57 +977,57 @@ if (isset($_POST['action']) && $_POST['action'] === 'update_user' && isset($_GET
             'email_notifications' => isset($_POST['email_notifications']) ? 1 : 0,
             'new_listing_notifications' => isset($_POST['new_listing_notifications']) ? 1 : 0
         ]);
-        
+
         if (!updateUser($userId, $updates)) {
             echo json_encode(['success' => false, 'message' => 'Failed to update user']);
             exit;
         }
-        
+
         // Update community memberships
         $selectedCommunities = isset($_POST['communities']) && is_array($_POST['communities']) ? $_POST['communities'] : [];
         $currentCommunities = getUserCommunityIds($userId);
-        
+
         // Remove communities that are no longer selected
         foreach ($currentCommunities as $communityId) {
             if (!in_array($communityId, $selectedCommunities)) {
                 leaveCommunity($userId, $communityId);
             }
         }
-        
+
         // Add newly selected communities
         foreach ($selectedCommunities as $communityId) {
             if (!in_array($communityId, $currentCommunities)) {
                 joinCommunity($userId, (int)$communityId);
             }
         }
-        
+
         echo json_encode(['success' => true, 'message' => 'User updated successfully']);
     } catch (Exception $e) {
         error_log("Error updating user: " . $e->getMessage());
         echo json_encode(['success' => false, 'message' => 'Error updating user: ' . $e->getMessage()]);
     }
-    
+
     exit;
 }
 
 // Handle community membership AJAX requests (join/leave) - for all logged-in users
 if (isset($_POST['action']) && in_array($_POST['action'], ['join', 'leave']) && isset($_POST['community_id'])) {
     header('Content-Type: application/json');
-    
+
     if (!isLoggedIn()) {
         echo json_encode(['success' => false, 'message' => 'Authentication required']);
         exit;
     }
-    
+
     $currentUser = getCurrentUser();
     if (!$currentUser) {
         echo json_encode(['success' => false, 'message' => 'User information not available']);
         exit;
     }
-    
+
     $communityId = (int)$_POST['community_id'];
     $action = $_POST['action'];
-    
+
     try {
         if ($action === 'join') {
             $success = joinCommunity($currentUser['id'], $communityId);
@@ -1016,13 +1036,13 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['join', 'leave']) && 
             $success = leaveCommunity($currentUser['id'], $communityId);
             $message = $success ? 'Successfully left community' : 'Failed to leave community';
         }
-        
+
         echo json_encode(['success' => $success, 'message' => $message]);
     } catch (Exception $e) {
         error_log("Community membership error: " . $e->getMessage());
         echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
     }
-    
+
     exit;
 }
 
@@ -1058,7 +1078,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
 
     $siteAdmin = isAdmin();
     $adminOnlyActions = ['create', 'delete'];
-    $ownerOrAdminActions = ['get', 'update', 'get_admins', 'add_admin', 'remove_admin'];
+    $ownerOrModeratorActions = ['get', 'update', 'get_moderators', 'add_moderator', 'remove_moderator'];
     $testActions = ['test_slack', 'test_discord'];
 
     if (in_array($action, $adminOnlyActions, true)) {
@@ -1066,15 +1086,18 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
             echo json_encode(['success' => false, 'message' => 'Administrator privileges required']);
             exit;
         }
-    } elseif (in_array($action, $ownerOrAdminActions, true)) {
+    } elseif (in_array($action, $ownerOrModeratorActions, true)) {
         if (!$siteAdmin) {
-            if (!$requestCommunityId || !isCommunityOwner($currentUser['id'], $requestCommunityId)) {
+            if (!$requestCommunityId || !isCommunityModerator($currentUser['id'], $requestCommunityId)) {
                 echo json_encode(['success' => false, 'message' => 'Not authorized for this community']);
                 exit;
             }
         }
     } elseif (in_array($action, $testActions, true)) {
-        if (!$siteAdmin && count(getCommunitiesOwnedByUser($currentUser['id'])) === 0) {
+        if (
+            !$siteAdmin && count(getCommunitiesOwnedByUser($currentUser['id'])) === 0
+            && count(getCommunitiesModeratedByUser($currentUser['id'])) === 0
+        ) {
             echo json_encode(['success' => false, 'message' => 'Not authorized']);
             exit;
         }
@@ -1096,10 +1119,10 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
         exit;
     }
 
-    if ($action === 'get_admins' && $requestCommunityId) {
+    if ($action === 'get_moderators' && $requestCommunityId) {
         echo json_encode([
             'success' => true,
-            'administrators' => getCommunityAdministrators($requestCommunityId)
+            'moderators' => getCommunityModerators($requestCommunityId)
         ]);
         exit;
     }
@@ -1119,6 +1142,8 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
                         'full_name' => trim($_POST['full_name']),
                         'description' => trim($_POST['description'] ?? ''),
                         'private' => isset($_POST['private']) ? 1 : 0,
+                        'moderated' => isset($_POST['moderated']) ? 1 : 0,
+                        'hide_new_items_by_default' => isset($_POST['hide_new_items_by_default']) ? 1 : 0,
                         'slack_webhook_url' => !empty($_POST['slack_webhook_url']) ? trim($_POST['slack_webhook_url']) : null,
                         'slack_enabled' => isset($_POST['slack_enabled']) ? 1 : 0,
                         'discord_webhook_url' => !empty($_POST['discord_webhook_url']) ? trim($_POST['discord_webhook_url']) : null,
@@ -1145,6 +1170,8 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
                         'full_name' => trim($_POST['full_name']),
                         'description' => trim($_POST['description'] ?? ''),
                         'private' => isset($_POST['private']) ? 1 : 0,
+                        'moderated' => isset($_POST['moderated']) ? 1 : 0,
+                        'hide_new_items_by_default' => isset($_POST['hide_new_items_by_default']) ? 1 : 0,
                         'slack_webhook_url' => !empty($_POST['slack_webhook_url']) ? trim($_POST['slack_webhook_url']) : null,
                         'slack_enabled' => isset($_POST['slack_enabled']) ? 1 : 0,
                         'discord_webhook_url' => !empty($_POST['discord_webhook_url']) ? trim($_POST['discord_webhook_url']) : null,
@@ -1253,8 +1280,10 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
 
                     $webhookUrl = trim($_POST['webhook_url']);
 
-                    if (!filter_var($webhookUrl, FILTER_VALIDATE_URL) ||
-                        !preg_match('#^https://discord(?:app)?\.com/api/webhooks/#', $webhookUrl)) {
+                    if (
+                        !filter_var($webhookUrl, FILTER_VALIDATE_URL) ||
+                        !preg_match('#^https://discord(?:app)?\.com/api/webhooks/#', $webhookUrl)
+                    ) {
                         echo json_encode(['success' => false, 'message' => 'Invalid Discord webhook URL format']);
                         exit;
                     }
@@ -1300,7 +1329,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
                     }
                     break;
 
-                case 'add_admin':
+                case 'add_moderator':
                     $cid = (int)($_POST['id'] ?? 0);
                     $email = trim($_POST['email'] ?? '');
                     if (!$cid || $email === '') {
@@ -1316,32 +1345,32 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
                         echo json_encode(['success' => false, 'message' => 'That user already owns this community']);
                         exit;
                     }
-                    if (addCommunityAdministrator($userToAdd['id'], $cid)) {
+                    if (addCommunityModerator($userToAdd['id'], $cid)) {
                         echo json_encode([
                             'success' => true,
-                            'message' => 'Administrator added',
-                            'administrators' => getCommunityAdministrators($cid)
+                            'message' => 'Moderator added',
+                            'moderators' => getCommunityModerators($cid)
                         ]);
                     } else {
-                        echo json_encode(['success' => false, 'message' => 'Failed to add administrator']);
+                        echo json_encode(['success' => false, 'message' => 'Failed to add moderator']);
                     }
                     break;
 
-                case 'remove_admin':
+                case 'remove_moderator':
                     $cid = (int)($_POST['id'] ?? 0);
                     $uid = trim($_POST['user_id'] ?? '');
                     if (!$cid || $uid === '') {
                         echo json_encode(['success' => false, 'message' => 'Community ID and user ID are required']);
                         exit;
                     }
-                    if (removeCommunityAdministrator($uid, $cid)) {
+                    if (removeCommunityModerator($uid, $cid)) {
                         echo json_encode([
                             'success' => true,
-                            'message' => 'Administrator removed',
-                            'administrators' => getCommunityAdministrators($cid)
+                            'message' => 'Moderator removed',
+                            'moderators' => getCommunityModerators($cid)
                         ]);
                     } else {
-                        echo json_encode(['success' => false, 'message' => 'Failed to remove administrator']);
+                        echo json_encode(['success' => false, 'message' => 'Failed to remove moderator']);
                     }
                     break;
 
@@ -1426,7 +1455,7 @@ $page = $_GET['page'] ?? 'home';
 $page = preg_replace('/[^a-zA-Z0-9\-]/', '', $page);
 
 // Define available pages
-$availablePages = ['home', 'about', 'contact', 'claim', 'items', 'item', 'login', 'user-listings', 'settings', 'admin', 'changelog', 'communities', 'community'];
+$availablePages = ['home', 'about', 'contact', 'claim', 'items', 'item', 'login', 'user-listings', 'settings', 'admin', 'changelog', 'communities', 'community', 'community-edit'];
 
 if (!in_array($page, $availablePages)) {
     $page = 'home';

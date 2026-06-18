@@ -24,7 +24,7 @@ includes/functions.php    — loader: requires all domain modules below
   includes/users.php      — user CRUD
   includes/items.php      — item CRUD, search
   includes/claims.php     — claim CRUD
-  includes/communities.php— community CRUD, membership, admin management
+  includes/communities.php— community CRUD, membership, moderator management
   includes/images.php     — S3 upload, rotation, deletion, signed URLs
   includes/slack.php      — Slack webhook notifications
   includes/discord.php    — Discord webhook notifications
@@ -52,7 +52,7 @@ Core tables:
 | `communities` | Named communities with optional Slack/Discord webhooks |
 | `users_communities` | Many-to-many: user membership in communities |
 | `items_communities` | Many-to-many: item visibility in communities |
-| `community_administrators` | Per-community admin grants |
+| `community_moderators` | Per-community moderator grants |
 
 All migrations must be idempotent — see `db/MIGRATION_GUIDELINES.md`.
 
@@ -75,7 +75,7 @@ All migrations must be idempotent — see `db/MIGRATION_GUIDELINES.md`.
 
 `add_claim`, `remove_claim`, `remove_claim_by_owner`, `delete_item`, `edit_item`, `rotate_image`, `mark_gone`, `relist_item`, `upload_additional_image`, `delete_image`, `republish_item`
 
-Community actions (admin): `create`, `update`, `delete`, `test_slack`, `test_discord`, `add_admin`, `remove_admin`
+Community actions (admin/owner/moderator): `create`, `update`, `delete`, `test_slack`, `test_discord`, `add_moderator`, `remove_moderator`
 
 ## External Services
 

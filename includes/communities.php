@@ -70,14 +70,16 @@ function createCommunity($data)
     }
 
     try {
-        $sql = "INSERT INTO communities (short_name, full_name, description, private, owner_id, slack_webhook_url, slack_enabled, discord_webhook_url, discord_enabled, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
+        $sql = "INSERT INTO communities (short_name, full_name, description, private, moderated, hide_new_items_by_default, owner_id, slack_webhook_url, slack_enabled, discord_webhook_url, discord_enabled, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
             $data['short_name'],
             $data['full_name'],
             $data['description'] ?? null,
             isset($data['private']) ? (int)$data['private'] : 0,
+            isset($data['moderated']) ? (int)$data['moderated'] : 0,
+            isset($data['hide_new_items_by_default']) ? (int)$data['hide_new_items_by_default'] : 1,
             $data['owner_id'],
             $data['slack_webhook_url'] ?? null,
             isset($data['slack_enabled']) ? (int)$data['slack_enabled'] : 0,
@@ -106,7 +108,7 @@ function updateCommunity($id, $data)
 
     try {
         $sql = "UPDATE communities
-                SET short_name = ?, full_name = ?, description = ?, private = ?, slack_webhook_url = ?, slack_enabled = ?, discord_webhook_url = ?, discord_enabled = ?, updated_at = NOW()
+                SET short_name = ?, full_name = ?, description = ?, private = ?, moderated = ?, hide_new_items_by_default = ?, slack_webhook_url = ?, slack_enabled = ?, discord_webhook_url = ?, discord_enabled = ?, updated_at = NOW()
                 WHERE id = ?";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
@@ -114,6 +116,8 @@ function updateCommunity($id, $data)
             $data['full_name'],
             $data['description'] ?? null,
             isset($data['private']) ? (int)$data['private'] : 0,
+            isset($data['moderated']) ? (int)$data['moderated'] : 0,
+            isset($data['hide_new_items_by_default']) ? (int)$data['hide_new_items_by_default'] : 1,
             $data['slack_webhook_url'] ?? null,
             isset($data['slack_enabled']) ? (int)$data['slack_enabled'] : 0,
             $data['discord_webhook_url'] ?? null,
@@ -292,39 +296,11 @@ function isCommunityOwner($userId, $communityId)
 }
 
 /**
- * Get the list of administrators of a community (excluding the implicit owner).
+ * Check if a community requires moderator approval for new items.
  * @param int $communityId Community ID
- * @return array List of admin user rows (id, name, display_name, email, created_at)
+ * @return bool True if the community is moderated
  */
-function getCommunityAdministrators($communityId)
-{
-    $pdo = getDbConnection();
-    if (!$pdo) {
-        return [];
-    }
-
-    try {
-        $sql = "SELECT u.id, u.name, u.display_name, u.email, ca.created_at
-                FROM community_administrators ca
-                JOIN users u ON ca.user_id = u.id
-                WHERE ca.community_id = ?
-                ORDER BY COALESCE(u.display_name, u.name) ASC";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$communityId]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Exception $e) {
-        error_log("Error getting community administrators: " . $e->getMessage());
-        return [];
-    }
-}
-
-/**
- * Add a user as a community administrator (idempotent).
- * @param string $userId User ID
- * @param int $communityId Community ID
- * @return bool True on success
- */
-function addCommunityAdministrator($userId, $communityId)
+function isCommunityModerated($communityId)
 {
     $pdo = getDbConnection();
     if (!$pdo) {
@@ -332,25 +308,75 @@ function addCommunityAdministrator($userId, $communityId)
     }
 
     try {
-        $sql = "INSERT INTO community_administrators (user_id, community_id, created_at)
+        $stmt = $pdo->prepare("SELECT moderated FROM communities WHERE id = ?");
+        $stmt->execute([$communityId]);
+        return (bool)$stmt->fetchColumn();
+    } catch (Exception $e) {
+        error_log("Error checking community moderated flag: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get the list of moderators of a community (excluding the implicit owner).
+ * @param int $communityId Community ID
+ * @return array List of moderator user rows (id, name, display_name, email, created_at)
+ */
+function getCommunityModerators($communityId)
+{
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return [];
+    }
+
+    try {
+        $sql = "SELECT u.id, u.name, u.display_name, u.email, cm.created_at
+                FROM community_moderators cm
+                JOIN users u ON cm.user_id = u.id
+                WHERE cm.community_id = ?
+                ORDER BY COALESCE(u.display_name, u.name) ASC";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$communityId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Error getting community moderators: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Add a user as a community moderator (idempotent).
+ * @param string $userId User ID
+ * @param int $communityId Community ID
+ * @return bool True on success
+ */
+function addCommunityModerator($userId, $communityId)
+{
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return false;
+    }
+
+    try {
+        $sql = "INSERT INTO community_moderators (user_id, community_id, created_at)
                 VALUES (?, ?, NOW())
                 ON DUPLICATE KEY UPDATE user_id = user_id";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$userId, $communityId]);
         return true;
     } catch (Exception $e) {
-        error_log("Error adding community administrator: " . $e->getMessage());
+        error_log("Error adding community moderator: " . $e->getMessage());
         return false;
     }
 }
 
 /**
- * Remove a user as a community administrator.
+ * Remove a user as a community moderator.
  * @param string $userId User ID
  * @param int $communityId Community ID
  * @return bool True on success
  */
-function removeCommunityAdministrator($userId, $communityId)
+function removeCommunityModerator($userId, $communityId)
 {
     $pdo = getDbConnection();
     if (!$pdo) {
@@ -358,22 +384,22 @@ function removeCommunityAdministrator($userId, $communityId)
     }
 
     try {
-        $stmt = $pdo->prepare("DELETE FROM community_administrators WHERE user_id = ? AND community_id = ?");
+        $stmt = $pdo->prepare("DELETE FROM community_moderators WHERE user_id = ? AND community_id = ?");
         $stmt->execute([$userId, $communityId]);
         return true;
     } catch (Exception $e) {
-        error_log("Error removing community administrator: " . $e->getMessage());
+        error_log("Error removing community moderator: " . $e->getMessage());
         return false;
     }
 }
 
 /**
- * Check if a user is an administrator of a community. The owner is implicitly an administrator.
+ * Check if a user is a moderator of a community. The owner is implicitly a moderator.
  * @param string $userId User ID
  * @param int $communityId Community ID
- * @return bool True if user owns the community or has a row in community_administrators
+ * @return bool True if user owns the community or has a row in community_moderators
  */
-function isCommunityAdministrator($userId, $communityId)
+function isCommunityModerator($userId, $communityId)
 {
     if (isCommunityOwner($userId, $communityId)) {
         return true;
@@ -385,11 +411,11 @@ function isCommunityAdministrator($userId, $communityId)
     }
 
     try {
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM community_administrators WHERE user_id = ? AND community_id = ?");
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM community_moderators WHERE user_id = ? AND community_id = ?");
         $stmt->execute([$userId, $communityId]);
         return $stmt->fetchColumn() > 0;
     } catch (Exception $e) {
-        error_log("Error checking community administrator: " . $e->getMessage());
+        error_log("Error checking community moderator: " . $e->getMessage());
         return false;
     }
 }
@@ -418,6 +444,35 @@ function getCommunitiesOwnedByUser($userId)
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (Exception $e) {
         error_log("Error getting communities owned by user: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Get communities a user moderates (does not include communities they own).
+ * @param string $userId User ID
+ * @return array Array of community rows with owner_name (like getAllCommunities)
+ */
+function getCommunitiesModeratedByUser($userId)
+{
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return [];
+    }
+
+    try {
+        $sql = "SELECT c.*,
+                       COALESCE(u.display_name, u.name) as owner_name
+                FROM communities c
+                JOIN community_moderators cm ON cm.community_id = c.id
+                LEFT JOIN users u ON c.owner_id = u.id
+                WHERE cm.user_id = ?
+                ORDER BY c.short_name ASC";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$userId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Error getting communities moderated by user: " . $e->getMessage());
         return [];
     }
 }
@@ -460,11 +515,11 @@ function setItemCommunities($itemId, $communityIds)
     try {
         // Start transaction
         $pdo->beginTransaction();
-        
+
         // Delete existing associations
         $stmt = $pdo->prepare("DELETE FROM items_communities WHERE item_id = ?");
         $stmt->execute([$itemId]);
-        
+
         // Add new associations
         // Empty array means item is not visible in any community (staging/invisible)
         if (!empty($communityIds)) {
@@ -474,7 +529,7 @@ function setItemCommunities($itemId, $communityIds)
                 $stmt->execute([$itemId, (int)$communityId]);
             }
         }
-        
+
         $pdo->commit();
         return true;
     } catch (Exception $e) {
@@ -485,4 +540,3 @@ function setItemCommunities($itemId, $communityIds)
         return false;
     }
 }
-

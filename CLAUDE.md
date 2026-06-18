@@ -15,7 +15,8 @@ ClaimIt is a PHP web application for community item-sharing — users post items
 
 ### Development Server
 ```bash
-php -S localhost:8000        # Starts the built-in PHP dev server at localhost:8000
+cd (wherever router.php is)
+php -S localhost:8000 router.php       # Starts the built-in PHP dev server at localhost:8000
 ```
 
 ### Database Migrations

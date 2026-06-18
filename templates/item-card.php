@@ -31,6 +31,7 @@ $isOwnItem = ($item['user_id'] ?? null) === ($currentUser['id'] ?? null);
 // Use pre-computed values to avoid expensive function calls during template rendering
 $canEditItem = $item['can_edit_item'] ?? false;
 $isItemGone = $item['is_item_gone'] ?? false;
+$isPendingApproval = $item['is_pending_approval'] ?? false;
 
 // Use pre-generated CloudFront image URL (generated during getAllItemsEfficiently)
 $imageUrl = $item['image_url'] ?? null;
@@ -56,6 +57,8 @@ $imageUrl = $item['image_url'] ?? null;
             
             <?php if ($isItemGone) : ?>
                 <div class="gone-badge">GONE</div>
+            <?php elseif ($isPendingApproval) : ?>
+                <div class="pending-badge">Not Visible</div>
             <?php endif; ?>
         </div>
 
@@ -154,10 +157,24 @@ $imageUrl = $item['image_url'] ?? null;
                     🗑️ Delete
                 </button>
             <?php endif; ?>
-            
+
+            <?php if (($isModerator ?? false) && isset($communityId)) : ?>
+                <?php if ($isPendingApproval) : ?>
+                    <button onclick="toggleItemVisibility('<?php echo escape($item['id']); ?>', <?php echo (int)$communityId; ?>)"
+                            class="btn btn-success">
+                        ✅ Approve / Make Visible
+                    </button>
+                <?php else : ?>
+                    <button onclick="toggleItemVisibility('<?php echo escape($item['id']); ?>', <?php echo (int)$communityId; ?>)"
+                            class="btn btn-warning">
+                        🚫 Hide from Community
+                    </button>
+                <?php endif; ?>
+            <?php endif; ?>
+
             <!-- Share button - always visible -->
-            <button onclick="shareItem('<?php echo escape($item['id']); ?>', '<?php echo htmlspecialchars($item['title'] ?? '', ENT_QUOTES, 'UTF-8'); ?>')" 
-                    class="btn btn-secondary share-btn" 
+            <button onclick="shareItem('<?php echo escape($item['id']); ?>', '<?php echo htmlspecialchars($item['title'] ?? '', ENT_QUOTES, 'UTF-8'); ?>')"
+                    class="btn btn-secondary share-btn"
                     title="Share this item">
                 🔗 Share
             </button>

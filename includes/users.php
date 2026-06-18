@@ -443,4 +443,3 @@ function setUserSettingsCache($userId, $value, $key = null)
     $cache[$cacheKey] = $value;
     $cacheTime[$cacheKey] = time();
 }
-
