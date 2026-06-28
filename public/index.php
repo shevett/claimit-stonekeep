@@ -312,6 +312,86 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_item_communities' && isse
     exit;
 }
 
+// Handle staging image AJAX actions (no tracking number required)
+$stagingActions = ['upload_staging_image', 'rotate_staging_image', 'delete_staging_image'];
+if (isset($_POST['action']) && in_array($_POST['action'], $stagingActions)) {
+    header('Content-Type: application/json');
+
+    if (!isLoggedIn()) {
+        echo json_encode(['success' => false, 'message' => 'Authentication required']);
+        exit;
+    }
+
+    $stagingAction   = $_POST['action'];
+    $stagingId       = $_POST['staging_id'] ?? '';
+    $sessionStagingId = $_SESSION['staging_id'] ?? '';
+
+    if (empty($stagingId) || $stagingId !== $sessionStagingId) {
+        echo json_encode(['success' => false, 'message' => 'Invalid staging session']);
+        exit;
+    }
+
+    switch ($stagingAction) {
+        case 'upload_staging_image':
+            if (!isset($_FILES['image_file']) || $_FILES['image_file']['error'] === UPLOAD_ERR_NO_FILE) {
+                echo json_encode(['success' => false, 'message' => 'No image file provided']);
+                exit;
+            }
+            if ($_FILES['image_file']['error'] !== UPLOAD_ERR_OK) {
+                echo json_encode(['success' => false, 'message' => 'File upload error']);
+                exit;
+            }
+            $existingStagingImages = getStagingImages($stagingId);
+            if (count($existingStagingImages) >= 10) {
+                echo json_encode(['success' => false, 'message' => 'Maximum of 10 images allowed']);
+                exit;
+            }
+            try {
+                $uploaded = uploadStagingImage($stagingId, $_FILES['image_file']);
+                $allStaging = getStagingImages($stagingId);
+                echo json_encode([
+                    'success'   => true,
+                    'key'       => $uploaded['key'],
+                    'url'       => $uploaded['url'],
+                    'allImages' => $allStaging,
+                ]);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            }
+            break;
+
+        case 'rotate_staging_image':
+            $imageKey = $_POST['image_key'] ?? '';
+            if (empty($imageKey)) {
+                echo json_encode(['success' => false, 'message' => 'Image key required']);
+                exit;
+            }
+            try {
+                $newUrl = rotateStagingImage($stagingId, $imageKey);
+                echo json_encode(['success' => true, 'url' => $newUrl]);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            }
+            break;
+
+        case 'delete_staging_image':
+            $imageKey = $_POST['image_key'] ?? '';
+            if (empty($imageKey)) {
+                echo json_encode(['success' => false, 'message' => 'Image key required']);
+                exit;
+            }
+            try {
+                deleteStagingImage($stagingId, $imageKey);
+                $allStaging = getStagingImages($stagingId);
+                echo json_encode(['success' => true, 'allImages' => $allStaging]);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            }
+            break;
+    }
+    exit;
+}
+
 // Handle AJAX claim requests before any HTML output
 // Support both POST body and GET parameters for action/id
 $ajaxAction = $_POST['action'] ?? $_GET['action'] ?? null;

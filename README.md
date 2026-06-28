@@ -4,6 +4,16 @@ A modern PHP web application for sharing and claiming free items and deals in yo
 
 **Live Site**: [claimit.stonekeep.com](https://claimit.stonekeep.com)
 
+### License
+
+ClaimIt is licensed under CC BY-NC-SA 4.0.
+
+Commercial use is not permitted without a separate commercial license from
+Stonekeep Consulting, Inc.
+
+The "ClaimIt" name and branding are trademarks of Stonekeep Consulting, Inc.
+Forks and derivative works must use a different name.
+
 ## 🚀 Features
 
 ### Core Functionality
@@ -283,25 +293,7 @@ Derivative works must use a different name.
 
 For commercial licensing, please contact Stonekeep Consulting, Inc.
 
-## 📄 License
-
-[![CC BY-NC-SA 4.0][cc-by-nc-sa-shield]][cc-by-nc-sa]
-
-This work is licensed under a
-[Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License][cc-by-nc-sa].
-
-[cc-by-nc-sa]: http://creativecommons.org/licenses/by-nc-sa/4.0/
-[cc-by-nc-sa-shield]: https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg
-
-**Summary:**
-- ✅ Free to use and modify for non-commercial purposes
-- ✅ Must credit Stonekeep Consulting, Inc.
-- ✅ Derivatives must share under same license
-- ❌ Cannot charge money or use commercially
-
-**ClaimIt** is a trademark of **Stonekeep Consulting, Inc.**
-
-## 🆘 Support
+# 🆘 Support
 
 For commercial licensing or questions:
 - Repository: https://github.com/shevett/claimit-stonekeep

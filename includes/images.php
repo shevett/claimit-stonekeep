@@ -372,10 +372,32 @@ if (!function_exists('resizeImageToFitSize')) {
 if (!function_exists('rotateImage90Degrees')) {
     function rotateImage90Degrees($imageContent, $contentType)
     {
-        // Check if GD extension is available
+        // Check if GD extension is available; fall back to ImageMagick CLI if not
         if (!extension_loaded('gd')) {
-            error_log('GD extension is not loaded');
-            return false;
+            $convertBin = trim(shell_exec('which convert 2>/dev/null') ?: '');
+            if (empty($convertBin)) {
+                error_log('Neither GD extension nor ImageMagick convert binary is available');
+                return false;
+            }
+
+            $tmpIn  = tempnam(sys_get_temp_dir(), 'claimit_rot_in_');
+            $tmpOut = tempnam(sys_get_temp_dir(), 'claimit_rot_out_');
+            file_put_contents($tmpIn, $imageContent);
+
+            $cmd = escapeshellarg($convertBin) . ' ' . escapeshellarg($tmpIn) . ' -rotate 90 ' . escapeshellarg($tmpOut);
+            exec($cmd, $cmdOutput, $exitCode);
+
+            if ($exitCode !== 0 || !file_exists($tmpOut) || filesize($tmpOut) === 0) {
+                error_log('ImageMagick rotate failed (exit ' . $exitCode . ')');
+                @unlink($tmpIn);
+                @unlink($tmpOut);
+                return false;
+            }
+
+            $rotated = file_get_contents($tmpOut);
+            @unlink($tmpIn);
+            @unlink($tmpOut);
+            return $rotated;
         }
 
         // Create image resource from content
@@ -641,5 +663,260 @@ if (!function_exists('getNextImageIndex')) {
         }
 
         return $maxIndex + 1;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Staging image functions — used during listing creation before the item
+// is saved to the database. Images are stored under staging/{stagingId}/
+// and served via presigned S3 URLs (no CloudFront), so rotate/delete edits
+// are immediately visible with no caching issues.
+// ---------------------------------------------------------------------------
+
+if (!function_exists('getStagingId')) {
+    function getStagingId(): string
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        if (empty($_SESSION['staging_id'])) {
+            $_SESSION['staging_id'] = bin2hex(random_bytes(16));
+        }
+        return $_SESSION['staging_id'];
+    }
+}
+
+if (!function_exists('clearStagingId')) {
+    function clearStagingId(): void
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        unset($_SESSION['staging_id']);
+    }
+}
+
+/**
+ * List all staging images for a given staging ID, sorted by their numeric suffix.
+ * Returns array of ['key' => S3 key, 'url' => presigned URL] objects.
+ *
+ * @param string $stagingId
+ * @return array
+ */
+if (!function_exists('getStagingImages')) {
+    function getStagingImages(string $stagingId): array
+    {
+        $awsService = getAwsService();
+        if (!$awsService) {
+            return [];
+        }
+
+        try {
+            $result = $awsService->listObjects('staging/' . $stagingId . '/', 100);
+            $objects = $result['objects'] ?? [];
+
+            $images = [];
+            foreach ($objects as $obj) {
+                $key = $obj['key'];
+                // Extract numeric index from key like staging/{id}/img-N.ext
+                if (preg_match('/\/img-(\d+)\.[^.]+$/', $key, $m)) {
+                    $images[] = ['key' => $key, 'index' => (int)$m[1]];
+                }
+            }
+
+            usort($images, fn($a, $b) => $a['index'] - $b['index']);
+
+            return array_map(function ($img) use ($awsService) {
+                return [
+                    'key' => $img['key'],
+                    'url' => $awsService->getPresignedUrl($img['key'], 7200),
+                ];
+            }, $images);
+        } catch (Exception $e) {
+            error_log("getStagingImages error: " . $e->getMessage());
+            return [];
+        }
+    }
+}
+
+/**
+ * Upload a file to the staging area. Returns ['key', 'url'] on success.
+ *
+ * @param string $stagingId
+ * @param array  $uploadedFile  Entry from $_FILES
+ * @return array ['key' => string, 'url' => string]
+ * @throws Exception on failure
+ */
+if (!function_exists('uploadStagingImage')) {
+    function uploadStagingImage(string $stagingId, array $uploadedFile): array
+    {
+        $awsService = getAwsService();
+        if (!$awsService) {
+            throw new Exception('AWS service not available');
+        }
+
+        $ext = strtolower(pathinfo($uploadedFile['name'], PATHINFO_EXTENSION));
+        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'gif'])) {
+            throw new Exception('Invalid file type. Only JPG, PNG, and GIF are allowed.');
+        }
+        if ($uploadedFile['size'] > 52428800) {
+            throw new Exception('File too large. Maximum size is 50MB.');
+        }
+
+        // Determine next index
+        $existing = getStagingImages($stagingId);
+        $nextIndex = count($existing) + 1;
+        // Make sure index is truly unused
+        $usedIndexes = [];
+        foreach ($existing as $img) {
+            if (preg_match('/\/img-(\d+)\.[^.]+$/', $img['key'], $m)) {
+                $usedIndexes[] = (int)$m[1];
+            }
+        }
+        while (in_array($nextIndex, $usedIndexes)) {
+            $nextIndex++;
+        }
+
+        $s3Key = 'staging/' . $stagingId . '/img-' . $nextIndex . '.' . $ext;
+
+        // Resize before upload
+        $tempPath = tempnam(sys_get_temp_dir(), 'claimit_staging_');
+        if (resizeImageToFitSize($uploadedFile['tmp_name'], $tempPath, 512000)) {
+            $content  = file_get_contents($tempPath);
+            $mimeType = mime_content_type($tempPath);
+            unlink($tempPath);
+        } else {
+            $content  = file_get_contents($uploadedFile['tmp_name']);
+            $mimeType = mime_content_type($uploadedFile['tmp_name']);
+            if (file_exists($tempPath)) {
+                unlink($tempPath);
+            }
+        }
+
+        $awsService->putObject($s3Key, $content, $mimeType);
+
+        return [
+            'key' => $s3Key,
+            'url' => $awsService->getPresignedUrl($s3Key, 7200),
+        ];
+    }
+}
+
+/**
+ * Rotate a staging image 90° clockwise. Returns fresh presigned URL.
+ *
+ * @param string $stagingId
+ * @param string $imageKey  Full S3 key (staging/{id}/img-N.ext)
+ * @return string Presigned URL of rotated image
+ * @throws Exception on failure
+ */
+if (!function_exists('rotateStagingImage')) {
+    function rotateStagingImage(string $stagingId, string $imageKey): string
+    {
+        // Validate key belongs to this staging session
+        if (strpos($imageKey, 'staging/' . $stagingId . '/') !== 0) {
+            throw new Exception('Invalid image key');
+        }
+
+        $awsService = getAwsService();
+        if (!$awsService) {
+            throw new Exception('AWS service not available');
+        }
+
+        $obj     = $awsService->getObject($imageKey);
+        $rotated = rotateImage90Degrees($obj['content'], $obj['content_type']);
+        if ($rotated === false) {
+            throw new Exception('Failed to rotate image');
+        }
+
+        $awsService->putObject($imageKey, $rotated, $obj['content_type']);
+
+        return $awsService->getPresignedUrl($imageKey, 7200);
+    }
+}
+
+/**
+ * Delete a staging image from S3.
+ *
+ * @param string $stagingId
+ * @param string $imageKey
+ * @throws Exception on invalid key
+ */
+if (!function_exists('deleteStagingImage')) {
+    function deleteStagingImage(string $stagingId, string $imageKey): void
+    {
+        if (strpos($imageKey, 'staging/' . $stagingId . '/') !== 0) {
+            throw new Exception('Invalid image key');
+        }
+
+        $awsService = getAwsService();
+        if (!$awsService) {
+            throw new Exception('AWS service not available');
+        }
+
+        $awsService->deleteObject($imageKey);
+    }
+}
+
+/**
+ * Move staging images to their permanent locations and return primary image info.
+ * Staging files are deleted after copying.
+ * First staging image becomes the primary (images/{trackingNumber}.ext),
+ * subsequent ones become images/{trackingNumber}-2.ext, -3.ext, etc.
+ *
+ * @param string $stagingId
+ * @param string $trackingNumber
+ * @return array|null ['image_key', 'image_width', 'image_height'] or null if no staging images
+ */
+if (!function_exists('promoteStagingImages')) {
+    function promoteStagingImages(string $stagingId, string $trackingNumber): ?array
+    {
+        $awsService = getAwsService();
+        if (!$awsService) {
+            throw new Exception('AWS service not available');
+        }
+
+        $stagingImages = getStagingImages($stagingId);
+        if (empty($stagingImages)) {
+            return null;
+        }
+
+        $primaryKey    = null;
+        $primaryWidth  = null;
+        $primaryHeight = null;
+
+        foreach ($stagingImages as $i => $img) {
+            $srcKey = $img['key'];
+            $obj    = $awsService->getObject($srcKey);
+            $ext    = strtolower(pathinfo($srcKey, PATHINFO_EXTENSION));
+
+            if ($i === 0) {
+                $destKey = 'images/' . $trackingNumber . '.' . $ext;
+            } else {
+                $destKey = 'images/' . $trackingNumber . '-' . ($i + 1) . '.' . $ext;
+            }
+
+            $awsService->putObject($destKey, $obj['content'], $obj['content_type']);
+            $awsService->deleteObject($srcKey);
+
+            if ($i === 0) {
+                $primaryKey = $destKey;
+                // Get dimensions from binary content
+                $tmpPath = tempnam(sys_get_temp_dir(), 'claimit_promote_');
+                file_put_contents($tmpPath, $obj['content']);
+                $info = getimagesize($tmpPath);
+                unlink($tmpPath);
+                if ($info) {
+                    $primaryWidth  = $info[0];
+                    $primaryHeight = $info[1];
+                }
+            }
+        }
+
+        return [
+            'image_key'    => $primaryKey,
+            'image_width'  => $primaryWidth,
+            'image_height' => $primaryHeight,
+        ];
     }
 }

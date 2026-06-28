@@ -4,6 +4,9 @@ requireAuth();
 
 $currentUser = getCurrentUser();
 
+// Ensure a staging ID exists in session for image management
+$stagingId = getStagingId();
+
 // Initialize form variables with defaults
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     $contactEmail = $currentUser['email'] ?? '';
@@ -41,36 +44,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Valid email address is required';
     }
 
-    // Validate uploaded file if present
-    $uploadedFile = $_FILES['item_photo'] ?? null;
-    if ($uploadedFile && $uploadedFile['error'] !== UPLOAD_ERR_NO_FILE) {
-        // Check for PHP upload errors first
-        if ($uploadedFile['error'] !== UPLOAD_ERR_OK) {
-            switch ($uploadedFile['error']) {
-                case UPLOAD_ERR_INI_SIZE:
-                case UPLOAD_ERR_FORM_SIZE:
-                    $errors[] = 'Picture uploads are limited to 8MB';
-                    break;
-                case UPLOAD_ERR_PARTIAL:
-                    $errors[] = 'File upload was interrupted. Please try again.';
-                    break;
-                case UPLOAD_ERR_NO_TMP_DIR:
-                    $errors[] = 'Server configuration error. Please contact support.';
-                    break;
-                case UPLOAD_ERR_CANT_WRITE:
-                    $errors[] = 'File upload failed due to server permissions.';
-                    break;
-                case UPLOAD_ERR_EXTENSION:
-                    $errors[] = 'File upload blocked by server configuration.';
-                    break;
-                default:
-                    $errors[] = 'Error uploading file. Please try again.';
-            }
-        } elseif ($uploadedFile['size'] > 8388608) { // 8MB limit (8388608 bytes)
-            $errors[] = 'Picture uploads are limited to 8MB';
-        } elseif (!in_array(strtolower(pathinfo($uploadedFile['name'], PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'gif'])) {
-            $errors[] = 'File must be a valid image (JPG, PNG, GIF)';
-        }
+    // Validate staging ID matches session
+    $postedStagingId = $_POST['staging_id'] ?? '';
+    $sessionStagingId = $_SESSION['staging_id'] ?? '';
+    if ($postedStagingId !== $sessionStagingId) {
+        $errors[] = 'Invalid form session. Please reload the page and try again.';
     }
 
     if (empty($errors)) {
@@ -78,58 +56,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Generate tracking number (timestamp + random suffix for uniqueness)
             $trackingNumber = date('YmdHis') . '-' . bin2hex(random_bytes(2));
 
-            // Get AWS service
-            $awsService = getAwsService();
-            if (!$awsService) {
-                throw new Exception('AWS service not available');
-            }
-
-            // Upload image if provided
+            // Promote staging images to permanent S3 locations
             $imageKey = null;
             $imageWidth = null;
             $imageHeight = null;
 
-            if ($uploadedFile && $uploadedFile['error'] === UPLOAD_ERR_OK) {
-                $imageExtension = strtolower(pathinfo($uploadedFile['name'], PATHINFO_EXTENSION));
-                $imageKey = 'images/' . $trackingNumber . '.' . $imageExtension;
-
-                // Create a temporary file for the resized image
-                $tempResizedPath = tempnam(sys_get_temp_dir(), 'claimit_resized_');
-
-                if (resizeImageToFitSize($uploadedFile['tmp_name'], $tempResizedPath, 512000)) {
-                    // Use the resized image
-                    $imageContent = file_get_contents($tempResizedPath);
-                    $mimeType = mime_content_type($tempResizedPath);
-
-                    // Get dimensions of resized image
-                    $imageInfo = getimagesize($tempResizedPath);
-                    if ($imageInfo) {
-                        $imageWidth = $imageInfo[0];
-                        $imageHeight = $imageInfo[1];
-                    }
-
-                    // Clean up temporary file
-                    unlink($tempResizedPath);
-                } else {
-                    // If resizing failed, use original image (fallback)
-                    error_log('Image resizing failed, using original image');
-                    $imageContent = file_get_contents($uploadedFile['tmp_name']);
-                    $mimeType = mime_content_type($uploadedFile['tmp_name']);
-
-                    // Get dimensions of original image
-                    $imageInfo = getimagesize($uploadedFile['tmp_name']);
-                    if ($imageInfo) {
-                        $imageWidth = $imageInfo[0];
-                        $imageHeight = $imageInfo[1];
-                    }
-
-                    // Clean up temporary file if it exists
-                    if (file_exists($tempResizedPath)) {
-                        unlink($tempResizedPath);
-                    }
+            if (!empty($sessionStagingId)) {
+                $promoted = promoteStagingImages($sessionStagingId, $trackingNumber);
+                if ($promoted) {
+                    $imageKey    = $promoted['image_key'];
+                    $imageWidth  = $promoted['image_width'];
+                    $imageHeight = $promoted['image_height'];
                 }
-
-                $awsService->putObject($imageKey, $imageContent, $mimeType);
             }
 
             // Create item data for database
@@ -200,6 +138,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 error_log("Failed to send new listing notifications for item $trackingNumber: " . $e->getMessage());
             }
 
+            clearStagingId();
             setFlashMessage("Your item has been posted successfully! Tracking number: {$trackingNumber}", 'success');
             redirect('items');
         } catch (Exception $e) {
@@ -236,9 +175,9 @@ $flashMessage = showFlashMessage();
             </div>
         <?php endif; ?>
 
-        <form method="POST" class="claim-form" enctype="multipart/form-data">
+        <form method="POST" class="claim-form">
             <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
-            <input type="hidden" name="MAX_FILE_SIZE" value="52428800">
+            <input type="hidden" name="staging_id" value="<?php echo escape($stagingId); ?>">
             
             <div class="form-group">
                 <label for="title">Item Title</label>
@@ -250,19 +189,26 @@ $flashMessage = showFlashMessage();
                 <textarea name="description" id="description" rows="5" required placeholder="Describe the item in detail..."><?php echo escape($description ?? ''); ?></textarea>
             </div>
 
-            <div class="form-group">
-                <label for="item_photo">Upload a picture of your item</label>
-                <input type="file" name="item_photo" id="item_photo" accept="image/*">
-                <small style="color: var(--gray-500); font-size: 0.875rem;">Accepted formats: JPG, PNG, GIF (max 8MB - will be automatically resized)</small>
-                <small style="color: var(--primary-600); font-size: 0.875rem; display: block; margin-top: 0.25rem;">💡 You can add more images later (up to 10 total)</small>
-                <small style="color: var(--primary-600); font-size: 0.875rem; display: block; margin-top: 0.25rem;">📋 Pro tip: Press Ctrl+V (or Cmd+V) to paste an image from your clipboard!</small>
-                <div id="pastePreview" style="display: none; margin-top: 1rem; padding: 1rem; background: var(--success-50); border: 2px solid var(--success-300); border-radius: 8px;">
-                    <p style="color: var(--success-700); margin: 0; font-weight: 500;">✅ Image pasted successfully!</p>
-                    <img id="pastePreviewImg" style="max-width: 300px; max-height: 200px; margin-top: 0.5rem; border-radius: 4px; border: 1px solid var(--gray-200);" alt="Pasted image preview">
+            <div class="form-group" id="stagingImageSection">
+                <label>Photos</label>
+                <small style="color: var(--gray-500); font-size: 0.875rem; display: block; margin-bottom: 0.75rem;">
+                    Upload up to 10 photos (JPG, PNG, GIF, max 50MB each). The first photo will be the main photo.
+                    You can rotate or remove photos before posting.
+                </small>
+
+                <!-- Staged image thumbnails -->
+                <div id="stagingThumbnails" style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.75rem;"></div>
+
+                <!-- Upload button -->
+                <div id="stagingUploadArea">
+                    <label for="stagingFileInput" class="btn btn-primary" style="cursor: pointer; display: inline-block;">
+                        + Add Photos
+                    </label>
+                    <input type="file" id="stagingFileInput" accept="image/jpeg,image/png,image/gif" multiple style="display: none;">
+                    <small style="color: var(--gray-500); font-size: 0.875rem; margin-left: 0.5rem;">or press Ctrl+V / Cmd+V to paste</small>
                 </div>
-                <div id="pasteError" style="display: none; margin-top: 1rem; padding: 1rem; background: var(--error-50); border: 2px solid var(--error-300); border-radius: 8px;">
-                    <p style="color: var(--error-700); margin: 0; font-weight: 500;">⚠️ <span id="pasteErrorMsg"></span></p>
-                </div>
+
+                <div id="stagingError" style="display: none; margin-top: 0.75rem; padding: 0.75rem 1rem; background: var(--error-50); border: 2px solid var(--error-300); border-radius: 8px; color: var(--error-700);"></div>
             </div>
 
             <div class="form-group">
@@ -362,135 +308,259 @@ $flashMessage = showFlashMessage();
 }
 </style>
 
+<style>
+.staging-thumb {
+    position: relative;
+    width: 120px;
+    flex-shrink: 0;
+}
+.staging-thumb img {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 2px solid var(--gray-200);
+    display: block;
+}
+.staging-thumb.primary img {
+    border-color: var(--primary-500);
+}
+.staging-thumb .thumb-label {
+    font-size: 0.7rem;
+    color: var(--primary-600);
+    font-weight: 600;
+    text-align: center;
+    margin-top: 0.2rem;
+}
+.staging-thumb .thumb-actions {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    display: flex;
+    gap: 3px;
+}
+.staging-thumb .thumb-btn {
+    background: rgba(0,0,0,0.6);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    width: 26px;
+    height: 26px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+.staging-thumb .thumb-btn:hover {
+    background: rgba(0,0,0,0.85);
+}
+.staging-thumb .thumb-spinner {
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,0.7);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+</style>
+
 <script>
-// Community selection - no validation needed, empty selection is allowed for staging
+(function() {
+    const STAGING_ID = <?php echo json_encode($stagingId); ?>;
+    const MAX_IMAGES = 10;
 
-// Handle paste events to allow pasting images directly
-document.addEventListener('paste', function(event) {
-    // Only handle paste on the claim page
-    const fileInput = document.getElementById('item_photo');
-    if (!fileInput) return;
-    
-    // Get clipboard items
-    const items = (event.clipboardData || event.originalEvent.clipboardData).items;
-    
-    for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        
-        // Check if the item is an image
-        if (item.type.indexOf('image') !== -1) {
-            event.preventDefault(); // Prevent default paste behavior
-            
-            // Get the image as a blob
-            const blob = item.getAsFile();
-            
-            if (blob) {
-                const maxSize = 8388608; // 8MB in bytes (PHP limit)
-                const preview = document.getElementById('pastePreview');
-                const previewImg = document.getElementById('pastePreviewImg');
-                const errorDiv = document.getElementById('pasteError');
-                const errorMsg = document.getElementById('pasteErrorMsg');
-                
-                // Check file size
-                if (blob.size > maxSize) {
-                    const sizeMB = (blob.size / 1048576).toFixed(2); // Convert to MB
-                    errorMsg.textContent = `Image is too large (${sizeMB}MB). Maximum size is 8MB. Try taking a screenshot or using a smaller image.`;
-                    errorDiv.style.display = 'block';
-                    preview.style.display = 'none';
-                    fileInput.value = ''; // Clear the file input
-                    console.log('Image too large:', sizeMB + 'MB');
-                    break;
-                }
-                
-                // Hide error if previously shown
-                errorDiv.style.display = 'none';
-                
-                // Create a DataTransfer object to set the file input value
-                const dataTransfer = new DataTransfer();
-                
-                // Create a File object with a proper name
-                const fileName = 'pasted-image-' + Date.now() + '.png';
-                const file = new File([blob], fileName, { type: blob.type });
-                
-                // Add the file to the DataTransfer object
-                dataTransfer.items.add(file);
-                
-                // Set the file input's files property
-                fileInput.files = dataTransfer.files;
-                
-                // Create a URL for the blob to display as preview
-                const imageUrl = URL.createObjectURL(blob);
-                previewImg.src = imageUrl;
-                preview.style.display = 'block';
-                
-                // Optional: Clean up the URL after image loads to free memory
-                previewImg.onload = function() {
-                    URL.revokeObjectURL(imageUrl);
-                };
-                
-                const sizeKB = (blob.size / 1024).toFixed(2);
-                console.log('Image pasted successfully:', fileName, '(' + sizeKB + 'KB)');
+    const thumbnailsEl = document.getElementById('stagingThumbnails');
+    const fileInput     = document.getElementById('stagingFileInput');
+    const errorEl       = document.getElementById('stagingError');
+
+    function showError(msg) {
+        errorEl.textContent = msg;
+        errorEl.style.display = 'block';
+        setTimeout(() => { errorEl.style.display = 'none'; }, 5000);
+    }
+
+    function buildThumb(img, index) {
+        const div = document.createElement('div');
+        div.className = 'staging-thumb' + (index === 0 ? ' primary' : '');
+        div.dataset.key = img.key;
+
+        const image = document.createElement('img');
+        image.src = img.url;
+        image.alt = 'Photo ' + (index + 1);
+
+        const actions = document.createElement('div');
+        actions.className = 'thumb-actions';
+
+        const rotBtn = document.createElement('button');
+        rotBtn.type = 'button';
+        rotBtn.className = 'thumb-btn';
+        rotBtn.title = 'Rotate clockwise';
+        rotBtn.innerHTML = '&#8635;';
+        rotBtn.addEventListener('click', () => rotateStagingImage(div, img.key, image));
+
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'thumb-btn';
+        delBtn.title = 'Delete photo';
+        delBtn.innerHTML = '&times;';
+        delBtn.addEventListener('click', () => deleteStagingImage(div, img.key));
+
+        actions.appendChild(rotBtn);
+        actions.appendChild(delBtn);
+        div.appendChild(image);
+        div.appendChild(actions);
+
+        if (index === 0) {
+            const label = document.createElement('div');
+            label.className = 'thumb-label';
+            label.textContent = 'Main photo';
+            div.appendChild(label);
+        }
+
+        return div;
+    }
+
+    function renderThumbnails(images) {
+        thumbnailsEl.innerHTML = '';
+        images.forEach((img, i) => {
+            thumbnailsEl.appendChild(buildThumb(img, i));
+        });
+    }
+
+    function setThumbBusy(thumbEl, busy) {
+        let spinner = thumbEl.querySelector('.thumb-spinner');
+        if (busy) {
+            if (!spinner) {
+                spinner = document.createElement('div');
+                spinner.className = 'thumb-spinner';
+                spinner.innerHTML = '<div class="spinner" style="width:30px;height:30px;border:3px solid #ddd;border-top-color:var(--primary-600);border-radius:50%;animation:spin 0.8s linear infinite;"></div>';
+                thumbEl.appendChild(spinner);
             }
-            
-            break; // Only handle the first image
+        } else if (spinner) {
+            spinner.remove();
         }
     }
-});
 
-// Also handle file input change to hide/show preview
-document.getElementById('item_photo').addEventListener('change', function(event) {
-    const preview = document.getElementById('pastePreview');
-    const previewImg = document.getElementById('pastePreviewImg');
-    const errorDiv = document.getElementById('pasteError');
-    const errorMsg = document.getElementById('pasteErrorMsg');
-    const maxSize = 8388608; // 8MB in bytes (PHP limit)
-    
-    if (event.target.files && event.target.files[0]) {
-        const file = event.target.files[0];
-        
-        // Check file size
-        if (file.size > maxSize) {
-            const sizeMB = (file.size / 1048576).toFixed(2); // Convert to MB
-            errorMsg.textContent = `Image is too large (${sizeMB}MB). Maximum size is 8MB. Please select a smaller image.`;
-            errorDiv.style.display = 'block';
-            preview.style.display = 'none';
-            event.target.value = ''; // Clear the file input
-            return;
+    async function uploadFiles(files) {
+        for (const file of files) {
+            const current = thumbnailsEl.querySelectorAll('.staging-thumb').length;
+            if (current >= MAX_IMAGES) {
+                showError('Maximum of ' + MAX_IMAGES + ' photos allowed.');
+                break;
+            }
+
+            // Show a placeholder thumb while uploading
+            const placeholder = document.createElement('div');
+            placeholder.className = 'staging-thumb';
+            placeholder.innerHTML = '<div style="width:120px;height:120px;background:var(--gray-100);border-radius:6px;border:2px dashed var(--gray-300);display:flex;align-items:center;justify-content:center;"><div class="spinner" style="width:30px;height:30px;border:3px solid #ddd;border-top-color:var(--primary-600);border-radius:50%;animation:spin 0.8s linear infinite;"></div></div>';
+            thumbnailsEl.appendChild(placeholder);
+
+            const fd = new FormData();
+            fd.append('action', 'upload_staging_image');
+            fd.append('staging_id', STAGING_ID);
+            fd.append('image_file', file);
+
+            try {
+                const resp = await fetch('', { method: 'POST', body: fd });
+                const data = await resp.json();
+                if (data.success) {
+                    renderThumbnails(data.allImages);
+                } else {
+                    placeholder.remove();
+                    showError(data.message || 'Upload failed');
+                }
+            } catch (e) {
+                placeholder.remove();
+                showError('Upload failed: ' + e.message);
+            }
         }
-        
-        // Hide error if previously shown
-        errorDiv.style.display = 'none';
-        
-        // Show preview for manually selected files
-        const imageUrl = URL.createObjectURL(file);
-        previewImg.src = imageUrl;
-        preview.style.display = 'block';
-        
-        previewImg.onload = function() {
-            URL.revokeObjectURL(imageUrl);
-        };
-    } else {
-        // Hide preview and error if file is cleared
-        preview.style.display = 'none';
-        errorDiv.style.display = 'none';
     }
-});
 
-// Show loading overlay when form is submitted
-document.querySelector('form').addEventListener('submit', function(event) {
-    // Validate required fields first
-    const title = document.querySelector('input[name="title"]').value.trim();
-    const description = document.querySelector('textarea[name="description"]').value.trim();
-    const amount = document.querySelector('input[name="amount"]').value;
-    const email = document.querySelector('input[name="contact_email"]').value.trim();
-    
-    // Only show overlay if form is valid
-    if (title && description && amount !== '' && email) {
-        const overlay = document.getElementById('uploadingOverlay');
-        overlay.style.display = 'flex';
-        // Disable the submit button to prevent double submission
-        document.getElementById('submitBtn').disabled = true;
+    async function rotateStagingImage(thumbEl, key, imgTag) {
+        setThumbBusy(thumbEl, true);
+        const fd = new FormData();
+        fd.append('action', 'rotate_staging_image');
+        fd.append('staging_id', STAGING_ID);
+        fd.append('image_key', key);
+        try {
+            const resp = await fetch('', { method: 'POST', body: fd });
+            const data = await resp.json();
+            if (data.success) {
+                imgTag.src = data.url;
+            } else {
+                showError(data.message || 'Rotate failed');
+            }
+        } catch (e) {
+            showError('Rotate failed: ' + e.message);
+        } finally {
+            setThumbBusy(thumbEl, false);
+        }
     }
-    // Let the form submit normally (don't prevent default)
-});
+
+    async function deleteStagingImage(thumbEl, key) {
+        setThumbBusy(thumbEl, true);
+        const fd = new FormData();
+        fd.append('action', 'delete_staging_image');
+        fd.append('staging_id', STAGING_ID);
+        fd.append('image_key', key);
+        try {
+            const resp = await fetch('', { method: 'POST', body: fd });
+            const data = await resp.json();
+            if (data.success) {
+                renderThumbnails(data.allImages);
+            } else {
+                showError(data.message || 'Delete failed');
+                setThumbBusy(thumbEl, false);
+            }
+        } catch (e) {
+            showError('Delete failed: ' + e.message);
+            setThumbBusy(thumbEl, false);
+        }
+    }
+
+    // File input change
+    fileInput.addEventListener('change', function() {
+        if (this.files && this.files.length > 0) {
+            uploadFiles(Array.from(this.files));
+            this.value = '';
+        }
+    });
+
+    // Paste support
+    document.addEventListener('paste', function(event) {
+        if (!document.getElementById('stagingImageSection')) return;
+        const items = (event.clipboardData || event.originalEvent.clipboardData).items;
+        const imageFiles = [];
+        for (const item of items) {
+            if (item.type.indexOf('image') !== -1) {
+                const blob = item.getAsFile();
+                if (blob) {
+                    const file = new File([blob], 'pasted-' + Date.now() + '.png', { type: blob.type });
+                    imageFiles.push(file);
+                }
+            }
+        }
+        if (imageFiles.length > 0) {
+            event.preventDefault();
+            uploadFiles(imageFiles);
+        }
+    });
+
+    // Show loading overlay on submit
+    document.querySelector('form').addEventListener('submit', function(event) {
+        const title = document.querySelector('input[name="title"]').value.trim();
+        const description = document.querySelector('textarea[name="description"]').value.trim();
+        const amount = document.querySelector('input[name="amount"]').value;
+        const email = document.querySelector('input[name="contact_email"]').value.trim();
+
+        if (title && description && amount !== '' && email) {
+            const overlay = document.getElementById('uploadingOverlay');
+            overlay.style.display = 'flex';
+            document.getElementById('submitBtn').disabled = true;
+        }
+    });
+})();
 </script> 
