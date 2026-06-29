@@ -454,7 +454,7 @@ style.textContent = `
             document.getElementById('editDescription').value = description;
 
             // Fetch and populate community checkboxes
-            fetch(` ? page = claim & action = get_item_communities & id = ${encodeURIComponent(trackingNumber)}`)
+            fetch(`?page=claim&action=get_item_communities&id=${encodeURIComponent(trackingNumber)}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
@@ -531,9 +531,9 @@ style.textContent = `
         // Empty selection is allowed (creates invisible/staging item)
 
         // Build the request body
-        let body = `action = edit_item & id = ${encodeURIComponent(trackingNumber)} & title = ${encodeURIComponent(title)} & description = ${encodeURIComponent(description)}`;
+        let body = `action=edit_item&id=${encodeURIComponent(trackingNumber)}&title=${encodeURIComponent(title)}&description=${encodeURIComponent(description)}`;
         communities.forEach(comm => {
-            body += ` & communities[] = ${encodeURIComponent(comm)}`;
+            body += `&communities[]=${encodeURIComponent(comm)}`;
         });
 
         fetch('?page=claim', {
@@ -616,7 +616,7 @@ style.textContent = `
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: `action = mark_gone & id = ${encodeURIComponent(trackingNumber)}`
+            body: `action=mark_gone&id=${encodeURIComponent(trackingNumber)}`
         })
         .then(response => response.json())
         .then(data => {
@@ -660,7 +660,7 @@ style.textContent = `
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: `action = relist_item & id = ${encodeURIComponent(trackingNumber)}`
+            body: `action=relist_item&id=${encodeURIComponent(trackingNumber)}`
         })
         .then(response => response.json())
         .then(data => {
@@ -704,7 +704,7 @@ style.textContent = `
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: `action = toggle_item_visibility & id = ${encodeURIComponent(trackingNumber)} & community_id = ${encodeURIComponent(communityId)}`
+            body: `action=toggle_item_visibility&id=${encodeURIComponent(trackingNumber)}&community_id=${encodeURIComponent(communityId)}`
         })
         .then(response => response.json())
         .then(data => {
