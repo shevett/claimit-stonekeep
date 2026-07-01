@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"{\\\"hookSpecificOutput\\\":{\\\"hookEventName\\\":\\\"SessionStart\\\",\\\"additionalContext\\\":$(cat /home/shevett/src/claimit-stonekeep/docs/architecture.md /home/shevett/src/claimit-stonekeep/docs/current-status.md | jq -Rs .)}}\"",
+            "statusMessage": "Loading project docs..."
+          }
+        ]
+      }
+    ]
+  }
+}
