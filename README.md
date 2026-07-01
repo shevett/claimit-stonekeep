@@ -2,17 +2,22 @@
 
 A modern PHP web application for sharing and claiming free items and deals in your community. Post items you want to give away or sell, browse what others have listed, and claim items you're interested in.
 
-**Live Site**: [claimit.stonekeep.com](https://claimit.stonekeep.com)
+**Live Site**: [claimit.cc](https://claimit.cc)
 
 ### License
 
 ClaimIt is licensed under CC BY-NC-SA 4.0.
 
-Commercial use is not permitted without a separate commercial license from
-Stonekeep Consulting, Inc.
+The "ClaimIt" name and associated branding are trademarks of Dave Shevett.
+Forks and derivative works must use a different name and branding to avoid confusion with the original project.
 
-The "ClaimIt" name and branding are trademarks of Stonekeep Consulting, Inc.
-Forks and derivative works must use a different name.
+### Commercial Licensing
+
+For commercial licensing, hosted deployments, or other commercial use,
+please contact Dave Shevett.
+
+Email: shevett@pobox.com
+Website: https://claimit.cc/
 
 ## 🚀 Features
 
@@ -284,20 +289,19 @@ This project is licensed under CC BY-NC-SA 4.0. See [LICENSE](LICENSE) for detai
 - Create derivative works
 
 **Under these conditions:**
-- **Attribution** — Must credit Stonekeep Consulting, Inc.
+- **Attribution** — Must credit Dave Shevett
 - **NonCommercial** — Cannot use for commercial purposes or charge fees
 - **ShareAlike** — Derivatives must use the same CC BY-NC-SA 4.0 license
 
-**Trademark:** The "ClaimIt" name is a trademark of Stonekeep Consulting, Inc. 
-Derivative works must use a different name.
-
-For commercial licensing, please contact Stonekeep Consulting, Inc.
+**Trademark:** 
+The "ClaimIt" name and associated branding are trademarks of Dave Shevett.
+Forks and derivative works must use a different name and branding to avoid confusion with the original project.
 
 # 🆘 Support
 
 For commercial licensing or questions:
 - Repository: https://github.com/shevett/claimit-stonekeep
-- Contact: Stonekeep Consulting, Inc.
+- Contact: Dave Shevett (shevett@pobox.com)
 
 ## 📚 Additional Documentation
 
@@ -306,11 +310,6 @@ For commercial licensing or questions:
 - [DEPLOYMENT.md](DEPLOYMENT.md) - Production deployment guide
 - [MIGRATION_SUMMARY.md](MIGRATION_SUMMARY.md) - Database migration details
 
-## 🔄 Version History
-
-- **v2.0** (2025-01): Full database migration, improved performance, enhanced features
-- **v1.0** (2024): Initial release with S3 storage and basic functionality
-
 ---
 
-**Built with ❤️ by Stonekeep Consulting, Inc.**
+**Created by Dave Shevett**
