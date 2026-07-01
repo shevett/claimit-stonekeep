@@ -1,3 +1,5 @@
+Before any exploration or planning, read docs/architecture.md and docs/current-status.md first.
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.

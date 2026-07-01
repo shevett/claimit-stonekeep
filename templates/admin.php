@@ -23,6 +23,9 @@ if (!$currentUser) {
 // Get all users for the user management table
 $allUsers = getAllUsers();
 
+// Get system statistics for the Reports section
+$adminStats = getAdminStats();
+
 // Get flash message if any
 $flashMessage = showFlashMessage();
 ?>
@@ -43,50 +46,56 @@ $flashMessage = showFlashMessage();
         <?php endif; ?>
 
         <div class="admin-container">
-            <div class="admin-card">
-                <div class="admin-header">
-                    <h2>System Tools</h2>
-                    <p>Administrative tools and system configuration options</p>
-                </div>
-
-                <div class="admin-section">
-                    <h3>Management</h3>
-                    <div class="admin-links">
-                        <a href="?page=communities" class="admin-link">
-                            <span class="link-icon">🏘️</span>
-                            <span class="link-content">
-                                <strong>Community Management</strong>
-                                <small>Create and manage communities</small>
-                            </span>
-                        </a>
+            <div class="admin-left-col">
+                <div class="admin-card">
+                    <div class="admin-header">
+                        <h2>Management</h2>
+                        <p>System management and configuration</p>
+                    </div>
+                    <div class="admin-section">
+                        <div class="admin-links">
+                            <a href="?page=communities" class="admin-link">
+                                <span class="link-icon">🏘️</span>
+                                <span class="link-content">
+                                    <strong>Community Management</strong>
+                                    <small>Create and manage communities</small>
+                                </span>
+                            </a>
+                        </div>
                     </div>
                 </div>
 
-                <form id="adminForm" class="admin-form">
-                    <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="testDatabase" name="testDatabase">
-                            <span class="checkbox-text">Test database connection</span>
-                        </label>
-                        <small class="form-help">Test connection to RDS MySQL database and show details</small>
+                <div class="admin-card">
+                    <div class="admin-header">
+                        <h2>Tests</h2>
+                        <p>Run diagnostic checks on system components</p>
                     </div>
+                    <form id="adminForm" class="admin-form">
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="testDatabase" name="testDatabase">
+                                <span class="checkbox-text">Test database connection</span>
+                            </label>
+                            <small class="form-help">Test connection to RDS MySQL database and show details</small>
+                        </div>
 
-                    <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="sendTestEmail" name="sendTestEmail">
-                            <span class="checkbox-text">Send a test email to me</span>
-                        </label>
-                        <small class="form-help">Send a test email to verify SMTP configuration is working</small>
-                    </div>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="sendTestEmail" name="sendTestEmail">
+                                <span class="checkbox-text">Send a test email to me</span>
+                            </label>
+                            <small class="form-help">Send a test email to verify SMTP configuration is working</small>
+                        </div>
 
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">
-                            <span class="btn-text">Execute</span>
-                            <span class="btn-loading" style="display: none;">Processing...</span>
-                        </button>
-                        <a href="?page=home" class="btn btn-secondary">Back to Home</a>
-                    </div>
-                </form>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">
+                                <span class="btn-text">Execute</span>
+                                <span class="btn-loading" style="display: none;">Processing...</span>
+                            </button>
+                            <a href="?page=home" class="btn btn-secondary">Back to Home</a>
+                        </div>
+                    </form>
+                </div>
             </div>
 
             <div class="admin-info">
@@ -125,6 +134,30 @@ $flashMessage = showFlashMessage();
                         <li>Always test in development first</li>
                         <li>Keep credentials secure</li>
                     </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reports Section -->
+        <div class="reports-section">
+            <div class="admin-card">
+                <div class="admin-header">
+                    <h2>📊 Reports</h2>
+                    <p>System statistics and activity overview</p>
+                </div>
+                <div class="reports-grid">
+                    <div class="admin-section">
+                        <h3>Items</h3>
+                        <div class="stat-item"><span class="stat-label">Total</span><span><?php echo (int)($adminStats['items']['total'] ?? 0); ?></span></div>
+                        <div class="stat-item"><span class="stat-label">Open</span><span><?php echo (int)($adminStats['items']['open'] ?? 0); ?></span></div>
+                        <div class="stat-item"><span class="stat-label">Claimed</span><span><?php echo (int)($adminStats['items']['claimed'] ?? 0); ?></span></div>
+                        <div class="stat-item"><span class="stat-label">Gone</span><span><?php echo (int)($adminStats['items']['gone'] ?? 0); ?></span></div>
+                    </div>
+                    <div class="admin-section">
+                        <h3>Users</h3>
+                        <div class="stat-item"><span class="stat-label">Total</span><span><?php echo (int)($adminStats['users']['total'] ?? 0); ?></span></div>
+                        <div class="stat-item"><span class="stat-label">Active (30 days)</span><span><?php echo (int)($adminStats['users']['active_30d'] ?? 0); ?></span></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -317,6 +350,12 @@ $flashMessage = showFlashMessage();
     gap: 2rem;
     max-width: 1200px;
     margin: 0 auto;
+}
+
+.admin-left-col {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
 }
 
 .admin-card {
@@ -565,12 +604,38 @@ $flashMessage = showFlashMessage();
     line-height: 1.4;
 }
 
+/* Reports Section */
+.reports-section {
+    max-width: 1200px;
+    margin: 3rem auto 0;
+}
+
+.reports-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0;
+}
+
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.3rem 0;
+    border-bottom: 1px solid #f1f3f4;
+    font-size: 0.9rem;
+}
+
+.stat-item:last-child {
+    border-bottom: none;
+}
+
+.stat-label {
+    color: #666;
+}
+
 /* User Management Section */
 .user-management-section {
-    margin-top: 3rem;
     max-width: 1200px;
-    margin-left: auto;
-    margin-right: auto;
+    margin: 3rem auto 0;
 }
 
 .user-management-section h2 {
@@ -705,7 +770,11 @@ $flashMessage = showFlashMessage();
         grid-template-columns: 1fr;
         gap: 1.5rem;
     }
-    
+
+    .reports-grid {
+        grid-template-columns: 1fr;
+    }
+
     .admin-header,
     .admin-form {
         padding: 1.5rem;

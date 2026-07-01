@@ -794,3 +794,32 @@ if (!function_exists('deleteItemFromDb')) {
         }
     }
 }
+
+function getAdminStats(): array
+{
+    $pdo = getDbConnection();
+
+    $itemRow = $pdo->query(
+        "SELECT COUNT(*) AS total, SUM(gone = 1) AS gone, SUM(gone = 0) AS open FROM items"
+    )->fetch(PDO::FETCH_ASSOC);
+
+    $claimedRow = $pdo->query(
+        "SELECT COUNT(DISTINCT item_id) AS claimed
+         FROM claims
+         WHERE status = 'active'"
+    )->fetch(PDO::FETCH_ASSOC);
+
+    $itemRow['claimed'] = $claimedRow['claimed'] ?? 0;
+
+    $userRow = $pdo->query(
+        "SELECT
+            COUNT(*) AS total,
+            SUM(last_login >= DATE_SUB(NOW(), INTERVAL 30 DAY)) AS active_30d
+         FROM users"
+    )->fetch(PDO::FETCH_ASSOC);
+
+    return [
+        'items' => $itemRow,
+        'users' => $userRow,
+    ];
+}

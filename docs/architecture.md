@@ -42,19 +42,115 @@ config/                   — PHP config files (gitignored; copy from *.example.
 
 MySQL/MariaDB via PDO prepared statements. Schema managed with Phinx.
 
-Core tables:
-
-| Table | Purpose |
-|-------|---------|
-| `users` | Google OAuth users |
-| `items` | Posted items (title, description, images, status) |
-| `claims` | User-to-item claim records |
-| `communities` | Named communities with optional Slack/Discord webhooks |
-| `users_communities` | Many-to-many: user membership in communities |
-| `items_communities` | Many-to-many: item visibility in communities |
-| `community_moderators` | Per-community moderator grants |
-
 All migrations must be idempotent — see `db/MIGRATION_GUIDELINES.md`.
+
+### `users`
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | string(255) PK | Google OAuth sub |
+| `email` | string(255) unique | |
+| `name` | string(255) | |
+| `picture` | string(500) null | Google avatar URL |
+| `verified_email` | boolean | |
+| `locale` | string(10) null | |
+| `is_admin` | boolean default false | Admin flag (supplemental to `ADMIN_USER_ID` config) |
+| `display_name` | string(255) null | User-chosen display name |
+| `zipcode` | string(10) null | |
+| `show_gone_items` | boolean default false | |
+| `email_notifications` | boolean default false | |
+| `new_listing_notifications` | boolean default false | |
+| `last_login` | datetime null | |
+| `created_at` | datetime | |
+| `updated_at` | datetime null | |
+
+### `items`
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | string(19) PK | Formerly `tracking_number`; format YmdHis or YmdHis-xxxx |
+| `user_id` | string(255) | FK → users.id |
+| `title` | string(255) | |
+| `description` | text null | |
+| `price` | decimal(10,2) default 0.00 | |
+| `status` | string(50) default 'available' | Soft status field; see also `gone` |
+| `image_file` | string(255) null | |
+| `additional_images` | text null | JSON array of S3 keys |
+| `image_width` | integer null | |
+| `image_height` | integer null | |
+| `contact_email` | string(255) null | |
+| `user_name` | string(255) null | Denormalized at submission time |
+| `user_email` | string(255) null | Denormalized at submission time |
+| `submitted_at` | datetime null | |
+| `submitted_timestamp` | integer null | Unix timestamp |
+| `gone` | boolean default false | Primary "item is done" flag |
+| `gone_at` | datetime null | |
+| `gone_by` | string(255) null | user_id who marked gone |
+| `relisted_at` | datetime null | |
+| `relisted_by` | string(255) null | user_id who relisted |
+| `created_at` | datetime | |
+| `updated_at` | datetime | |
+
+**Note:** Item availability is determined primarily by `gone`. The `status` column exists but its values are not consistently enforced in application logic — treat `gone=true` as the authoritative "done" state.
+
+### `claims`
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | integer PK auto | |
+| `item_id` | string(19) | FK → items.id (formerly `item_tracking_number`) |
+| `user_id` | string(255) | FK → users.id |
+| `user_name` | string(255) null | Denormalized |
+| `user_email` | string(255) null | Denormalized |
+| `claimed_at` | datetime | |
+| `status` | string(50) default 'active' | |
+| `created_at` | datetime | |
+| `updated_at` | datetime | |
+Unique index on `(item_id, user_id, claimed_at)`.
+
+### `communities`
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | integer PK auto | |
+| `short_name` | string(50) unique | URL slug |
+| `full_name` | string(255) | |
+| `description` | text null | |
+| `owner_id` | string(255) | FK → users.id |
+| `private` | boolean default false | Members-only visibility |
+| `moderated` | boolean default false | New items require approval |
+| `hide_new_items_by_default` | boolean default true | When moderated: new items start hidden |
+| `slack_webhook_url` | text null | |
+| `slack_enabled` | boolean default false | |
+| `discord_webhook_url` | text null | |
+| `discord_enabled` | boolean default false | |
+| `created_at` | datetime | |
+| `updated_at` | datetime null | |
+
+### `users_communities`
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | integer PK auto | |
+| `user_id` | string(255) | FK → users.id |
+| `community_id` | integer | FK → communities.id |
+| `created_at` | timestamp | |
+Unique index on `(user_id, community_id)`.
+
+### `items_communities`
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | integer PK auto | |
+| `item_id` | string(19) | FK → items.id (formerly `item_tracking_number`) |
+| `community_id` | integer | FK → communities.id |
+| `status` | string(20) default 'online' | `online` or `hidden` (pending moderator approval) |
+| `created_at` | timestamp | |
+Unique index on `(item_id, community_id)`.
+
+### `community_moderators`
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | integer PK auto | |
+| `user_id` | string(255) | FK → users.id |
+| `community_id` | integer | FK → communities.id |
+| `created_at` | timestamp | |
+Unique index on `(user_id, community_id)`.
+(Renamed from `community_administrators` in migration 20260617223836.)
 
 ## Key Pages / Routes
 
