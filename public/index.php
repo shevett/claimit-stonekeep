@@ -1535,7 +1535,7 @@ $page = $_GET['page'] ?? 'home';
 $page = preg_replace('/[^a-zA-Z0-9\-]/', '', $page);
 
 // Define available pages
-$availablePages = ['home', 'about', 'contact', 'claim', 'items', 'item', 'login', 'user-listings', 'settings', 'admin', 'changelog', 'communities', 'community', 'community-edit'];
+$availablePages = ['home', 'organizations', 'about', 'contact', 'claim', 'items', 'item', 'login', 'user-listings', 'settings', 'admin', 'changelog', 'communities', 'community', 'community-edit'];
 
 if (!in_array($page, $availablePages)) {
     $page = 'home';
@@ -1785,7 +1785,7 @@ $performanceData = [
 
     <footer>
         <div class="footer-content">
-            <p>&copy; <?php echo date('Y'); ?> ClaimIt by Stonekeep.com. All rights reserved. | <a href="/?page=about" class="footer-link">About</a> | <a href="/?page=contact" class="footer-link">Contact</a> | <a href="/changelog" class="footer-link">Changelog</a></p>
+            <p>&copy; <?php echo date('Y'); ?> ClaimIt | <a href="/?page=organizations" class="footer-link">Organizations</a> | <a href="/?page=about" class="footer-link">About</a> | <a href="/?page=contact" class="footer-link">Contact</a> | <a href="/changelog" class="footer-link">Changelog</a></p>
             <div style="font-size: 12px; color: #666; margin-top: 10px;">
                 Performance: Total: <?php echo $performanceData['total_time']; ?>ms | 
                 Routing: <?php echo $performanceData['routing_time']; ?>ms | 

@@ -56,9 +56,14 @@ $flashMessage = showFlashMessage();
 
 <div class="page-header">
     <div class="container">
-        <h1>Welcome to ClaimIt</h1>
-        <div class="hero-buttons" style="margin-top: 1rem;">
-            <a href="?page=claim" class="btn btn-primary">Post a New Item</a>
+        <div class="dashboard-header" style="text-align: left;">
+            <div>
+                <h1>Welcome to ClaimIt</h1>
+                <p class="page-subtitle">Share more. Waste less.</p>
+            </div>
+            <div class="dashboard-actions">
+                <a href="?page=claim" class="btn btn-primary">Post a New Item</a>
+            </div>
         </div>
     </div>
 </div>
