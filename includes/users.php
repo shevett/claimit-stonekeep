@@ -297,6 +297,143 @@ function getUserZipcode($userId)
 }
 
 /**
+ * Look up city and state for a zip code using the postal_codes table.
+ * Returns a formatted "City, ST ZIP" string, or just the zip if not found.
+ *
+ * @param string $zipcode
+ * @return string|null null if no zip provided
+ */
+function getLocationByZipcode(?string $zipcode): ?string
+{
+    if (!$zipcode) {
+        return null;
+    }
+
+    $pdo = getDbConnection();
+    $stmt = $pdo->prepare(
+        'SELECT place_name, admin_code1 FROM postal_codes
+         WHERE country_code = ? AND postal_code = ?
+         LIMIT 1'
+    );
+    $stmt->execute(['US', $zipcode]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$row) {
+        return $zipcode;
+    }
+
+    return $row['place_name'] . ', ' . $row['admin_code1'] . ' ' . $zipcode;
+}
+
+/**
+ * Look up latitude/longitude for a US zip code using the postal_codes table.
+ *
+ * @param string $zipcode
+ * @return array{lat: float, lng: float}|null null if not found
+ */
+function getZipcodeCoordinates(string $zipcode): ?array
+{
+    $pdo = getDbConnection();
+    $stmt = $pdo->prepare(
+        'SELECT latitude, longitude FROM postal_codes
+         WHERE country_code = ? AND postal_code = ?
+         LIMIT 1'
+    );
+    $stmt->execute(['US', $zipcode]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$row || $row['latitude'] === null || $row['longitude'] === null) {
+        return null;
+    }
+
+    return ['lat' => (float) $row['latitude'], 'lng' => (float) $row['longitude']];
+}
+
+/**
+ * Calculate the great-circle distance between two coordinates in miles.
+ *
+ * @param float $lat1
+ * @param float $lon1
+ * @param float $lat2
+ * @param float $lon2
+ * @return float Distance in miles
+ */
+function calculateDistanceMiles(float $lat1, float $lon1, float $lat2, float $lon2): float
+{
+    $earthRadiusMiles = 3958.8;
+
+    $latDelta = deg2rad($lat2 - $lat1);
+    $lonDelta = deg2rad($lon2 - $lon1);
+
+    $a = sin($latDelta / 2) ** 2
+        + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($lonDelta / 2) ** 2;
+    $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+
+    return $earthRadiusMiles * $c;
+}
+
+/**
+ * Format a distance in miles as a soft, human-friendly phrase.
+ *
+ * @param float $miles
+ * @return string
+ */
+function formatDistancePhrase(float $miles): string
+{
+    if ($miles < 1) {
+        return 'less than a mile away';
+    }
+
+    if ($miles > 25) {
+        return 'more than 25 miles away';
+    }
+
+    $rounded = max(5, (int) (round($miles / 5) * 5));
+
+    return "about {$rounded} miles away";
+}
+
+/**
+ * Build the "City, ST" or "City, ST (distance)" string shown on the item
+ * detail page. Distance is only included when both the poster and viewer
+ * have zip codes that resolve to coordinates, and it's not the poster's
+ * own item.
+ *
+ * @param string|null $posterZipcode
+ * @param string|null $viewerZipcode
+ * @param bool $isOwnItem
+ * @return string|null null if the poster has no zipcode on file
+ */
+function getItemLocationDisplay(?string $posterZipcode, ?string $viewerZipcode, bool $isOwnItem): ?string
+{
+    if (!$posterZipcode) {
+        return null;
+    }
+
+    $cityState = getLocationByZipcode($posterZipcode);
+
+    if ($isOwnItem || !$viewerZipcode) {
+        return $cityState;
+    }
+
+    $posterCoords = getZipcodeCoordinates($posterZipcode);
+    $viewerCoords = getZipcodeCoordinates($viewerZipcode);
+
+    if (!$posterCoords || !$viewerCoords) {
+        return $cityState;
+    }
+
+    $miles = calculateDistanceMiles(
+        $posterCoords['lat'],
+        $posterCoords['lng'],
+        $viewerCoords['lat'],
+        $viewerCoords['lng']
+    );
+
+    return $cityState . ' (' . formatDistancePhrase($miles) . ')';
+}
+
+/**
  * Get user's email notification preference from database
  *
  * @param string $userId User ID

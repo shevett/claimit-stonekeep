@@ -319,6 +319,17 @@ if ($canEditItem && !empty($itemCommunityIds)) {
                                 ?>
                             </a>
                         </div>
+                        <?php
+                        $posterZipcode = getUserZipcode($item['user_id']);
+                        $viewerZipcode = $currentUser ? getUserZipcode($currentUser['id']) : null;
+                        $locationDisplay = getItemLocationDisplay($posterZipcode, $viewerZipcode, $isOwnItem);
+                        ?>
+                        <?php if ($locationDisplay) : ?>
+                        <div class="detail-item">
+                            <strong>Location:</strong>
+                            <span><?php echo escape($locationDisplay); ?></span>
+                        </div>
+                        <?php endif; ?>
                         <div class="detail-item">
                             <strong>Visible in:</strong>
                             <span>

@@ -111,10 +111,11 @@ $flashMessage = showFlashMessage();
                         <span><?php echo escape($currentUser['name']); ?></span>
                     </div>
                     <div class="info-item">
-                        <label>Zip Code:</label>
+                        <label>Location:</label>
                         <span><?php
                             $zipcode = getUserZipcode($currentUser['id']);
-                            echo $zipcode ? escape($zipcode) : '<em style="color: #999;">Not set</em>';
+                            $location = getLocationByZipcode($zipcode);
+                            echo $location ? escape($location) : '<em style="color: #999;">Not set</em>';
                         ?></span>
                     </div>
                     <div class="info-item">

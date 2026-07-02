@@ -7,9 +7,10 @@
  *   php support/geonames/load_postal_codes.php [options]
  *
  * Options:
- *   --env development|production   Which DB to load into (default: development)
- *   --file /path/to/XX.txt         Data file to load (default: US.txt in this directory)
- *   --country XX                   ISO country code to load (default: auto-detected from filename)
+ *   --file /path/to/XX.txt   Data file to load (default: US.txt in this directory)
+ *   --country XX             ISO country code (default: auto-detected from filename)
+ *
+ * Dev vs prod is determined automatically by config/config.php (DEVELOPMENT_MODE).
  */
 
 if (php_sapi_name() !== 'cli') {
@@ -42,8 +43,6 @@ if (strlen($country) !== 2) {
 // ── Bootstrap config ─────────────────────────────────────────────────────────
 
 // Set DEVELOPMENT_MODE so config.php picks the right DB name
-define('DEVELOPMENT_MODE', $env === 'development');
-
 $configFile = __DIR__ . '/../../config/config.php';
 if (!file_exists($configFile)) {
     fwrite(STDERR, "Error: config/config.php not found. Copy from config.php.example and fill in values.\n");
