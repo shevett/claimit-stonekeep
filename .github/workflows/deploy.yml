@@ -62,8 +62,19 @@ jobs:
     if: always() # Ensures it runs even if the deploy job fails
     steps:
       - name: Send status to Discord
-        uses: rjstone/discord-webhook-notify@v2
-        with:
-          webhookUrl: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          severity: ${{ needs.deploy.result }}
-          details: "Deploy to live site complete."
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+        run: |
+          color=3066993   # green
+          if [ "$DEPLOY_RESULT" != "success" ]; then
+            color=15158332 # red
+          fi
+
+          curl -sf -X POST "$DISCORD_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+              --arg desc "Deploy to live site complete." \
+              --arg status "$DEPLOY_RESULT" \
+              --argjson color "$color" \
+              '{username: "GitHub Actions", embeds: [{title: "Deploy: \($status)", description: $desc, color: $color}]}')"
