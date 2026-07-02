@@ -1,0 +1,53 @@
+name: Manual Security Review
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  security-review:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer
+
+      - name: Install dependencies
+        run: composer install --no-progress --prefer-dist
+
+      - name: PHPStan
+        run: vendor/bin/phpstan analyse
+        continue-on-error: true
+
+      - name: PHPCS
+        run: vendor/bin/phpcs
+        continue-on-error: true
+
+      - name: Composer audit
+        run: composer audit
+        continue-on-error: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Semgrep
+        run: |
+          pip install semgrep
+          semgrep --config p/php --config p/security-audit public src includes templates
+        continue-on-error: true
+
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+        continue-on-error: true

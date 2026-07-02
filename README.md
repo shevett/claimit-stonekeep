@@ -207,6 +207,37 @@ vendor/bin/phinx status -e production
 - **claims**: Item claims and waitlist
 - **phinxlog**: Migration history
 
+## ✅ Code Quality
+
+Run all local checks (PHPCS, PHPStan, `composer audit`, and Semgrep if installed) at once:
+```bash
+composer check
+```
+This just runs [scripts/check.sh](scripts/check.sh).
+
+You can also run the tools individually:
+
+**Code style (PSR-12, via PHP_CodeSniffer)** — rules are configured in `phpcs.xml`:
+```bash
+vendor/bin/phpcs                # report style violations
+vendor/bin/phpcbf               # auto-fix what it can
+```
+
+**Static analysis (PHPStan, level 5)** — configured in `phpstan.neon`:
+```bash
+vendor/bin/phpstan analyse
+```
+
+**Dependency vulnerabilities:**
+```bash
+composer audit
+```
+
+**SAST (Semgrep)** — optional, install with `pip3 install semgrep` or `brew install semgrep`:
+```bash
+semgrep --config p/php --config p/security-audit public src includes templates
+```
+
 ## 🚀 Deployment
 
 ### Production Deployment
