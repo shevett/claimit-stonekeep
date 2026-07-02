@@ -71,4 +71,8 @@ composer.phar
 
 # Coverage reports
 coverage/
-*.coverage 
+*.coverage
+
+# GeoNames raw data downloads
+support/geonames/*.txt
+support/geonames/*.zip 
