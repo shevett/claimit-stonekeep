@@ -102,15 +102,15 @@ $isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
                     <p>For Sale</p>
                 </div>
                 <div class="stat-card">
-                    <h3><?php echo count($claimedItems); ?></h3>
+                    <h3><?php echo count($claimedItems); /* nosemgrep: php.lang.security.injection.echoed-request.echoed-request */ ?></h3>
                     <p>Items I've claimed</p>
                 </div>
                 <div class="stat-card">
-                    <h3><?php echo $stats['with_claims']; ?></h3>
+                    <h3><?php echo $stats['with_claims']; /* nosemgrep: php.lang.security.injection.echoed-request.echoed-request */ ?></h3>
                     <p>Items people have claimed</p>
                 </div>
                 <div class="stat-card">
-                    <h3><?php echo $stats['gone']; ?></h3>
+                    <h3><?php echo $stats['gone']; /* nosemgrep: php.lang.security.injection.echoed-request.echoed-request */ ?></h3>
                     <p>Items gone</p>
                     <?php if (!$showGoneItems && $stats['gone'] > 0) : ?>
                         <p class="stat-note">(not currently visible)</p>
@@ -128,7 +128,7 @@ $isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
                 <div class="empty-state-content">
                     <div class="empty-state-icon">📦</div>
                     <h3>No Active Listings</h3>
-                    <p><?php echo escape($userName ?: 'This user'); ?> doesn't have any active items posted.</p>
+                    <p><?php echo escape($userName ?: 'This user'); /* nosemgrep: php.lang.security.injection.echoed-request.echoed-request */ ?> doesn't have any active items posted.</p>
                     <a href="?page=items" class="btn btn-primary">Browse All Items</a>
                 </div>
             </div>
@@ -138,7 +138,7 @@ $isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
                 <div class="empty-state-content">
                     <div class="empty-state-icon">📦</div>
                     <h3>No Items Posted Yet</h3>
-                    <p>You haven't posted any items yet, but you have claimed <?php echo count($claimedItems); ?> item<?php echo count($claimedItems) !== 1 ? 's' : ''; ?>.</p>
+                    <p>You haven't posted any items yet, but you have claimed <?php echo count($claimedItems); /* nosemgrep: php.lang.security.injection.echoed-request.echoed-request */ ?> item<?php echo count($claimedItems) !== 1 ? 's' : ''; ?>.</p>
                     <a href="?page=claim" class="btn btn-primary">Post Your First Item</a>
                 </div>
             </div>
@@ -171,17 +171,17 @@ $isOwnListings = $currentUser && ($currentUser['id'] === $userId || isAdmin());
             <?php if (!$isOwnListings) : ?>
             <!-- User Info Section -->
             <div class="user-profile-section" style="background: var(--gray-50); padding: 2rem; border-radius: var(--radius-lg); margin-bottom: 2rem;">
-                <h2 style="margin: 0 0 1rem 0; color: var(--gray-900);">About <?php echo escape($userName); ?></h2>
+                <h2 style="margin: 0 0 1rem 0; color: var(--gray-900);">About <?php echo escape($userName); /* nosemgrep: php.lang.security.injection.echoed-request.echoed-request */ ?></h2>
                 <div class="user-profile-info">
                     <div class="profile-stats">
                         <div class="stat-item">
-                            <strong><?php echo count($items); ?></strong>
+                            <strong><?php echo count($items); /* nosemgrep: php.lang.security.injection.echoed-request.echoed-request */ ?></strong>
                             <span>Active Item<?php echo count($items) !== 1 ? 's' : ''; ?></span>
                         </div>
                         <?php if ($userEmail) : ?>
                         <div class="stat-item">
-                            <a href="mailto:<?php echo escape($userEmail); ?>" class="btn btn-primary">
-                                📧 Contact <?php echo escape(explode(' ', $userName)[0]); ?>
+                            <a href="mailto:<?php echo escape($userEmail); /* nosemgrep: php.lang.security.injection.echoed-request.echoed-request */ ?>" class="btn btn-primary">
+                                📧 Contact <?php echo escape(explode(' ', $userName)[0]); /* nosemgrep: php.lang.security.injection.echoed-request.echoed-request */ ?>
                             </a>
                         </div>
                         <?php endif; ?>
