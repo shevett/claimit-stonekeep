@@ -90,7 +90,7 @@ $flashMessage = showFlashMessage();
                         <div class="form-group">
                             <label for="description">Description</label>
                             <textarea id="description" name="description" rows="4"
-                                      placeholder="Describe this community..."><?php echo $isEditing ? escape($community['description'] ?? '') : ''; ?></textarea>
+                                      placeholder="Describe this community..."><?php echo $isEditing ? escape($community['description'] ?? '') : ''; /* nosemgrep: php.lang.security.injection.echoed-request.echoed-request */ ?></textarea>
                         </div>
                     </div>
 
@@ -123,7 +123,7 @@ $flashMessage = showFlashMessage();
                             <label for="ownerId">Owner ID <span class="required">*</span></label>
                             <input type="text" id="ownerId" name="owner_id" required
                                    placeholder="User ID of the community owner"
-                                   value="<?php echo $isEditing ? escape($community['owner_id']) : escape($currentUser['id']); ?>"
+                                   value="<?php echo $isEditing ? escape($community['owner_id']) : escape($currentUser['id']); /* nosemgrep: php.lang.security.injection.echoed-request.echoed-request */ ?>"
                                    <?php echo $isAdmin ? '' : 'readonly'; ?>>
                             <?php if (!$isAdmin) : ?>
                             <small class="form-help">Only a site administrator can transfer ownership.</small>
@@ -136,7 +136,7 @@ $flashMessage = showFlashMessage();
                             <label for="slackWebhookUrl">Webhook URL (Slack or Discord)</label>
                             <input type="url" id="slackWebhookUrl" name="slack_webhook_url"
                                    placeholder="Slack: https://hooks.slack.com/services/… — or Discord: https://discord.com/api/webhooks/…"
-                                   value="<?php echo $isEditing ? escape($community['slack_webhook_url'] ?? '') : ''; ?>">
+                                   value="<?php echo $isEditing ? escape($community['slack_webhook_url'] ?? '') : ''; /* nosemgrep: php.lang.security.injection.echoed-request.echoed-request */ ?>">
                             <small class="form-help">Enter a single webhook URL for either Slack or Discord — not both. ClaimIt detects which platform the URL belongs to and sends to that one.</small>
                         </div>
 
@@ -159,7 +159,7 @@ $flashMessage = showFlashMessage();
                             <label for="discordWebhookUrl">Discord Webhook URL</label>
                             <input type="url" id="discordWebhookUrl" name="discord_webhook_url"
                                    placeholder="https://discord.com/api/webhooks/YOUR/WEBHOOK/URL"
-                                   value="<?php echo $isEditing ? escape($community['discord_webhook_url'] ?? '') : ''; ?>">
+                                   value="<?php echo $isEditing ? escape($community['discord_webhook_url'] ?? '') : ''; /* nosemgrep: php.lang.security.injection.echoed-request.echoed-request */ ?>">
                             <small class="form-help">Enter your Discord incoming webhook URL to receive notifications when items are posted to this community.</small>
                         </div>
 
@@ -474,7 +474,7 @@ $flashMessage = showFlashMessage();
 </style>
 
 <script>
-let editingCommunityId = <?php echo $isEditing ? (int)$community['id'] : 'null'; ?>;
+let editingCommunityId = <?php echo $isEditing ? (int)$community['id'] : 'null'; /* nosemgrep: php.lang.security.injection.echoed-request.echoed-request */ ?>;
 
 document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
