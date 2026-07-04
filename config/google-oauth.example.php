@@ -10,7 +10,7 @@
  * 5. Set application type to "Web application"
  * 6. Add authorized redirect URIs:
  *    - http://localhost:8000/auth/google/callback (for development)
- *    - https://claimit.stonekeep.com/auth/google/callback (for production)
+ *    - https://claimit.cc/auth/google/callback (for production)
  *    The application will automatically use the correct one based on the environment.
  * 7. Copy the Client ID and Client Secret below
  */
@@ -23,7 +23,7 @@ $isLocalhost = isset($_SERVER['HTTP_HOST']) && (
 
 $redirectUri = $isLocalhost 
     ? 'http://localhost:8000/auth/google/callback'
-    : 'https://claimit.stonekeep.com/auth/google/callback';
+    : 'https://claimit.cc/auth/google/callback';
 
 return [
     'client_id' => 'YOUR_GOOGLE_CLIENT_ID_HERE',
