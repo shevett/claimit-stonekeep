@@ -487,17 +487,16 @@ style.textContent = `
         allCommunities.forEach(comm => {
             const isChecked = itemCommunityIds.includes(comm.id);
             html += `
-                < div class = "community-checkbox-item" >
-                    < input type = "checkbox"
-                           name = "communities[]"
-                           value = "${comm.id}"
-                           id = "edit_community_${comm.id}"
-            class = "community-checkbox"
-                           ${isChecked ? 'checked' : ''} >
-                    < label for = "edit_community_${comm.id}" > ${
-                comm.full_name} < / label >
-                    <  / div >
-                    `;
+                <div class="community-checkbox-item">
+                    <input type="checkbox"
+                           name="communities[]"
+                           value="${comm.id}"
+                           id="edit_community_${comm.id}"
+                           class="community-checkbox"
+                           ${isChecked ? 'checked' : ''}>
+                    <label for="edit_community_${comm.id}">${comm.full_name}</label>
+                </div>
+                `;
         });
 
         container.innerHTML = html;
