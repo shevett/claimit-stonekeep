@@ -31,6 +31,7 @@ function getUserById($userId)
             'name' => $user['name'],
             'picture' => $user['picture'],
             'verified_email' => (bool)$user['verified_email'],
+            'is_admin' => (bool)$user['is_admin'],
             'locale' => $user['locale'],
             'last_login' => $user['last_login'],
             'created_at' => $user['created_at'],

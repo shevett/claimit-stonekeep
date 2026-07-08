@@ -158,6 +158,35 @@ function deleteCommunity($id)
  * @param string $userId User ID
  * @return array Array of community IDs
  */
+/**
+ * Get community short names for all users, grouped by user ID
+ * @return array Map of user_id => array of community short_name strings
+ */
+function getAllUserCommunityMemberships()
+{
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return [];
+    }
+
+    try {
+        $stmt = $pdo->query(
+            "SELECT uc.user_id, c.short_name
+             FROM users_communities uc
+             JOIN communities c ON c.id = uc.community_id
+             ORDER BY c.short_name"
+        );
+        $map = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $map[$row['user_id']][] = $row['short_name'];
+        }
+        return $map;
+    } catch (Exception $e) {
+        error_log("Error getting user community memberships: " . $e->getMessage());
+        return [];
+    }
+}
+
 function getUserCommunityIds($userId)
 {
     $pdo = getDbConnection();

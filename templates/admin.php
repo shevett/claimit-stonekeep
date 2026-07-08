@@ -22,6 +22,7 @@ if (!$currentUser) {
 
 // Get all users for the user management table
 $allUsers = getAllUsers();
+$userCommunities = getAllUserCommunityMemberships();
 
 // Get system statistics for the Reports section
 $adminStats = getAdminStats();
@@ -171,21 +172,19 @@ $flashMessage = showFlashMessage();
                 <table class="user-table">
                     <thead>
                         <tr>
-                            <th class="sortable" data-col="0">Name <span class="sort-indicator"></span></th>
-                            <th class="sortable" data-col="1">Email <span class="sort-indicator"></span></th>
-                            <th class="sortable" data-col="2">Display Name <span class="sort-indicator"></span></th>
-                            <th class="sortable" data-col="3">Admin <span class="sort-indicator"></span></th>
-                            <th class="sortable" data-col="4">Verified <span class="sort-indicator"></span></th>
-                            <th class="sortable" data-col="5">Last Login <span class="sort-indicator"></span></th>
-                            <th class="sortable" data-col="6">Created <span class="sort-indicator"></span></th>
-                            <th class="sortable" data-col="7">Notifications <span class="sort-indicator"></span></th>
+                            <th class="sortable" data-col="0">Name / Email <span class="sort-indicator"></span></th>
+                            <th class="sortable" data-col="1">Display Name <span class="sort-indicator"></span></th>
+                            <th class="sortable" data-col="2">Last Login <span class="sort-indicator"></span></th>
+                            <th class="sortable" data-col="3">Created <span class="sort-indicator"></span></th>
+                            <th class="sortable" data-col="4">Notifications <span class="sort-indicator"></span></th>
+                            <th class="sortable" data-col="5">Communities <span class="sort-indicator"></span></th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($allUsers)) : ?>
                             <tr>
-                                <td colspan="9" class="no-data">No users found</td>
+                                <td colspan="7" class="no-data">No users found</td>
                             </tr>
                         <?php else : ?>
                             <?php foreach ($allUsers as $user) : ?>
@@ -194,31 +193,24 @@ $flashMessage = showFlashMessage();
                                         <?php if (!empty($user['picture'])) : ?>
                                             <img src="<?php echo escape($user['picture']); ?>" alt="" class="user-avatar">
                                         <?php endif; ?>
-                                        <span><?php echo escape($user['name']); ?></span>
-                    </td>
-                    <td><?php echo escape($user['email']); ?></td>
-                    <td><?php echo escape($user['display_name'] ?? '-'); ?></td>
-                    <td>
-                                <?php
-                        // Check if user is super admin (defined in config)
-                                $isSuperAdmin = defined('ADMIN_USER_ID') && $user['id'] === ADMIN_USER_ID;
-                                $isAdmin = isset($user['is_admin']) && $user['is_admin'];
+                                        <div>
+                                            <div class="user-name-line">
+                                                <span><?php echo escape($user['name']); ?></span>
+                                                <?php
+                                                // Check if user is super admin (defined in config)
+                                                $isSuperAdmin = defined('ADMIN_USER_ID') && $user['id'] === ADMIN_USER_ID;
+                                                $isAdmin = isset($user['is_admin']) && $user['is_admin'];
 
-                                if ($isSuperAdmin) : ?>
-                            <span class="badge badge-super-admin">SUPER</span>
-                                <?php elseif ($isAdmin) : ?>
-                            <span class="badge badge-admin">Yes</span>
-                                <?php else : ?>
-                            <span class="badge badge-user">No</span>
-                                <?php endif; ?>
+                                                if ($isSuperAdmin) : ?>
+                                                    <span class="badge badge-super-admin">SUPER</span>
+                                                <?php elseif ($isAdmin) : ?>
+                                                    <span class="badge badge-admin">Admin</span>
+                                                <?php endif; ?>
+                                            </div>
+                                            <div class="user-email-line"><?php echo escape($user['email']); ?></div>
+                                        </div>
                                     </td>
-                                    <td>
-                                        <?php if ($user['verified_email']) : ?>
-                                            <span class="badge badge-success">✓</span>
-                                        <?php else : ?>
-                                            <span class="badge badge-warning">✗</span>
-                                        <?php endif; ?>
-                                    </td>
+                                    <td><?php echo escape($user['display_name'] ?? '-'); ?></td>
                                     <td class="date-cell" data-sort-value="<?php echo $user['last_login'] ? strtotime($user['last_login']) : 0; ?>">
                                         <?php
                                         if ($user['last_login']) {
@@ -249,6 +241,12 @@ $flashMessage = showFlashMessage();
                                             $notifications[] = 'Listings';
                                         }
                                         echo !empty($notifications) ? escape(implode(', ', $notifications)) : '-';
+                                        ?>
+                                    </td>
+                                    <td class="communities-cell">
+                                        <?php
+                                        $communities = $userCommunities[$user['id']] ?? [];
+                                        echo !empty($communities) ? escape(implode(', ', $communities)) : '-';
                                         ?>
                                     </td>
                                     <td class="actions-cell">
@@ -696,6 +694,18 @@ $flashMessage = showFlashMessage();
     font-weight: 500;
 }
 
+.user-name-line {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.user-email-line {
+    color: #666;
+    font-size: 0.85rem;
+    font-weight: normal;
+}
+
 .user-avatar {
     width: 32px;
     height: 32px;
@@ -724,28 +734,14 @@ $flashMessage = showFlashMessage();
     color: #856404;
 }
 
-.badge-user {
-    background: #e9ecef;
-    color: #6c757d;
-}
-
-.badge-success {
-    background: #d4edda;
-    color: #155724;
-}
-
-.badge-warning {
-    background: #fff3cd;
-    color: #856404;
-}
-
 .date-cell {
     color: #666;
     font-size: 0.85rem;
     white-space: nowrap;
 }
 
-.notifications-cell {
+.notifications-cell,
+.communities-cell {
     color: #666;
     font-size: 0.85rem;
 }
@@ -1230,7 +1226,7 @@ function initTableSort() {
     if (!table) return;
 
     const headers = table.querySelectorAll('th.sortable');
-    let currentCol = 5; // Last Login
+    let currentCol = 2; // Last Login
     let currentAsc = false; // descending by default
 
     headers.forEach(th => {
