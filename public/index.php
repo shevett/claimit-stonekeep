@@ -1578,6 +1578,155 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
     }
 }
 
+// Handle tenant management AJAX requests before any HTML output
+if (isset($_GET['page']) && $_GET['page'] === 'admin-tenants' && (isset($_GET['action']) || (isset($_POST['action']) && $_SERVER['REQUEST_METHOD'] === 'POST'))) {
+    header('Content-Type: application/json');
+
+    if (!isLoggedIn()) {
+        echo json_encode(['success' => false, 'message' => 'Authentication required']);
+        exit;
+    }
+
+    if (!isSuperAdmin() || !isControlPlaneHost()) {
+        echo json_encode(['success' => false, 'message' => 'Not authorized']);
+        exit;
+    }
+
+    $action = $_GET['action'] ?? $_POST['action'] ?? null;
+    if (!$action) {
+        echo json_encode(['success' => false, 'message' => 'Action required']);
+        exit;
+    }
+
+    if ($action === 'list') {
+        echo json_encode(['success' => true, 'tenants' => getAllTenants()]);
+        exit;
+    }
+
+    if ($action === 'get' && isset($_GET['id'])) {
+        $tenant = getTenantById((int)$_GET['id']);
+        if ($tenant) {
+            echo json_encode(['success' => true, 'tenant' => $tenant]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Tenant not found']);
+        }
+        exit;
+    }
+
+    // Remaining actions are POST-driven
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        try {
+            switch ($action) {
+                case 'create':
+                    if (empty($_POST['prefix']) || empty($_POST['name'])) {
+                        echo json_encode(['success' => false, 'message' => 'Missing required fields']);
+                        exit;
+                    }
+
+                    $prefix = trim($_POST['prefix']);
+                    if (getTenantByPrefix($prefix)) {
+                        echo json_encode(['success' => false, 'message' => 'A tenant with that prefix already exists']);
+                        exit;
+                    }
+
+                    $data = [
+                        'prefix' => $prefix,
+                        'name' => trim($_POST['name']),
+                        'status' => trim($_POST['status'] ?? 'new'),
+                        'enabled' => isset($_POST['enabled']) ? 1 : 0
+                    ];
+
+                    $newId = createTenant($data);
+                    if ($newId) {
+                        echo json_encode(['success' => true, 'message' => 'Tenant created successfully', 'id' => $newId]);
+                    } else {
+                        echo json_encode(['success' => false, 'message' => 'Failed to create tenant']);
+                    }
+                    break;
+
+                case 'update':
+                    if (empty($_POST['id']) || empty($_POST['prefix']) || empty($_POST['name'])) {
+                        echo json_encode(['success' => false, 'message' => 'Missing required fields']);
+                        exit;
+                    }
+
+                    $tenantId = (int)$_POST['id'];
+                    $prefix = trim($_POST['prefix']);
+                    $existing = getTenantByPrefix($prefix);
+                    if ($existing && (int)$existing['id'] !== $tenantId) {
+                        echo json_encode(['success' => false, 'message' => 'A tenant with that prefix already exists']);
+                        exit;
+                    }
+
+                    $data = [
+                        'prefix' => $prefix,
+                        'name' => trim($_POST['name']),
+                        'status' => trim($_POST['status'] ?? 'new'),
+                        'enabled' => isset($_POST['enabled']) ? 1 : 0
+                    ];
+
+                    $success = updateTenant($tenantId, $data);
+                    if ($success) {
+                        echo json_encode(['success' => true, 'message' => 'Tenant updated successfully']);
+                    } else {
+                        echo json_encode(['success' => false, 'message' => 'Failed to update tenant']);
+                    }
+                    break;
+
+                case 'delete':
+                    if (empty($_POST['id'])) {
+                        echo json_encode(['success' => false, 'message' => 'Tenant ID required']);
+                        exit;
+                    }
+
+                    $success = deleteTenant((int)$_POST['id']);
+                    if ($success) {
+                        echo json_encode(['success' => true, 'message' => 'Tenant deleted successfully']);
+                    } else {
+                        echo json_encode(['success' => false, 'message' => 'Failed to delete tenant']);
+                    }
+                    break;
+
+                case 'provision':
+                    if (empty($_POST['id'])) {
+                        echo json_encode(['success' => false, 'message' => 'Tenant ID required']);
+                        exit;
+                    }
+
+                    echo json_encode(provisionTenantDatabase((int)$_POST['id']));
+                    break;
+
+                case 'deprovision':
+                    if (empty($_POST['id'])) {
+                        echo json_encode(['success' => false, 'message' => 'Tenant ID required']);
+                        exit;
+                    }
+
+                    $tenantToDeprovision = getTenantById((int)$_POST['id']);
+                    if (!$tenantToDeprovision) {
+                        echo json_encode(['success' => false, 'message' => 'Tenant not found']);
+                        exit;
+                    }
+
+                    if (trim($_POST['confirm_prefix'] ?? '') !== $tenantToDeprovision['prefix']) {
+                        echo json_encode(['success' => false, 'message' => 'Confirmation text did not match the tenant prefix']);
+                        exit;
+                    }
+
+                    echo json_encode(deprovisionTenantDatabase((int)$_POST['id']));
+                    break;
+
+                default:
+                    echo json_encode(['success' => false, 'message' => 'Invalid action']);
+            }
+        } catch (Exception $e) {
+            error_log("Tenant management error: " . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+        }
+        exit;
+    }
+}
+
 // Handle authentication routes before any HTML output
 if (isset($_GET['page']) && $_GET['page'] === 'auth' && isset($_GET['action'])) {
     $action = $_GET['action'];
@@ -1648,7 +1797,7 @@ $page = $_GET['page'] ?? 'home';
 $page = preg_replace('/[^a-zA-Z0-9\-]/', '', $page);
 
 // Define available pages
-$availablePages = ['home', 'organizations', 'about', 'contact', 'claim', 'items', 'item', 'login', 'user-listings', 'settings', 'admin', 'changelog', 'communities', 'community', 'community-edit'];
+$availablePages = ['home', 'organizations', 'about', 'contact', 'claim', 'items', 'item', 'login', 'user-listings', 'settings', 'admin', 'changelog', 'communities', 'community', 'community-edit', 'admin-tenants', 'tenant-edit'];
 
 if (!in_array($page, $availablePages)) {
     $page = 'home';
@@ -1666,7 +1815,7 @@ $isLoggedIn = false;
 // Check authentication for navigation (but don't initialize AWS unless needed)
 if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['authenticated']) && $_SESSION['authenticated']) {
     // Only initialize AWS if we actually need it for this page
-    $authRequiredPages = ['dashboard', 'claim', 'settings', 'admin'];
+    $authRequiredPages = ['dashboard', 'claim', 'settings', 'admin', 'admin-tenants', 'tenant-edit'];
     if (in_array($page, $authRequiredPages)) {
         $currentUser = getCurrentUser();
         $isLoggedIn = isLoggedIn();

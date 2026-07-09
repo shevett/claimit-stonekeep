@@ -62,6 +62,15 @@ $flashMessage = showFlashMessage();
                                     <small>Create and manage communities</small>
                                 </span>
                             </a>
+                            <?php if (isSuperAdmin() && isControlPlaneHost()) : ?>
+                            <a href="?page=admin-tenants" class="admin-link">
+                                <span class="link-icon">🏢</span>
+                                <span class="link-content">
+                                    <strong>Tenant Management</strong>
+                                    <small>Manage multitenant customer instances</small>
+                                </span>
+                            </a>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>

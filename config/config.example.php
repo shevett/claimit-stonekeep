@@ -52,6 +52,11 @@ date_default_timezone_set('America/New_York');
 // You can find this in the Google OAuth response or in the user's YAML file
 define('ADMIN_USER_ID', '112659624466139657672'); // Replace with actual admin user ID
 
+// Multitenant control-plane host. Tenant management UI is only reachable
+// when the app is accessed via this host (e.g. claimit.cc). Not used at all
+// for self-hosted/tenant instances.
+define('CONTROL_PLANE_HOST', 'claimit.cc');
+
 // Session configuration
 ini_set('session.cookie_httponly', 1);
 ini_set('session.use_only_cookies', 1);

@@ -120,6 +120,40 @@ function isAdmin()
 }
 
 /**
+ * Check if the current user is the literal site super-admin (config
+ * ADMIN_USER_ID), as opposed to isAdmin() which also allows any user with
+ * the is_admin DB flag. Used to gate multitenant control-plane features.
+ */
+function isSuperAdmin()
+{
+    $currentUser = getCurrentUser();
+    if (!$currentUser) {
+        return false;
+    }
+
+    return ($currentUser['id'] ?? null) === ADMIN_USER_ID;
+}
+
+/**
+ * Check if the app is currently being accessed via the control-plane host
+ * (CONTROL_PLANE_HOST config constant, e.g. claimit.cc). Used to hide
+ * multitenant management features on tenant subdomains and self-hosted
+ * instances. This is a minimal host check only - it does not perform any
+ * tenant resolution/routing.
+ */
+function isControlPlaneHost()
+{
+    if (!defined('CONTROL_PLANE_HOST')) {
+        return false;
+    }
+
+    $host = $_SERVER['HTTP_HOST'] ?? '';
+    $host = explode(':', $host)[0];
+
+    return strcasecmp($host, CONTROL_PLANE_HOST) === 0;
+}
+
+/**
  * Check if the current user can edit/delete an item (either owner or admin)
  */
 function canUserEditItem($itemUserId)
