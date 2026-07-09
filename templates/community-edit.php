@@ -65,6 +65,8 @@ $flashMessage = showFlashMessage();
                     <button type="button" class="tab-btn" data-tab="notifications">Notifications</button>
                     <?php if ($isEditing) : ?>
                     <button type="button" class="tab-btn" data-tab="moderators">Moderators</button>
+                    <button type="button" class="tab-btn" data-tab="allowlist">Allowlist</button>
+                    <button type="button" class="tab-btn" data-tab="denylist">Denylist</button>
                     <?php endif; ?>
                 </div>
 
@@ -197,6 +199,46 @@ $flashMessage = showFlashMessage();
                                 </button>
                             </div>
                             <div id="moderatorFormFeedback" class="moderator-form-feedback" style="display: none;"></div>
+                        </div>
+                    </div>
+
+                    <div class="tab-panel" data-tab="allowlist">
+                        <div class="form-group community-moderators-section" id="communityAllowlistSection">
+                            <label>Allowlist</label>
+                            <small class="form-help">When moderation hides new listings by default, items from allowlisted users are made visible immediately.</small>
+
+                            <div id="allowlistListBody" class="moderator-list">
+                                <div class="moderator-list-empty">Loading…</div>
+                            </div>
+
+                            <div class="moderator-add-row">
+                                <input type="email" id="allowlistEmailInput" placeholder="Enter user's email"
+                                       onkeydown="if (event.key === 'Enter') { event.preventDefault(); addCommunityAllowlistEntry(); }">
+                                <button type="button" class="btn btn-secondary" id="addAllowlistBtn" onclick="addCommunityAllowlistEntry()">
+                                    ➕ Add to allowlist
+                                </button>
+                            </div>
+                            <div id="allowlistFormFeedback" class="moderator-form-feedback" style="display: none;"></div>
+                        </div>
+                    </div>
+
+                    <div class="tab-panel" data-tab="denylist">
+                        <div class="form-group community-moderators-section" id="communityDenylistSection">
+                            <label>Denylist</label>
+                            <small class="form-help">When moderation is on, new listings from denylisted users always start hidden, regardless of other settings.</small>
+
+                            <div id="denylistListBody" class="moderator-list">
+                                <div class="moderator-list-empty">Loading…</div>
+                            </div>
+
+                            <div class="moderator-add-row">
+                                <input type="email" id="denylistEmailInput" placeholder="Enter user's email"
+                                       onkeydown="if (event.key === 'Enter') { event.preventDefault(); addCommunityDenylistEntry(); }">
+                                <button type="button" class="btn btn-secondary" id="addDenylistBtn" onclick="addCommunityDenylistEntry()">
+                                    ➕ Add to denylist
+                                </button>
+                            </div>
+                            <div id="denylistFormFeedback" class="moderator-form-feedback" style="display: none;"></div>
                         </div>
                     </div>
                     <?php endif; ?>
@@ -482,13 +524,16 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
         document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
         btn.classList.add('active');
         document.querySelector(`.tab-panel[data-tab="${btn.dataset.tab}"]`).classList.add('active');
-        document.getElementById('formActions').style.display = btn.dataset.tab === 'moderators' ? 'none' : 'flex';
+        const noFormActionsTabs = ['moderators', 'allowlist', 'denylist'];
+        document.getElementById('formActions').style.display = noFormActionsTabs.includes(btn.dataset.tab) ? 'none' : 'flex';
     });
 });
 
 <?php if ($isEditing) : ?>
 document.addEventListener('DOMContentLoaded', function() {
     loadCommunityModerators(editingCommunityId);
+    loadCommunityAllowlist(editingCommunityId);
+    loadCommunityDenylist(editingCommunityId);
 });
 <?php endif; ?>
 
@@ -673,6 +718,280 @@ function removeCommunityModerator(userId) {
     .catch(error => {
         console.error('Error removing moderator:', error);
         showMessage('Error removing moderator', 'error');
+    });
+}
+
+// Load allowlist for the currently-edited community
+function loadCommunityAllowlist(id) {
+    const listEl = document.getElementById('allowlistListBody');
+    if (!listEl) return;
+    listEl.innerHTML = '<div class="moderator-list-empty">Loading…</div>';
+    fetch('?page=communities&action=get_allowlist&id=' + encodeURIComponent(id))
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderAllowlist(data.allowlist || []);
+            } else {
+                listEl.innerHTML = '<div class="moderator-list-empty">Error: ' + escapeHtml(data.message || 'Unknown error') + '</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading allowlist:', error);
+            listEl.innerHTML = '<div class="moderator-list-empty">Error loading allowlist</div>';
+        });
+}
+
+function renderAllowlist(allowlist) {
+    const listEl = document.getElementById('allowlistListBody');
+    if (!listEl) return;
+    if (!allowlist.length) {
+        listEl.innerHTML = '<div class="moderator-list-empty">No allowlist entries yet.</div>';
+        return;
+    }
+    const rows = allowlist.map(a => {
+        const name = a.display_name || a.name || a.email || a.id;
+        return '<div class="moderator-list-row">'
+            + '<div>'
+            + '<div class="moderator-name">' + escapeHtml(name) + '</div>'
+            + '<div class="moderator-email">' + escapeHtml(a.email || '') + '</div>'
+            + '</div>'
+            + '<button type="button" class="btn-icon btn-delete allowlist-remove-btn" title="Remove" data-user-id="' + escapeHtml(a.id) + '">🗑️</button>'
+            + '</div>';
+    }).join('');
+    listEl.innerHTML = rows;
+    listEl.querySelectorAll('.allowlist-remove-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            removeCommunityAllowlistEntry(this.getAttribute('data-user-id'));
+        });
+    });
+}
+
+function setAllowlistFeedback(message, type) {
+    const el = document.getElementById('allowlistFormFeedback');
+    if (!el) return;
+    if (!message) {
+        el.style.display = 'none';
+        el.textContent = '';
+        el.className = 'moderator-form-feedback';
+        return;
+    }
+    el.textContent = message;
+    el.className = 'moderator-form-feedback ' + (type || 'error');
+    el.style.display = '';
+}
+
+function addCommunityAllowlistEntry() {
+    setAllowlistFeedback('', null);
+    if (!editingCommunityId) {
+        setAllowlistFeedback('Save the community first before editing the allowlist.', 'error');
+        return;
+    }
+    const emailInput = document.getElementById('allowlistEmailInput');
+    const email = emailInput.value.trim();
+    if (!email) {
+        setAllowlistFeedback('Enter an email address.', 'error');
+        emailInput.focus();
+        return;
+    }
+    const btn = document.getElementById('addAllowlistBtn');
+    btn.disabled = true;
+    const body = new URLSearchParams();
+    body.append('action', 'add_allowlist');
+    body.append('id', editingCommunityId);
+    body.append('email', email);
+    fetch('?page=communities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString()
+    })
+    .then(response => response.text())
+    .then(text => {
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            console.error('Non-JSON response from add_allowlist:', text);
+            throw new Error('Server returned an unexpected response');
+        }
+        if (data.success) {
+            emailInput.value = '';
+            renderAllowlist(data.allowlist || []);
+            setAllowlistFeedback(data.message || 'Added to allowlist', 'success');
+            showMessage(data.message || 'Added to allowlist', 'success');
+        } else {
+            setAllowlistFeedback(data.message || 'User not found', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error adding allowlist entry:', error);
+        setAllowlistFeedback(error.message || 'Error adding allowlist entry', 'error');
+    })
+    .finally(() => {
+        btn.disabled = false;
+    });
+}
+
+function removeCommunityAllowlistEntry(userId) {
+    if (!editingCommunityId) return;
+    if (!confirm('Remove this user from the allowlist?')) return;
+    const body = new URLSearchParams();
+    body.append('action', 'remove_allowlist');
+    body.append('id', editingCommunityId);
+    body.append('user_id', userId);
+    fetch('?page=communities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString()
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            renderAllowlist(data.allowlist || []);
+            showMessage(data.message || 'Removed from allowlist', 'success');
+        } else {
+            showMessage(data.message || 'Failed to remove allowlist entry', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error removing allowlist entry:', error);
+        showMessage('Error removing allowlist entry', 'error');
+    });
+}
+
+// Load denylist for the currently-edited community
+function loadCommunityDenylist(id) {
+    const listEl = document.getElementById('denylistListBody');
+    if (!listEl) return;
+    listEl.innerHTML = '<div class="moderator-list-empty">Loading…</div>';
+    fetch('?page=communities&action=get_denylist&id=' + encodeURIComponent(id))
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderDenylist(data.denylist || []);
+            } else {
+                listEl.innerHTML = '<div class="moderator-list-empty">Error: ' + escapeHtml(data.message || 'Unknown error') + '</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading denylist:', error);
+            listEl.innerHTML = '<div class="moderator-list-empty">Error loading denylist</div>';
+        });
+}
+
+function renderDenylist(denylist) {
+    const listEl = document.getElementById('denylistListBody');
+    if (!listEl) return;
+    if (!denylist.length) {
+        listEl.innerHTML = '<div class="moderator-list-empty">No denylist entries yet.</div>';
+        return;
+    }
+    const rows = denylist.map(a => {
+        const name = a.display_name || a.name || a.email || a.id;
+        return '<div class="moderator-list-row">'
+            + '<div>'
+            + '<div class="moderator-name">' + escapeHtml(name) + '</div>'
+            + '<div class="moderator-email">' + escapeHtml(a.email || '') + '</div>'
+            + '</div>'
+            + '<button type="button" class="btn-icon btn-delete denylist-remove-btn" title="Remove" data-user-id="' + escapeHtml(a.id) + '">🗑️</button>'
+            + '</div>';
+    }).join('');
+    listEl.innerHTML = rows;
+    listEl.querySelectorAll('.denylist-remove-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            removeCommunityDenylistEntry(this.getAttribute('data-user-id'));
+        });
+    });
+}
+
+function setDenylistFeedback(message, type) {
+    const el = document.getElementById('denylistFormFeedback');
+    if (!el) return;
+    if (!message) {
+        el.style.display = 'none';
+        el.textContent = '';
+        el.className = 'moderator-form-feedback';
+        return;
+    }
+    el.textContent = message;
+    el.className = 'moderator-form-feedback ' + (type || 'error');
+    el.style.display = '';
+}
+
+function addCommunityDenylistEntry() {
+    setDenylistFeedback('', null);
+    if (!editingCommunityId) {
+        setDenylistFeedback('Save the community first before editing the denylist.', 'error');
+        return;
+    }
+    const emailInput = document.getElementById('denylistEmailInput');
+    const email = emailInput.value.trim();
+    if (!email) {
+        setDenylistFeedback('Enter an email address.', 'error');
+        emailInput.focus();
+        return;
+    }
+    const btn = document.getElementById('addDenylistBtn');
+    btn.disabled = true;
+    const body = new URLSearchParams();
+    body.append('action', 'add_denylist');
+    body.append('id', editingCommunityId);
+    body.append('email', email);
+    fetch('?page=communities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString()
+    })
+    .then(response => response.text())
+    .then(text => {
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            console.error('Non-JSON response from add_denylist:', text);
+            throw new Error('Server returned an unexpected response');
+        }
+        if (data.success) {
+            emailInput.value = '';
+            renderDenylist(data.denylist || []);
+            setDenylistFeedback(data.message || 'Added to denylist', 'success');
+            showMessage(data.message || 'Added to denylist', 'success');
+        } else {
+            setDenylistFeedback(data.message || 'User not found', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error adding denylist entry:', error);
+        setDenylistFeedback(error.message || 'Error adding denylist entry', 'error');
+    })
+    .finally(() => {
+        btn.disabled = false;
+    });
+}
+
+function removeCommunityDenylistEntry(userId) {
+    if (!editingCommunityId) return;
+    if (!confirm('Remove this user from the denylist?')) return;
+    const body = new URLSearchParams();
+    body.append('action', 'remove_denylist');
+    body.append('id', editingCommunityId);
+    body.append('user_id', userId);
+    fetch('?page=communities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString()
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            renderDenylist(data.denylist || []);
+            showMessage(data.message || 'Removed from denylist', 'success');
+        } else {
+            showMessage(data.message || 'Failed to remove denylist entry', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error removing denylist entry:', error);
+        showMessage('Error removing denylist entry', 'error');
     });
 }
 

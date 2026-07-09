@@ -655,7 +655,7 @@ if (!function_exists('createItemInDb')) {
             ");
                 foreach ($communityIds as $communityId) {
                     $communityId = (int)$communityId;
-                    $status = determineInitialItemStatus($communityId);
+                    $status = determineInitialItemStatus($communityId, $itemData['user_id']);
                     if ($status === 'online') {
                         $onlineCommunityIds[] = $communityId;
                     }

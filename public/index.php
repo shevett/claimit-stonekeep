@@ -546,7 +546,7 @@ if ($ajaxAction && in_array($ajaxAction, ['add_claim', 'remove_claim', 'remove_c
                 }
 
                 // Save community associations (empty array is allowed for staging)
-                setItemCommunities($trackingNumber, $communityIds);
+                setItemCommunities($trackingNumber, $communityIds, $item['user_id']);
 
                 // Clear items cache since we updated an item
                 clearItemsCache();
@@ -1169,7 +1169,11 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
 
     $siteAdmin = isAdmin();
     $adminOnlyActions = ['create', 'delete'];
-    $ownerOrModeratorActions = ['get', 'update', 'get_moderators', 'add_moderator', 'remove_moderator'];
+    $ownerOrModeratorActions = [
+        'get', 'update', 'get_moderators', 'add_moderator', 'remove_moderator',
+        'get_allowlist', 'add_allowlist', 'remove_allowlist',
+        'get_denylist', 'add_denylist', 'remove_denylist'
+    ];
     $testActions = ['test_slack', 'test_discord'];
 
     if (in_array($action, $adminOnlyActions, true)) {
@@ -1214,6 +1218,22 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
         echo json_encode([
             'success' => true,
             'moderators' => getCommunityModerators($requestCommunityId)
+        ]);
+        exit;
+    }
+
+    if ($action === 'get_allowlist' && $requestCommunityId) {
+        echo json_encode([
+            'success' => true,
+            'allowlist' => getCommunityAllowlist($requestCommunityId)
+        ]);
+        exit;
+    }
+
+    if ($action === 'get_denylist' && $requestCommunityId) {
+        echo json_encode([
+            'success' => true,
+            'denylist' => getCommunityDenylist($requestCommunityId)
         ]);
         exit;
     }
@@ -1462,6 +1482,88 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
                         ]);
                     } else {
                         echo json_encode(['success' => false, 'message' => 'Failed to remove moderator']);
+                    }
+                    break;
+
+                case 'add_allowlist':
+                    $cid = (int)($_POST['id'] ?? 0);
+                    $email = trim($_POST['email'] ?? '');
+                    if (!$cid || $email === '') {
+                        echo json_encode(['success' => false, 'message' => 'Community ID and email are required']);
+                        exit;
+                    }
+                    $userToAdd = getUserByEmail($email);
+                    if (!$userToAdd) {
+                        echo json_encode(['success' => false, 'message' => 'No user found with that email address']);
+                        exit;
+                    }
+                    if (addCommunityAllowlistEntry($userToAdd['id'], $cid)) {
+                        echo json_encode([
+                            'success' => true,
+                            'message' => 'Allowlist entry added',
+                            'allowlist' => getCommunityAllowlist($cid)
+                        ]);
+                    } else {
+                        echo json_encode(['success' => false, 'message' => 'Failed to add allowlist entry']);
+                    }
+                    break;
+
+                case 'remove_allowlist':
+                    $cid = (int)($_POST['id'] ?? 0);
+                    $uid = trim($_POST['user_id'] ?? '');
+                    if (!$cid || $uid === '') {
+                        echo json_encode(['success' => false, 'message' => 'Community ID and user ID are required']);
+                        exit;
+                    }
+                    if (removeCommunityAllowlistEntry($uid, $cid)) {
+                        echo json_encode([
+                            'success' => true,
+                            'message' => 'Allowlist entry removed',
+                            'allowlist' => getCommunityAllowlist($cid)
+                        ]);
+                    } else {
+                        echo json_encode(['success' => false, 'message' => 'Failed to remove allowlist entry']);
+                    }
+                    break;
+
+                case 'add_denylist':
+                    $cid = (int)($_POST['id'] ?? 0);
+                    $email = trim($_POST['email'] ?? '');
+                    if (!$cid || $email === '') {
+                        echo json_encode(['success' => false, 'message' => 'Community ID and email are required']);
+                        exit;
+                    }
+                    $userToAdd = getUserByEmail($email);
+                    if (!$userToAdd) {
+                        echo json_encode(['success' => false, 'message' => 'No user found with that email address']);
+                        exit;
+                    }
+                    if (addCommunityDenylistEntry($userToAdd['id'], $cid)) {
+                        echo json_encode([
+                            'success' => true,
+                            'message' => 'Denylist entry added',
+                            'denylist' => getCommunityDenylist($cid)
+                        ]);
+                    } else {
+                        echo json_encode(['success' => false, 'message' => 'Failed to add denylist entry']);
+                    }
+                    break;
+
+                case 'remove_denylist':
+                    $cid = (int)($_POST['id'] ?? 0);
+                    $uid = trim($_POST['user_id'] ?? '');
+                    if (!$cid || $uid === '') {
+                        echo json_encode(['success' => false, 'message' => 'Community ID and user ID are required']);
+                        exit;
+                    }
+                    if (removeCommunityDenylistEntry($uid, $cid)) {
+                        echo json_encode([
+                            'success' => true,
+                            'message' => 'Denylist entry removed',
+                            'denylist' => getCommunityDenylist($cid)
+                        ]);
+                    } else {
+                        echo json_encode(['success' => false, 'message' => 'Failed to remove denylist entry']);
                     }
                     break;
 

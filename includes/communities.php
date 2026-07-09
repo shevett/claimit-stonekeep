@@ -450,12 +450,220 @@ function isCommunityModerator($userId, $communityId)
 }
 
 /**
+ * Get the allowlist entries for a community.
+ * @param int $communityId Community ID
+ * @return array List of user rows (id, name, display_name, email, created_at)
+ */
+function getCommunityAllowlist($communityId)
+{
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return [];
+    }
+
+    try {
+        $sql = "SELECT u.id, u.name, u.display_name, u.email, cal.created_at
+                FROM community_allowlist cal
+                JOIN users u ON cal.user_id = u.id
+                WHERE cal.community_id = ?
+                ORDER BY COALESCE(u.display_name, u.name) ASC";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$communityId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Error getting community allowlist: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Add a user to a community's allowlist (idempotent).
+ * @param string $userId User ID
+ * @param int $communityId Community ID
+ * @return bool True on success
+ */
+function addCommunityAllowlistEntry($userId, $communityId)
+{
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return false;
+    }
+
+    try {
+        $sql = "INSERT INTO community_allowlist (user_id, community_id, created_at)
+                VALUES (?, ?, NOW())
+                ON DUPLICATE KEY UPDATE user_id = user_id";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$userId, $communityId]);
+        return true;
+    } catch (Exception $e) {
+        error_log("Error adding community allowlist entry: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Remove a user from a community's allowlist.
+ * @param string $userId User ID
+ * @param int $communityId Community ID
+ * @return bool True on success
+ */
+function removeCommunityAllowlistEntry($userId, $communityId)
+{
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return false;
+    }
+
+    try {
+        $stmt = $pdo->prepare("DELETE FROM community_allowlist WHERE user_id = ? AND community_id = ?");
+        $stmt->execute([$userId, $communityId]);
+        return true;
+    } catch (Exception $e) {
+        error_log("Error removing community allowlist entry: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Check if a user is on a community's allowlist.
+ * @param string $userId User ID
+ * @param int $communityId Community ID
+ * @return bool True if a row exists in community_allowlist
+ */
+function isUserOnCommunityAllowlist($userId, $communityId)
+{
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return false;
+    }
+
+    try {
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM community_allowlist WHERE user_id = ? AND community_id = ?");
+        $stmt->execute([$userId, $communityId]);
+        return $stmt->fetchColumn() > 0;
+    } catch (Exception $e) {
+        error_log("Error checking community allowlist: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get the denylist entries for a community.
+ * @param int $communityId Community ID
+ * @return array List of user rows (id, name, display_name, email, created_at)
+ */
+function getCommunityDenylist($communityId)
+{
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return [];
+    }
+
+    try {
+        $sql = "SELECT u.id, u.name, u.display_name, u.email, cdl.created_at
+                FROM community_denylist cdl
+                JOIN users u ON cdl.user_id = u.id
+                WHERE cdl.community_id = ?
+                ORDER BY COALESCE(u.display_name, u.name) ASC";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$communityId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Error getting community denylist: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Add a user to a community's denylist (idempotent).
+ * @param string $userId User ID
+ * @param int $communityId Community ID
+ * @return bool True on success
+ */
+function addCommunityDenylistEntry($userId, $communityId)
+{
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return false;
+    }
+
+    try {
+        $sql = "INSERT INTO community_denylist (user_id, community_id, created_at)
+                VALUES (?, ?, NOW())
+                ON DUPLICATE KEY UPDATE user_id = user_id";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$userId, $communityId]);
+        return true;
+    } catch (Exception $e) {
+        error_log("Error adding community denylist entry: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Remove a user from a community's denylist.
+ * @param string $userId User ID
+ * @param int $communityId Community ID
+ * @return bool True on success
+ */
+function removeCommunityDenylistEntry($userId, $communityId)
+{
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return false;
+    }
+
+    try {
+        $stmt = $pdo->prepare("DELETE FROM community_denylist WHERE user_id = ? AND community_id = ?");
+        $stmt->execute([$userId, $communityId]);
+        return true;
+    } catch (Exception $e) {
+        error_log("Error removing community denylist entry: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Check if a user is on a community's denylist.
+ * @param string $userId User ID
+ * @param int $communityId Community ID
+ * @return bool True if a row exists in community_denylist
+ */
+function isUserOnCommunityDenylist($userId, $communityId)
+{
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return false;
+    }
+
+    try {
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM community_denylist WHERE user_id = ? AND community_id = ?");
+        $stmt->execute([$userId, $communityId]);
+        return $stmt->fetchColumn() > 0;
+    } catch (Exception $e) {
+        error_log("Error checking community denylist: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
  * Decide whether a newly-associated item should start 'hidden' or 'online'
  * in a given community. Single place to add new moderation rules.
+ *
+ * Rule order:
+ *  1. Not moderated -> always 'online'.
+ *  2. Moderated + user on denylist -> always 'hidden', regardless of the
+ *     hide-by-default setting.
+ *  3. Moderated + hide-by-default -> 'hidden', unless the user is on the
+ *     allowlist, in which case 'online'.
+ *  4. Moderated, not hide-by-default, not denylisted -> 'online'.
+ *
  * @param int $communityId Community ID
+ * @param string $userId ID of the user the item is being posted/attributed to
  * @return string 'hidden' or 'online'
  */
-function determineInitialItemStatus($communityId)
+function determineInitialItemStatus($communityId, $userId)
 {
     $pdo = getDbConnection();
     if (!$pdo) {
@@ -469,7 +677,18 @@ function determineInitialItemStatus($communityId)
         $stmt->execute([$communityId]);
         $community = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($community && (bool)$community['moderated'] && (bool)$community['hide_new_items_by_default']) {
+        if (!$community || !(bool)$community['moderated']) {
+            return 'online';
+        }
+
+        if (isUserOnCommunityDenylist($userId, $communityId)) {
+            return 'hidden';
+        }
+
+        if ((bool)$community['hide_new_items_by_default']) {
+            if (isUserOnCommunityAllowlist($userId, $communityId)) {
+                return 'online';
+            }
             return 'hidden';
         }
 
@@ -563,9 +782,10 @@ function getItemCommunities($itemId)
  * Set communities for an item
  * @param string $itemId Item ID
  * @param array $communityIds Array of community IDs (empty array = invisible/staging, no communities)
+ * @param string $userId ID of the item's owner, used to evaluate moderation rules
  * @return bool True on success, false on failure
  */
-function setItemCommunities($itemId, $communityIds)
+function setItemCommunities($itemId, $communityIds, $userId)
 {
     $pdo = getDbConnection();
     if (!$pdo) {
@@ -587,7 +807,7 @@ function setItemCommunities($itemId, $communityIds)
             $stmt = $pdo->prepare($sql);
             foreach ($communityIds as $communityId) {
                 $communityId = (int)$communityId;
-                $status = determineInitialItemStatus($communityId);
+                $status = determineInitialItemStatus($communityId, $userId);
                 $stmt->execute([$itemId, $communityId, $status]);
             }
         }

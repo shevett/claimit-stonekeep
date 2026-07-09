@@ -22,39 +22,57 @@ an earlier point in the project but is now stale.
 | `communities` | `hide_new_items_by_default` (bool) | Only consulted when `moderated = 1`. If true, new items start `hidden`; if false, they start `online` even though the community is moderated (moderators can still hide them manually after the fact). |
 | `items_communities` | `status` (`'online'` \| `'hidden'`) | Per-(item, community) visibility state. An item can be `online` in one community and `hidden` in another simultaneously. |
 | `community_moderators` | `(user_id, community_id)` | Grants moderator role. The community **owner** is an implicit moderator and does not need a row here. |
+| `community_allowlist` | `(user_id, community_id)` | Users whose new listings are made visible immediately even when the community hides new listings by default. |
+| `community_denylist` | `(user_id, community_id)` | Users whose new listings always start hidden in a moderated community, regardless of the hide-by-default setting. |
 
 ## Item submission flow
 
-The hidden/online decision is centralized in **`determineInitialItemStatus($communityId)`**
+The hidden/online decision is centralized in **`determineInitialItemStatus($communityId, $userId)`**
 (`includes/communities.php`), the single place to add new moderation rules going
 forward:
 
 ```php
-function determineInitialItemStatus($communityId)
+function determineInitialItemStatus($communityId, $userId)
 {
     // ... looks up communities.moderated + hide_new_items_by_default ...
-    if ($community && (bool)$community['moderated'] && (bool)$community['hide_new_items_by_default']) {
+    if (!$community || !(bool)$community['moderated']) {
+        return 'online';
+    }
+    if (isUserOnCommunityDenylist($userId, $communityId)) {
+        return 'hidden';
+    }
+    if ((bool)$community['hide_new_items_by_default']) {
+        if (isUserOnCommunityAllowlist($userId, $communityId)) {
+            return 'online';
+        }
         return 'hidden';
     }
     return 'online';
 }
 ```
 
-It is called from both places that create `items_communities` rows:
+Rule order: not moderated → always `online`; moderated + denylisted → always
+`hidden` (denylist wins regardless of the hide-by-default setting); moderated +
+hide-by-default → `hidden` unless allowlisted, in which case `online`;
+moderated, not hide-by-default, not denylisted → `online`.
 
-1. **`createItemInDb()`** (`includes/items.php:590-713`) — initial item submission.
+It is called from both places that create `items_communities` rows, both of
+which now also thread through the posting user's id:
+
+1. **`createItemInDb()`** (`includes/items.php`) — initial item submission.
    Inserts the `items` row, then for each target community calls
-   `determineInitialItemStatus()` and inserts the `items_communities` row with
-   the resulting status. Slack/Discord notifications are sent **only** for
-   communities where the item landed `online` — a pending item does not
-   announce itself as live in a moderated community.
-2. **`setItemCommunities()`** (`includes/communities.php:537-575`) — used by the
-   `edit_item` AJAX action when a user changes which communities an item
-   belongs to. Previously this inserted rows **without** setting `status`,
-   silently relying on the DB column default of `'online'` — meaning editing
-   an item to add it to a moderated community bypassed moderation entirely.
-   This has been fixed: it now calls `determineInitialItemStatus()` per
-   community, same as creation.
+   `determineInitialItemStatus($communityId, $itemData['user_id'])` and
+   inserts the `items_communities` row with the resulting status.
+   Slack/Discord notifications are sent **only** for communities where the
+   item landed `online` — a pending item does not announce itself as live in
+   a moderated community.
+2. **`setItemCommunities($itemId, $communityIds, $userId)`**
+   (`includes/communities.php`) — used by the `edit_item` AJAX action when a
+   user changes which communities an item belongs to. The caller
+   (`public/index.php`, `edit_item` handler) passes the **item's owner**
+   (`$item['user_id']`, fetched before the permission check), not the editing
+   session user, so an admin editing someone else's listing doesn't
+   accidentally apply their own allow/deny status.
 
 There is no separate "submit for approval" step or workflow state beyond this single `online`/`hidden` flag per community.
 
@@ -98,16 +116,35 @@ There are no separate "approve" and "hide" actions — `toggleItemCommunityStatu
 | `removeCommunityModerator($userId, $communityId)` | 408 | Deletes the grant. |
 | `isCommunityModerator($userId, $communityId)` | 431 | The permission check described above. |
 
+## Allowlist / Denylist
+
+Two per-community lists, functionally parallel to the Moderators feature and
+maintained by the same set of people (community moderators or a site admin):
+
+| Function | Behavior |
+|---|---|
+| `getCommunityAllowlist($communityId)` / `getCommunityDenylist($communityId)` | List entries, joined to `users` for display. |
+| `addCommunityAllowlistEntry($userId, $communityId)` / `addCommunityDenylistEntry(...)` | Idempotent insert. |
+| `removeCommunityAllowlistEntry($userId, $communityId)` / `removeCommunityDenylistEntry(...)` | Deletes the entry. |
+| `isUserOnCommunityAllowlist($userId, $communityId)` / `isUserOnCommunityDenylist(...)` | Boolean checks consumed by `determineInitialItemStatus()`. Unlike `isCommunityModerator()`, these have no owner-implies-membership shortcut — membership is strictly by table row. |
+
+AJAX actions `get_allowlist`/`add_allowlist`/`remove_allowlist` and the
+denylist equivalents are gated by the same `$ownerOrModeratorActions`
+permission check as the Moderators actions (`public/index.php`,
+`isCommunityModerator($currentUser['id'], $requestCommunityId)` or site
+admin).
+
 ## UI surfaces
 
-- **`templates/community-edit.php`** — "Moderators" tab: lists current moderators, an email-based "add moderator" form (resolves email → user via `getUserByEmail`, refuses to add someone who already owns the community), and a remove button per row. Also hosts the `moderated` and `hide_new_items_by_default` checkboxes with inline help text explaining the effect.
+- **`templates/community-edit.php`** — "Moderators" tab: lists current moderators, an email-based "add moderator" form (resolves email → user via `getUserByEmail`, refuses to add someone who already owns the community), and a remove button per row. Also hosts the `moderated` and `hide_new_items_by_default` checkboxes with inline help text explaining the effect. "Allowlist" and "Denylist" tabs follow the identical layout/interaction pattern (add by email, remove via trashcan button), reusing the same CSS classes.
 - **`templates/item-card.php:161-173`** — for moderators only, renders either "✅ Approve / Make Visible" (if pending) or "🚫 Hide from Community" (if online), both calling the same `toggleItemVisibility(itemId, communityId)` JS function against the `toggle_item_visibility` AJAX action. A "Not Visible" badge marks pending items in the feed.
 
 ## Known gaps (candidates for future tuning)
 
 1. **No cross-community moderation inbox.** A moderator of several communities must visit each community's page individually to find pending items — there's no unified "pending across all my communities" view.
-2. **No audit trail.** Approving or hiding an item doesn't record who did it or when (`items_communities` has no `updated_by`/`updated_at` for this transition).
-3. **No submitter notification.** A user isn't notified when their item is approved or hidden by a moderator.
+2. **No audit trail.** Approving or hiding an item doesn't record who did it or when (`items_communities` has no `updated_by`/`updated_at` for this transition). The same applies to allow/deny list changes.
+3. **No submitter notification.** A user isn't notified when their item is approved or hidden by a moderator, or when they're added to/removed from an allow/deny list.
 4. **`toggleItemCommunityStatus()` has no built-in authorization** — safe today because it has exactly one, already-gated caller, but that invariant lives in `public/index.php`, not the function itself.
 5. **Binary state only.** There's no "rejected" (vs. "hidden") status, no reason/note field, and hiding an already-online item is indistinguishable in storage from an item that never got approved.
 6. ~~`setItemCommunities()` bypassed moderation when adding an item to a community post-creation~~ — **fixed**; both insertion paths now go through `determineInitialItemStatus()`.
+7. **No cross-list validation.** A user can be on both a community's allowlist and denylist simultaneously (denylist wins, per the rule order above); nothing warns an admin about the conflict when adding to either list.
