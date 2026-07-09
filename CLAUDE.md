@@ -4,7 +4,7 @@ Before any exploration or planning, read docs/architecture.md and docs/current-s
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Supporting documentation
+# Supporting documentation
 Read:
 - docs/architecture.md
 - docs/current-status.md
@@ -49,6 +49,11 @@ composer install
 
 See docs/architecture.md for architecture details.
 
+The SaaS code is in a seperate repository, and must not be intermingled with the opensource code here
+- ~/src/claimit-infra
+- ~/src/claimit-infra/docs/multitenant.md
+
+#
 ## Investigation Strategy
 
 - Read only files relevant to the current task.

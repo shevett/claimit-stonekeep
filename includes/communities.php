@@ -450,6 +450,37 @@ function isCommunityModerator($userId, $communityId)
 }
 
 /**
+ * Decide whether a newly-associated item should start 'hidden' or 'online'
+ * in a given community. Single place to add new moderation rules.
+ * @param int $communityId Community ID
+ * @return string 'hidden' or 'online'
+ */
+function determineInitialItemStatus($communityId)
+{
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return 'online';
+    }
+
+    try {
+        $stmt = $pdo->prepare(
+            "SELECT moderated, hide_new_items_by_default FROM communities WHERE id = ?"
+        );
+        $stmt->execute([$communityId]);
+        $community = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($community && (bool)$community['moderated'] && (bool)$community['hide_new_items_by_default']) {
+            return 'hidden';
+        }
+
+        return 'online';
+    } catch (Exception $e) {
+        error_log("Error determining initial item status: " . $e->getMessage());
+        return 'online';
+    }
+}
+
+/**
  * Get communities owned by a user.
  * @param string $userId User ID
  * @return array Array of community rows with owner_name (like getAllCommunities)
@@ -552,10 +583,12 @@ function setItemCommunities($itemId, $communityIds)
         // Add new associations
         // Empty array means item is not visible in any community (staging/invisible)
         if (!empty($communityIds)) {
-            $sql = "INSERT INTO items_communities (item_id, community_id, created_at) VALUES (?, ?, NOW())";
+            $sql = "INSERT INTO items_communities (item_id, community_id, status, created_at) VALUES (?, ?, ?, NOW())";
             $stmt = $pdo->prepare($sql);
             foreach ($communityIds as $communityId) {
-                $stmt->execute([$itemId, (int)$communityId]);
+                $communityId = (int)$communityId;
+                $status = determineInitialItemStatus($communityId);
+                $stmt->execute([$itemId, $communityId, $status]);
             }
         }
 

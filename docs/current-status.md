@@ -2,7 +2,7 @@
 
 ## Known Issues
 
-- Currently the community moderator function doens't do anything
+- Community moderation is implemented and enforced (see docs/community-moderation.md) but has no cross-community pending queue, no audit trail, and no submitter notifications
 - Uploading multiple images on initial creation isn't possible
 - Rotation of images sometimes collides with cache busting so the rotation isn't accurate
 
@@ -13,5 +13,4 @@
 
 ## Next Priorities
 
-1. Clarify community management
-2. Initiate some sort of moderation on communities
+1. Tune community moderation: add a cross-community pending queue, audit logging, and submitter notifications (see docs/community-moderation.md § Known gaps)

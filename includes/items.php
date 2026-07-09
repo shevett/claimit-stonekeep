@@ -646,18 +646,6 @@ if (!function_exists('createItemInDb')) {
                 $communityIds = [1]; // Default to General community
             }
 
-            // Determine which of the target communities are moderated, and whether
-            // each one hides new postings by default
-            $hideByDefaultMap = [];
-            if (!empty($communityIds)) {
-                $placeholders = implode(',', array_fill(0, count($communityIds), '?'));
-                $modStmt = $pdo->prepare("SELECT id, hide_new_items_by_default FROM communities WHERE id IN ($placeholders) AND moderated = 1");
-                $modStmt->execute(array_map('intval', $communityIds));
-                foreach ($modStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-                    $hideByDefaultMap[(int)$row['id']] = (bool)$row['hide_new_items_by_default'];
-                }
-            }
-
             // Insert community associations
             $onlineCommunityIds = [];
             if (!empty($communityIds)) {
@@ -667,7 +655,7 @@ if (!function_exists('createItemInDb')) {
             ");
                 foreach ($communityIds as $communityId) {
                     $communityId = (int)$communityId;
-                    $status = (isset($hideByDefaultMap[$communityId]) && $hideByDefaultMap[$communityId]) ? 'hidden' : 'online';
+                    $status = determineInitialItemStatus($communityId);
                     if ($status === 'online') {
                         $onlineCommunityIds[] = $communityId;
                     }
