@@ -110,9 +110,9 @@ $flashMessage = showFlashMessage();
                         schema migration against it. Does not create an admin user or set up OAuth -
                         those are separate steps.
                     </small>
-                    <button type="button" class="btn btn-secondary" id="provisionBtn" onclick="provisionTenant()">
-                        <span class="btn-text">🛠️ Provision Database</span>
-                        <span class="btn-loading" style="display: none;">Provisioning…</span>
+                    <button type="button" class="btn <?php echo $dbExists ? 'btn-success' : 'btn-secondary'; ?>" id="provisionBtn" onclick="provisionTenant()">
+                        <span class="btn-text"><?php echo $dbExists ? '🔄 Re-run Provisioning' : '🛠️ Provision Database'; ?></span>
+                        <span class="btn-loading" style="display: none;"><?php echo $dbExists ? 'Re-running…' : 'Provisioning…'; ?></span>
                     </button>
 
                     <div class="deprovision-subsection">
@@ -254,6 +254,15 @@ $flashMessage = showFlashMessage();
     background: #b02a37;
 }
 
+.btn-success {
+    background: #28a745;
+    color: white;
+}
+
+.btn-success:hover {
+    background: #1e7e34;
+}
+
 .btn {
     display: inline-flex;
     align-items: center;
@@ -308,6 +317,7 @@ $flashMessage = showFlashMessage();
 <script>
 let editingTenantId = <?php echo $isEditing ? (int)$tenant['id'] : 'null'; /* nosemgrep: php.lang.security.injection.echoed-request.echoed-request */ ?>;
 let editingTenantPrefix = <?php echo $isEditing ? json_encode($tenant['prefix']) : 'null'; ?>;
+let tenantDbExists = <?php echo $dbExists ? 'true' : 'false'; ?>;
 
 document.getElementById('tenantForm').addEventListener('submit', function(e) {
     e.preventDefault();
@@ -358,7 +368,11 @@ document.getElementById('tenantForm').addEventListener('submit', function(e) {
 
 function provisionTenant() {
     if (!editingTenantId) return;
-    if (!confirm('Create the database and run all schema migrations for this tenant? This does not create an admin user or configure OAuth.')) {
+
+    const confirmMessage = tenantDbExists
+        ? 'Re-run all schema migrations against this tenant\'s existing database? This non-destructively updates the schema to match the latest version - existing data is not touched. This does not create an admin user or configure OAuth.'
+        : 'Create the database and run all schema migrations for this tenant? This does not create an admin user or configure OAuth.';
+    if (!confirm(confirmMessage)) {
         return;
     }
 

@@ -55,16 +55,42 @@ require_once __DIR__ . '/../vendor/autoload.php';
 // Load configuration (this sets session settings)
 require_once __DIR__ . '/../config/config.php';
 
+// Load includes (moved ahead of session_start so tenant resolution below can
+// use getDbConnection()/getTenantDatabaseName() etc. before any session or
+// page logic runs)
+require_once __DIR__ . '/../includes/functions.php';
+
+// Resolve which tenant (if any) this request belongs to, before opening any
+// DB connection or session. Non-multitenant/self-hosted deployments are
+// unaffected: resolveTenantPrefixFromHost() returns null unless
+// CONTROL_PLANE_HOST is configured and the request's Host header is a
+// subdomain of it.
+$tenantPrefix = resolveTenantPrefixFromHost();
+if ($tenantPrefix !== null) {
+    $tenantDbName = getTenantDatabaseName($tenantPrefix);
+    setResolvedDatabaseName($tenantDbName);
+
+    $tenantPdo = getDbConnection();
+    if ($tenantPdo === null) {
+        http_response_code(404);
+        echo '<h1>Site not found</h1><p>This tenant has not been provisioned yet.</p>';
+        exit;
+    }
+
+    $tenantInfo = getTenantInfoFromCurrentConnection($tenantPdo, $tenantPrefix);
+    if (!$tenantInfo || !$tenantInfo['enabled']) {
+        http_response_code(503);
+        echo '<h1>Temporarily unavailable</h1><p>This site is not currently available.</p>';
+        exit;
+    }
+    // else: fall through, rest of the app runs unmodified against the
+    // now-connected tenant database.
+}
+
 // Start session (after session settings are configured)
 ini_set('session.gc_maxlifetime', 86400);     // 24 hours
 session_set_cookie_params(86400);
 session_start();
-
-
-
-// Load includes
-require_once __DIR__ . '/../includes/functions.php';
-
 
 // Load authentication service
 require_once __DIR__ . '/../src/AuthService.php';

@@ -83,14 +83,15 @@ function createTenant($data)
     }
 
     try {
-        $sql = "INSERT INTO tenants (prefix, name, status, enabled, created_at)
-                VALUES (?, ?, ?, ?, NOW())";
+        $sql = "INSERT INTO tenants (prefix, name, status, enabled, db_name, created_at)
+                VALUES (?, ?, ?, ?, ?, NOW())";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
             $data['prefix'],
             $data['name'],
             $data['status'] ?? 'new',
-            isset($data['enabled']) ? (int)$data['enabled'] : 1
+            isset($data['enabled']) ? (int)$data['enabled'] : 1,
+            getTenantDatabaseName($data['prefix'])
         ]);
         return (int)$pdo->lastInsertId();
     } catch (Exception $e) {
@@ -114,7 +115,7 @@ function updateTenant($id, $data)
 
     try {
         $sql = "UPDATE tenants
-                SET prefix = ?, name = ?, status = ?, enabled = ?, updated_at = NOW()
+                SET prefix = ?, name = ?, status = ?, enabled = ?, db_name = ?, updated_at = NOW()
                 WHERE id = ?";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
@@ -122,6 +123,7 @@ function updateTenant($id, $data)
             $data['name'],
             $data['status'] ?? 'new',
             isset($data['enabled']) ? (int)$data['enabled'] : 1,
+            getTenantDatabaseName($data['prefix']),
             $id
         ]);
         return true;
@@ -167,6 +169,52 @@ function getTenantDatabaseName($prefix)
     $normalized = strtolower(str_replace('-', '_', $prefix));
     $normalized = preg_replace('/[^a-z0-9_]/', '', $normalized);
     return 'claimit_' . $normalized;
+}
+
+/**
+ * Resolve the tenant subdomain prefix from the current request's Host
+ * header, e.g. 'acme' from 'acme.claimit.cc'. Returns null if this isn't a
+ * tenant request at all - the control-plane host itself, a self-hosted
+ * instance, localhost, or any other unrelated host - so non-multitenant
+ * deployments are completely unaffected by this function's existence.
+ * @return string|null Tenant prefix, or null if this is not a tenant request
+ */
+function resolveTenantPrefixFromHost()
+{
+    if (!defined('CONTROL_PLANE_HOST')) {
+        return null;
+    }
+
+    $host = strtolower(explode(':', $_SERVER['HTTP_HOST'] ?? '')[0]);
+    $suffix = '.' . strtolower(CONTROL_PLANE_HOST);
+
+    if ($host === strtolower(CONTROL_PLANE_HOST) || !str_ends_with($host, $suffix)) {
+        return null;
+    }
+
+    return substr($host, 0, -strlen($suffix));
+}
+
+/**
+ * Read a tenant's own control-plane row via the tenant_info view, using a
+ * connection already open to that tenant's own database (no second
+ * connection needed - the view is filtered to just this tenant via
+ * db_name = DATABASE() at creation time).
+ * @param PDO $pdo Connection already open to the tenant's database
+ * @param string $prefix Tenant subdomain prefix
+ * @return array|null Tenant row, or null if not found
+ */
+function getTenantInfoFromCurrentConnection($pdo, $prefix)
+{
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM tenant_info WHERE prefix = ?");
+        $stmt->execute([$prefix]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $result ?: null;
+    } catch (Exception $e) {
+        error_log("Error reading tenant_info view: " . $e->getMessage());
+        return null;
+    }
 }
 
 /**

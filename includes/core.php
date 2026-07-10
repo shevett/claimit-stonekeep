@@ -13,6 +13,31 @@ function escape($string)
 }
 
 /**
+ * Set the database name to be used by getDbConnection() for the rest of
+ * this request, overriding the DB_NAME constant. Used to resolve a tenant
+ * subdomain request to that tenant's own database at bootstrap, before
+ * any connection has been opened. Must be called before the first
+ * getDbConnection() call in a request - the connection is memoized, so
+ * calling this after a connection has already been opened has no effect.
+ * @param string $dbName Database name to connect to
+ */
+function setResolvedDatabaseName($dbName)
+{
+    $GLOBALS['__resolved_db_name'] = $dbName;
+}
+
+/**
+ * The database name to use for this request: the tenant-resolved override
+ * if one was set via setResolvedDatabaseName(), otherwise the DB_NAME
+ * constant (today's default, single-instance behavior).
+ * @return string Database name
+ */
+function getResolvedDatabaseName()
+{
+    return $GLOBALS['__resolved_db_name'] ?? DB_NAME;
+}
+
+/**
  * Get database connection
  * Returns a PDO instance or null on failure
  */
@@ -29,7 +54,7 @@ function getDbConnection()
             "mysql:host=%s;port=%d;dbname=%s;charset=%s",
             DB_HOST,
             DB_PORT,
-            DB_NAME,
+            getResolvedDatabaseName(),
             DB_CHARSET
         );
 
