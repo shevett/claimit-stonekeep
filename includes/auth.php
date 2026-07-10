@@ -154,6 +154,63 @@ function isControlPlaneHost()
 }
 
 /**
+ * Create a short-lived, signed handoff token carrying a verified Google
+ * profile across the apex-to-tenant OAuth redirect (Google's redirect_uri
+ * must stay fixed at the apex, so the tenant subdomain never talks to
+ * Google directly - this token lets the apex callback hand a verified
+ * identity to the tenant so it can complete login against its own database).
+ * @param array $googleProfile Verified profile from AuthService::exchangeCodeForProfile()
+ * @param string $tenantPrefix Tenant this login is destined for
+ * @return string Signed token
+ */
+function createOAuthHandoffToken(array $googleProfile, string $tenantPrefix)
+{
+    $payload = json_encode(['profile' => $googleProfile, 'prefix' => $tenantPrefix, 'exp' => time() + 60]);
+    $b64 = rtrim(strtr(base64_encode($payload), '+/', '-_'), '=');
+    $sig = hash_hmac('sha256', $b64, OAUTH_HANDOFF_SECRET);
+    return $b64 . '.' . $sig;
+}
+
+/**
+ * Verify and decode an OAuth handoff token created by createOAuthHandoffToken().
+ * Checks signature integrity, expiry (60s), and that the token's tenant
+ * prefix matches the current request's resolved tenant - a token minted for
+ * one tenant subdomain cannot be replayed against another, even if leaked.
+ * @param string $token Token from the handoff redirect
+ * @param string $expectedPrefix The current request's resolved tenant prefix
+ * @return array|null The verified Google profile, or null if invalid/expired/mismatched
+ */
+function verifyOAuthHandoffToken($token, $expectedPrefix)
+{
+    $parts = explode('.', $token, 2);
+    if (count($parts) !== 2) {
+        return null;
+    }
+    [$b64, $sig] = $parts;
+
+    if (!hash_equals(hash_hmac('sha256', $b64, OAUTH_HANDOFF_SECRET), $sig)) {
+        return null;
+    }
+
+    $decoded = base64_decode(strtr($b64, '-_', '+/'), true);
+    if ($decoded === false) {
+        return null;
+    }
+
+    $payload = json_decode($decoded, true);
+    if (
+        !is_array($payload)
+        || !isset($payload['profile'], $payload['prefix'], $payload['exp'])
+        || $payload['exp'] < time()
+        || $payload['prefix'] !== $expectedPrefix
+    ) {
+        return null;
+    }
+
+    return $payload['profile'];
+}
+
+/**
  * Check if the current user can edit/delete an item (either owner or admin)
  */
 function canUserEditItem($itemUserId)

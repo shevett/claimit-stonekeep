@@ -196,6 +196,21 @@ function resolveTenantPrefixFromHost()
 }
 
 /**
+ * Build the base URL (scheme + host, no path) for a tenant subdomain,
+ * preserving the current request's port for local dev testing (e.g.
+ * acme.localhost:8010).
+ * @param string $prefix Tenant subdomain prefix
+ * @return string Base URL, e.g. 'https://acme.claimit.cc' or 'http://acme.localhost:8010'
+ */
+function buildTenantBaseUrl($prefix)
+{
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $currentHost = $_SERVER['HTTP_HOST'] ?? CONTROL_PLANE_HOST;
+    $portPart = strpos($currentHost, ':') !== false ? ':' . explode(':', $currentHost)[1] : '';
+    return $scheme . '://' . $prefix . '.' . CONTROL_PLANE_HOST . $portPart;
+}
+
+/**
  * Read a tenant's own control-plane row via the tenant_info view, using a
  * connection already open to that tenant's own database (no second
  * connection needed - the view is filtered to just this tenant via

@@ -1758,11 +1758,14 @@ if (isset($_GET['page']) && $_GET['page'] === 'auth' && isset($_GET['action'])) 
     $action = $_GET['action'];
 
     if ($action === 'google') {
-        // Redirect to Google OAuth
+        // Redirect to Google OAuth. If this request came in on a tenant
+        // subdomain, carry the tenant prefix through as state - Google's
+        // redirect_uri must stay fixed at the apex, so this is how the
+        // callback later knows which tenant to hand the login back to.
         try {
             $authService = getAuthService();
             if ($authService) {
-                $authUrl = $authService->getAuthUrl();
+                $authUrl = $authService->getAuthUrl($tenantPrefix ?? '');
                 header('Location: ' . $authUrl);
                 exit;
             } else {
@@ -1776,12 +1779,29 @@ if (isset($_GET['page']) && $_GET['page'] === 'auth' && isset($_GET['action'])) 
             redirect('login');
         }
     } elseif ($action === 'callback') {
-        // Handle Google OAuth callback
+        // Handle Google OAuth callback. This always runs on the apex domain
+        // (Google's redirect_uri is fixed). If the login originated from a
+        // tenant subdomain (valid state), hand the verified profile off to
+        // that tenant via a signed token instead of completing login here -
+        // completing it here would save the user into the apex's own
+        // database, not the tenant's.
         try {
             if (isset($_GET['code'])) {
                 $authService = getAuthService();
                 if ($authService) {
-                    $user = $authService->handleCallback($_GET['code']);
+                    $googleProfile = $authService->exchangeCodeForProfile($_GET['code']);
+                    $callbackState = $_GET['state'] ?? '';
+                    $destinationTenant = $callbackState !== '' ? getTenantByPrefix($callbackState) : null;
+
+                    if ($destinationTenant && $destinationTenant['enabled']) {
+                        $handoffToken = createOAuthHandoffToken($googleProfile, $callbackState);
+                        $completeUrl = buildTenantBaseUrl($callbackState)
+                            . '/?page=auth&action=complete&token=' . urlencode($handoffToken);
+                        header('Location: ' . $completeUrl);
+                        exit;
+                    }
+
+                    $user = $authService->completeLogin($googleProfile);
                     setFlashMessage('Welcome, ' . $user['name'] . '!', 'success');
                     redirect('home');
                 } else {
@@ -1794,6 +1814,34 @@ if (isset($_GET['page']) && $_GET['page'] === 'auth' && isset($_GET['action'])) 
             }
         } catch (Exception $e) {
             // Log authentication errors for debugging
+            error_log('Authentication Error: ' . $e->getMessage());
+            setFlashMessage('Login failed: ' . $e->getMessage(), 'error');
+            redirect('login');
+        }
+    } elseif ($action === 'complete') {
+        // Complete login on the tenant subdomain, using a handoff token
+        // minted by the apex callback above. Runs against this tenant's own
+        // database, since $tenantPrefix was already resolved from this
+        // request's host at bootstrap.
+        try {
+            if (!$tenantPrefix || !isset($_GET['token'])) {
+                throw new Exception('Invalid login handoff request');
+            }
+
+            $googleProfile = verifyOAuthHandoffToken($_GET['token'], $tenantPrefix);
+            if (!$googleProfile) {
+                throw new Exception('Login link expired or invalid - please try logging in again');
+            }
+
+            $authService = getAuthService();
+            if (!$authService) {
+                throw new Exception('Authentication service unavailable');
+            }
+
+            $user = $authService->completeLogin($googleProfile);
+            setFlashMessage('Welcome, ' . $user['name'] . '!', 'success');
+            redirect('home');
+        } catch (Exception $e) {
             error_log('Authentication Error: ' . $e->getMessage());
             setFlashMessage('Login failed: ' . $e->getMessage(), 'error');
             redirect('login');

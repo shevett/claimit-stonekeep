@@ -15,15 +15,18 @@
  * 7. Copy the Client ID and Client Secret below
  */
 
-// Determine the correct redirect URI based on the environment
+// Determine the correct redirect URI based on the environment. This must
+// stay a single, fixed value matching what's registered in Google Cloud
+// Console - Google requires an exact match, no wildcard subdomains. Tenant
+// subdomains never use this directly; see AuthService's handoff-token flow.
 $isLocalhost = isset($_SERVER['HTTP_HOST']) && (
-    $_SERVER['HTTP_HOST'] === 'localhost:8000' || 
+    $_SERVER['HTTP_HOST'] === 'localhost:8000' ||
     $_SERVER['HTTP_HOST'] === '127.0.0.1:8000'
 );
 
-$redirectUri = $isLocalhost 
+$redirectUri = $isLocalhost
     ? 'http://localhost:8000/auth/google/callback'
-    : 'https://claimit.cc/auth/google/callback';
+    : 'https://' . CONTROL_PLANE_HOST . '/auth/google/callback';
 
 return [
     'client_id' => 'YOUR_GOOGLE_CLIENT_ID_HERE',

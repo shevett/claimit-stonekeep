@@ -115,17 +115,7 @@ function testDbConnection()
  */
 function redirect($page = 'home')
 {
-    // Determine the correct base URL based on the environment
-    $isLocalhost = isset($_SERVER['HTTP_HOST']) && (
-        $_SERVER['HTTP_HOST'] === 'localhost:8000' ||
-        $_SERVER['HTTP_HOST'] === '127.0.0.1:8000' ||
-        $_SERVER['HTTP_HOST'] === 'localhost:8080' ||
-        $_SERVER['HTTP_HOST'] === '127.0.0.1:8080'
-    );
-
-    $baseUrl = $isLocalhost
-        ? 'http://' . $_SERVER['HTTP_HOST'] . '/'
-        : 'https://claimit.stonekeep.com/';
+    $baseUrl = getValidatedRedirectBaseUrl();
 
     // Discard any output buffer to allow redirect
     if (ob_get_level()) {
@@ -134,6 +124,53 @@ function redirect($page = 'home')
 
     header('Location: ' . $baseUrl . '?page=' . urlencode($page));
     exit;
+}
+
+/**
+ * Build the base URL to redirect to, validating the current request's Host
+ * header rather than trusting it blindly (this app's production Apache
+ * vhost serves ServerAlias claimit.cc *.claimit.cc, so $_SERVER['HTTP_HOST']
+ * isn't necessarily pre-filtered to only those hosts by the time PHP sees
+ * it). Only the apex control-plane host, or a subdomain of it, are
+ * reflected back; anything else falls back to APP_URL.
+ *
+ * Deliberately does NOT re-query the tenants table to check the subdomain
+ * is a real tenant: this function can run while connected to a *tenant's*
+ * own database (e.g. mid-login, right after setResolvedDatabaseName()), and
+ * that database doesn't have the control-plane tenants data. Instead this
+ * relies on the tenant-resolution gate already run once per request at the
+ * very top of public/index.php's bootstrap, which 404s/503s before any
+ * other code (including this function) runs for an unprovisioned or
+ * disabled tenant - so by the time this executes, a *.CONTROL_PLANE_HOST
+ * host has already been fully validated for this exact request.
+ * @return string Base URL, always ending in '/'
+ */
+function getValidatedRedirectBaseUrl()
+{
+    $host = $_SERVER['HTTP_HOST'] ?? '';
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+
+    if ($host === '') {
+        return rtrim(APP_URL, '/') . '/';
+    }
+
+    if (!defined('CONTROL_PLANE_HOST')) {
+        // Self-hosted/non-multitenant instance - no tenant concept at all,
+        // so there's nothing more specific to check the host against than
+        // "this is the host the server actually received."
+        return $scheme . '://' . $host . '/';
+    }
+
+    $hostWithoutPort = strtolower(explode(':', $host)[0]);
+    $controlPlaneHost = strtolower(CONTROL_PLANE_HOST);
+    $suffix = '.' . $controlPlaneHost;
+
+    if ($hostWithoutPort === $controlPlaneHost || str_ends_with($hostWithoutPort, $suffix)) {
+        return $scheme . '://' . $host . '/';
+    }
+
+    // Unrecognized host - don't reflect it back into a redirect target
+    return rtrim(APP_URL, '/') . '/';
 }
 
 /**

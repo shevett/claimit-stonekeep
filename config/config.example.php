@@ -57,6 +57,11 @@ define('ADMIN_USER_ID', '112659624466139657672'); // Replace with actual admin u
 // for self-hosted/tenant instances.
 define('CONTROL_PLANE_HOST', 'claimit.cc');
 
+// Signing key for short-lived OAuth tenant handoff tokens (see AuthService).
+// Distinct from the Google OAuth client secret - different cryptographic
+// purpose. Generate your own with: php -r "echo bin2hex(random_bytes(32));"
+define('OAUTH_HANDOFF_SECRET', 'replace-with-your-own-generated-secret');
+
 // Session configuration
 ini_set('session.cookie_httponly', 1);
 ini_set('session.use_only_cookies', 1);

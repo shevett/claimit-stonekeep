@@ -33,16 +33,27 @@ class AuthService
 
     /**
      * Get Google OAuth authorization URL
+     * @param string $state Opaque value round-tripped by Google, used here to
+     *                      carry the originating tenant prefix (empty string
+     *                      for apex/self-hosted logins) across the redirect.
      */
-    public function getAuthUrl(): string
+    public function getAuthUrl(string $state = ''): string
     {
+        if ($state !== '') {
+            $this->googleClient->setState($state);
+        }
         return $this->googleClient->createAuthUrl();
     }
 
     /**
-     * Handle OAuth callback and authenticate user
+     * Exchange a Google OAuth authorization code for a verified, normalized
+     * user profile. Does NOT touch the database or session - callers decide
+     * where/when to complete login (see completeLogin()), since on a
+     * multitenant setup this callback always runs on the apex domain
+     * (Google's redirect_uri must be fixed), which may not be the correct
+     * tenant database to save the user into.
      */
-    public function handleCallback(string $code): array
+    public function exchangeCodeForProfile(string $code): array
     {
         try {
             // Exchange authorization code for access token
@@ -66,7 +77,7 @@ class AuthService
             }
 
             // Create user profile
-            $user = [
+            return [
                 'id' => $userInfo->id,
                 'email' => $userInfo->email,
                 'name' => $userInfo->name,
@@ -76,32 +87,54 @@ class AuthService
                 'last_login' => date('Y-m-d H:i:s'),
                 'created_at' => date('Y-m-d H:i:s')
             ];
-
-
-
-            // Load existing user profile if it exists
-            $existingUser = getUserById($user['id']);
-            if ($existingUser) {
-                // Update last login and merge any new info
-                $user['created_at'] = $existingUser['created_at'];
-                // Preserve user preferences from database
-                $user['display_name'] = $existingUser['display_name'] ?? null;
-                $user['zipcode'] = $existingUser['zipcode'] ?? null;
-                $user['show_gone_items'] = $existingUser['show_gone_items'] ?? true;
-                $user['email_notifications'] = $existingUser['email_notifications'] ?? true;
-                $user['new_listing_notifications'] = $existingUser['new_listing_notifications'] ?? true;
-            }
-
-            // Save user profile to database
-            saveUser($user);
-
-            // Store user in session
-            $this->loginUser($user);
-
-            return $user;
         } catch (\Exception $e) {
             throw new \Exception('Authentication failed: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Complete login for an already-verified Google profile: merge with any
+     * existing stored preferences, save to the database, and start the
+     * session. Uses whichever database getDbConnection() currently points
+     * at - callers must ensure that's the correct (tenant) database before
+     * calling this.
+     * @param array $googleProfile Profile from exchangeCodeForProfile(), or
+     *                             decoded from a verified OAuth handoff token
+     */
+    public function completeLogin(array $googleProfile): array
+    {
+        $user = $googleProfile;
+
+        // Load existing user profile if it exists
+        $existingUser = getUserById($user['id']);
+        if ($existingUser) {
+            // Update last login and merge any new info
+            $user['created_at'] = $existingUser['created_at'];
+            // Preserve user preferences from database
+            $user['display_name'] = $existingUser['display_name'] ?? null;
+            $user['zipcode'] = $existingUser['zipcode'] ?? null;
+            $user['show_gone_items'] = $existingUser['show_gone_items'] ?? true;
+            $user['email_notifications'] = $existingUser['email_notifications'] ?? true;
+            $user['new_listing_notifications'] = $existingUser['new_listing_notifications'] ?? true;
+        }
+
+        // Save user profile to database
+        saveUser($user);
+
+        // Store user in session
+        $this->loginUser($user);
+
+        return $user;
+    }
+
+    /**
+     * Handle OAuth callback and authenticate user (apex/self-hosted path -
+     * exchanges the code and completes login in one step, against whichever
+     * database is currently connected).
+     */
+    public function handleCallback(string $code): array
+    {
+        return $this->completeLogin($this->exchangeCodeForProfile($code));
     }
 
     /**
