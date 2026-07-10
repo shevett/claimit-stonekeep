@@ -372,7 +372,7 @@ if (!function_exists('generateOpenGraphTags')) {
         }
 
         $siteName = 'ClaimIt';
-        $defaultDescription = 'Find and share items in your community';
+        $defaultDescription = 'Share more. Waste less.";
 
         $metaTags = [];
 
