@@ -372,7 +372,7 @@ if (!function_exists('generateOpenGraphTags')) {
         }
 
         $siteName = 'ClaimIt';
-        $defaultDescription = 'Share more. Waste less.";
+        $defaultDescription = 'Share more. Waste less.';
 
         $metaTags = [];
 
