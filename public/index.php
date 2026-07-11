@@ -67,20 +67,29 @@ require_once __DIR__ . '/../includes/functions.php';
 // subdomain of it.
 $tenantPrefix = resolveTenantPrefixFromHost();
 if ($tenantPrefix !== null) {
+    $tenantRow = getControlPlaneTenantByPrefix($tenantPrefix);
+
+    if ($tenantRow === null) {
+        // No such tenant registered at all - bounce back to the control plane.
+        header('Location: https://' . CONTROL_PLANE_HOST . '/');
+        exit;
+    }
+
+    if (!$tenantRow['enabled'] || $tenantRow['status'] !== 'provisioned') {
+        http_response_code(503);
+        include __DIR__ . '/../templates/tenant-unavailable.php';
+        exit;
+    }
+
     $tenantDbName = getTenantDatabaseName($tenantPrefix);
     setResolvedDatabaseName($tenantDbName);
 
     $tenantPdo = getDbConnection();
     if ($tenantPdo === null) {
-        http_response_code(404);
-        echo '<h1>Site not found</h1><p>This tenant has not been provisioned yet.</p>';
-        exit;
-    }
-
-    $tenantInfo = getTenantInfoFromCurrentConnection($tenantPdo, $tenantPrefix);
-    if (!$tenantInfo || !$tenantInfo['enabled']) {
+        // Marked provisioned/enabled in the control plane, but the DB itself
+        // is unreachable (e.g. dropped out-of-band). Same UX as disabled.
         http_response_code(503);
-        echo '<h1>Temporarily unavailable</h1><p>This site is not currently available.</p>';
+        include __DIR__ . '/../templates/tenant-unavailable.php';
         exit;
     }
     // else: fall through, rest of the app runs unmodified against the

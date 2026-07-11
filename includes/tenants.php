@@ -211,23 +211,27 @@ function buildTenantBaseUrl($prefix)
 }
 
 /**
- * Read a tenant's own control-plane row via the tenant_info view, using a
- * connection already open to that tenant's own database (no second
- * connection needed - the view is filtered to just this tenant via
- * db_name = DATABASE() at creation time).
- * @param PDO $pdo Connection already open to the tenant's database
+ * Look up a tenant by subdomain prefix directly against the control-plane
+ * database (DB_NAME), using a dedicated raw connection rather than
+ * getDbConnection(). This must never go through getDbConnection() at
+ * bootstrap: that function memoizes its PDO connection for the life of the
+ * request, so calling it here (before setResolvedDatabaseName() runs) would
+ * permanently pin the request to the control-plane database instead of the
+ * tenant's own database.
  * @param string $prefix Tenant subdomain prefix
  * @return array|null Tenant row, or null if not found
  */
-function getTenantInfoFromCurrentConnection($pdo, $prefix)
+function getControlPlaneTenantByPrefix($prefix)
 {
     try {
-        $stmt = $pdo->prepare("SELECT * FROM tenant_info WHERE prefix = ?");
+        $dsn = sprintf('mysql:host=%s;port=%d;dbname=%s;charset=%s', DB_HOST, DB_PORT, DB_NAME, DB_CHARSET);
+        $pdo = new PDO($dsn, DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        $stmt = $pdo->prepare("SELECT * FROM tenants WHERE prefix = ?");
         $stmt->execute([$prefix]);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         return $result ?: null;
     } catch (Exception $e) {
-        error_log("Error reading tenant_info view: " . $e->getMessage());
+        error_log("Error looking up control-plane tenant by prefix: " . $e->getMessage());
         return null;
     }
 }
