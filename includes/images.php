@@ -482,8 +482,10 @@ if (!function_exists('getItemImages')) {
                 return [];
             }
 
-            // Get all objects in the images/ directory
-            $result = $awsService->listObjects('images/', 1000);
+            // Get all objects under this tenant's images/ directory
+            // (getTenantImagePathSegment() is '' outside a tenant subdomain)
+            $imageBase = 'images/' . getTenantImagePathSegment();
+            $result = $awsService->listObjects($imageBase, 1000);
             $objects = $result['objects'] ?? [];
 
             $images = [];
@@ -495,8 +497,8 @@ if (!function_exists('getItemImages')) {
 
                 // Check each extension
                 foreach ($imageExtensions as $ext) {
-                    // Match primary image: images/TRACKINGNUM.ext
-                    if ($key === "images/{$trackingNumber}.{$ext}") {
+                    // Match primary image: {imageBase}TRACKINGNUM.ext
+                    if ($key === "{$imageBase}{$trackingNumber}.{$ext}") {
                         $images[] = [
                         'key' => $key, // Store full S3 path with images/ prefix
                         'index' => null, // Primary image has no index
@@ -504,8 +506,8 @@ if (!function_exists('getItemImages')) {
                         break;
                     }
 
-                    // Match additional images: images/TRACKINGNUM-N.ext
-                    $pattern = "/^images\/" . preg_quote($trackingNumber, '/') . "-(\d+)\.{$ext}$/";
+                    // Match additional images: {imageBase}TRACKINGNUM-N.ext
+                    $pattern = "/^" . preg_quote($imageBase, '/') . preg_quote($trackingNumber, '/') . "-(\d+)\.{$ext}$/";
                     if (preg_match($pattern, $key, $matches)) {
                         $images[] = [
                         'key' => $key, // Store full S3 path with images/ prefix
@@ -542,14 +544,16 @@ if (!function_exists('getItemImages')) {
  * Extract image index from image key
  * Returns null for primary image, integer for additional images
  *
- * @param string $imageKey The image key (with or without 'images/' prefix)
+ * @param string $imageKey The image key (with or without a directory prefix)
  * @return int|null The image index or null for primary
  */
 if (!function_exists('getImageIndex')) {
     function getImageIndex($imageKey)
     {
-        // Remove 'images/' prefix if present
-        $imageKey = str_replace('images/', '', $imageKey);
+        // Work from the filename alone - prefix-agnostic, so this keeps
+        // working whether the key is 'images/X.jpg' or
+        // 'images/tenants/acme/X.jpg'.
+        $imageKey = basename($imageKey);
 
         // Pattern: TRACKINGNUM-INDEX.ext where tracking number is YmdHis or YmdHis-xxxx
         // Format examples:
@@ -712,7 +716,7 @@ if (!function_exists('getStagingImages')) {
         }
 
         try {
-            $result = $awsService->listObjects('staging/' . $stagingId . '/', 100);
+            $result = $awsService->listObjects('staging/' . getTenantImagePathSegment() . $stagingId . '/', 100);
             $objects = $result['objects'] ?? [];
 
             $images = [];
@@ -777,7 +781,7 @@ if (!function_exists('uploadStagingImage')) {
             $nextIndex++;
         }
 
-        $s3Key = 'staging/' . $stagingId . '/img-' . $nextIndex . '.' . $ext;
+        $s3Key = 'staging/' . getTenantImagePathSegment() . $stagingId . '/img-' . $nextIndex . '.' . $ext;
 
         // Resize before upload
         $tempPath = tempnam(sys_get_temp_dir(), 'claimit_staging_');
@@ -814,7 +818,7 @@ if (!function_exists('rotateStagingImage')) {
     function rotateStagingImage(string $stagingId, string $imageKey): string
     {
         // Validate key belongs to this staging session
-        if (strpos($imageKey, 'staging/' . $stagingId . '/') !== 0) {
+        if (strpos($imageKey, 'staging/' . getTenantImagePathSegment() . $stagingId . '/') !== 0) {
             throw new Exception('Invalid image key');
         }
 
@@ -845,7 +849,7 @@ if (!function_exists('rotateStagingImage')) {
 if (!function_exists('deleteStagingImage')) {
     function deleteStagingImage(string $stagingId, string $imageKey): void
     {
-        if (strpos($imageKey, 'staging/' . $stagingId . '/') !== 0) {
+        if (strpos($imageKey, 'staging/' . getTenantImagePathSegment() . $stagingId . '/') !== 0) {
             throw new Exception('Invalid image key');
         }
 
@@ -884,6 +888,7 @@ if (!function_exists('promoteStagingImages')) {
         $primaryKey    = null;
         $primaryWidth  = null;
         $primaryHeight = null;
+        $imageBase     = 'images/' . getTenantImagePathSegment();
 
         foreach ($stagingImages as $i => $img) {
             $srcKey = $img['key'];
@@ -891,9 +896,9 @@ if (!function_exists('promoteStagingImages')) {
             $ext    = strtolower(pathinfo($srcKey, PATHINFO_EXTENSION));
 
             if ($i === 0) {
-                $destKey = 'images/' . $trackingNumber . '.' . $ext;
+                $destKey = $imageBase . $trackingNumber . '.' . $ext;
             } else {
-                $destKey = 'images/' . $trackingNumber . '-' . ($i + 1) . '.' . $ext;
+                $destKey = $imageBase . $trackingNumber . '-' . ($i + 1) . '.' . $ext;
             }
 
             $awsService->putObject($destKey, $obj['content'], $obj['content_type']);

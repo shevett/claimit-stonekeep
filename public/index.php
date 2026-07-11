@@ -2385,6 +2385,7 @@ $performanceData = [
     <!-- Search functionality -->
     <script>
     (function() {
+        const CLOUDFRONT_DOMAIN = <?= json_encode(defined('CLOUDFRONT_DOMAIN') ? CLOUDFRONT_DOMAIN : '') ?>;
         const searchInput = document.getElementById('searchInput');
         const clearBtn = document.getElementById('clearSearch');
         const mainContent = document.querySelector('.main-content');
@@ -2488,8 +2489,8 @@ $performanceData = [
         }
         
         function generateItemCard(item) {
-            const imageUrl = item.image_file ? 
-                'https://dpwmq6brmwcyc.cloudfront.net/' + item.image_file.replace('images/', '') :
+            const imageUrl = item.image_file ?
+                'https://' + CLOUDFRONT_DOMAIN + '/' + item.image_file.replace('images/', '') :
                 '/assets/images/placeholder.jpg';
             
             const itemUrl = '/?page=item&id=' + encodeURIComponent(item.id);
