@@ -196,6 +196,20 @@ function resolveTenantPrefixFromHost()
 }
 
 /**
+ * The S3 key segment to insert into image/staging paths for the current
+ * request's tenant, e.g. 'tenants/acme/'. Empty string for the main site
+ * and self-hosted deployments, so callers can just concatenate it in
+ * unconditionally - 'images/' . getTenantImagePathSegment() . ... collapses
+ * back to today's 'images/...' keys outside a tenant subdomain.
+ * @return string
+ */
+function getTenantImagePathSegment(): string
+{
+    $prefix = resolveTenantPrefixFromHost();
+    return $prefix !== null ? 'tenants/' . $prefix . '/' : '';
+}
+
+/**
  * Build the base URL (scheme + host, no path) for a tenant subdomain,
  * preserving the current request's port for local dev testing (e.g.
  * acme.localhost:8010).
@@ -360,5 +374,69 @@ function deprovisionTenantDatabase($tenantId)
     } catch (Exception $e) {
         error_log("Error deprovisioning tenant database: " . $e->getMessage());
         return ['success' => false, 'message' => 'Deprovisioning failed: ' . $e->getMessage()];
+    }
+}
+
+/**
+ * Grant admin rights in a tenant's own database to a user already known to
+ * the control plane, identified by email. Lets a super-admin bootstrap a
+ * tenant's first admin without that user needing to be manually created in
+ * the (otherwise still-empty) tenant database first.
+ *
+ * Uses a dedicated raw connection to the tenant's database, never
+ * getDbConnection() (same reasoning as getControlPlaneTenantByPrefix() /
+ * provisionTenantDatabase(): this can run from the control-plane host, so it
+ * must not go through the memoized connection that getDbConnection() holds
+ * for the life of the request).
+ *
+ * Idempotent: works whether or not the user already has a row in this
+ * tenant's database (e.g. they logged into the tenant before being
+ * promoted). Their next real OAuth login on the tenant subdomain fills in
+ * the remaining profile fields (picture, locale, etc.) normally -
+ * AuthService::completeLogin() now preserves is_admin instead of resetting
+ * it to 0.
+ *
+ * @param int $tenantId Tenant ID
+ * @param string $email Control-plane user's email address
+ * @return array ['success' => bool, 'message' => string]
+ */
+function seedTenantAdminByEmail($tenantId, $email)
+{
+    $tenant = getTenantById($tenantId);
+    if (!$tenant) {
+        return ['success' => false, 'message' => 'Tenant not found'];
+    }
+
+    $controlPlaneUser = getUserByEmail($email);
+    if (!$controlPlaneUser) {
+        return [
+            'success' => false,
+            'message' => 'No control-plane user found with that email - they need to log into the main site at least once first.'
+        ];
+    }
+
+    $dbName = getTenantDatabaseName($tenant['prefix']);
+    if ($dbName === 'claimit_') {
+        return ['success' => false, 'message' => 'Tenant prefix produced an empty database name'];
+    }
+
+    try {
+        $dsn = sprintf('mysql:host=%s;port=%d;dbname=%s;charset=%s', DB_HOST, DB_PORT, $dbName, DB_CHARSET);
+        $pdo = new PDO($dsn, DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+
+        $stmt = $pdo->prepare(
+            'INSERT INTO users (id, email, name, verified_email, created_at, is_admin)
+             VALUES (?, ?, ?, 0, NOW(), 1)
+             ON DUPLICATE KEY UPDATE is_admin = 1'
+        );
+        $stmt->execute([$controlPlaneUser['id'], $controlPlaneUser['email'], $controlPlaneUser['name']]);
+
+        return [
+            'success' => true,
+            'message' => $controlPlaneUser['email'] . ' is now an admin of ' . $dbName
+        ];
+    } catch (Exception $e) {
+        error_log("Error seeding tenant admin: " . $e->getMessage());
+        return ['success' => false, 'message' => 'Failed to grant admin: ' . $e->getMessage()];
     }
 }

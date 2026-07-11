@@ -116,6 +116,7 @@ class AuthService
             $user['show_gone_items'] = $existingUser['show_gone_items'] ?? true;
             $user['email_notifications'] = $existingUser['email_notifications'] ?? true;
             $user['new_listing_notifications'] = $existingUser['new_listing_notifications'] ?? true;
+            $user['is_admin'] = $existingUser['is_admin'] ?? false;
         }
 
         // Save user profile to database

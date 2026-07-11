@@ -127,6 +127,24 @@ $flashMessage = showFlashMessage();
                         </button>
                     </div>
                 </div>
+
+                    <?php if ($dbExists) : ?>
+                <div class="provision-section">
+                    <label>Tenant Admin</label>
+                    <small class="form-help">
+                        Grant admin rights in this tenant's own database to a user who has already
+                        logged into the main site. They'll show up as an admin the next time they
+                        log into this tenant's subdomain.
+                    </small>
+                    <div class="moderator-add-row">
+                        <input type="email" id="tenantAdminEmailInput" placeholder="Enter user's email"
+                               onkeydown="if (event.key === 'Enter') { event.preventDefault(); setTenantAdmin(); }">
+                        <button type="button" class="btn btn-secondary" id="setTenantAdminBtn" onclick="setTenantAdmin()">
+                            ➕ Make Admin
+                        </button>
+                    </div>
+                </div>
+                    <?php endif; ?>
                 <?php endif; ?>
             </div>
         </div>
@@ -243,6 +261,20 @@ $flashMessage = showFlashMessage();
     margin-top: 1.5rem;
     padding-top: 1.5rem;
     border-top: 1px dashed #ddd;
+}
+
+.moderator-add-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.moderator-add-row input[type="email"] {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    font-size: 1rem;
 }
 
 .btn-danger {
@@ -462,6 +494,47 @@ function deprovisionTenant() {
         btn.disabled = false;
         btnText.style.display = 'inline';
         btnLoading.style.display = 'none';
+    });
+}
+
+function setTenantAdmin() {
+    if (!editingTenantId) return;
+
+    const emailInput = document.getElementById('tenantAdminEmailInput');
+    const email = emailInput.value.trim();
+    if (!email) {
+        showMessage('Enter an email address first', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('setTenantAdminBtn');
+    btn.disabled = true;
+
+    const body = new URLSearchParams();
+    body.append('action', 'set_tenant_admin');
+    body.append('id', editingTenantId);
+    body.append('email', email);
+
+    fetch('?page=admin-tenants', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString()
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showMessage(data.message || 'Admin granted successfully!', 'success');
+            emailInput.value = '';
+        } else {
+            showMessage('Error: ' + (data.message || 'Unknown error'), 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showMessage('Error granting tenant admin', 'error');
+    })
+    .finally(() => {
+        btn.disabled = false;
     });
 }
 

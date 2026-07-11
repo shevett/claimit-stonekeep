@@ -1751,6 +1751,15 @@ if (isset($_GET['page']) && $_GET['page'] === 'admin-tenants' && (isset($_GET['a
                     echo json_encode(deprovisionTenantDatabase((int)$_POST['id']));
                     break;
 
+                case 'set_tenant_admin':
+                    if (empty($_POST['id']) || empty($_POST['email'])) {
+                        echo json_encode(['success' => false, 'message' => 'Tenant ID and email required']);
+                        exit;
+                    }
+
+                    echo json_encode(seedTenantAdminByEmail((int)$_POST['id'], trim($_POST['email'])));
+                    break;
+
                 default:
                     echo json_encode(['success' => false, 'message' => 'Invalid action']);
             }
