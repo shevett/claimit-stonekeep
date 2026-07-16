@@ -189,8 +189,9 @@ if ($canEditItem && !empty($itemCommunityIds)) {
                              height="<?php echo escape($item['image_height']); ?>"
                              <?php endif; ?>>
                         <?php
-                        // Show rotation button only for item owners
-                        if ($isOwnItem) : ?>
+                        // Show rotation button for item owners and admins - matches the
+                        // owner-or-admin authorization the rotate_image action already enforces
+                        if ($canEditItem) : ?>
                             <button onclick="rotateCurrentImage()" 
                                     class="rotate-btn" 
                                     id="rotateBtn"
@@ -225,7 +226,7 @@ if ($canEditItem && !empty($itemCommunityIds)) {
                                 <img src="<?php echo escape($thumbUrl); ?>" 
                                      alt="Thumbnail" 
                                      class="image-thumbnail <?php echo $isPrimary ? 'active' : ''; ?>">
-                                <?php if ($isOwnItem) : ?>
+                                <?php if ($canEditItem) : ?>
                                     <div class="thumbnail-controls">
                                         <button onclick="event.stopPropagation(); rotateImage('<?php echo escape($item['id']); ?>', <?php echo $imageIndex === null ? 'null' : $imageIndex; ?>)" 
                                                 class="thumb-btn thumb-rotate" 
@@ -240,7 +241,7 @@ if ($canEditItem && !empty($itemCommunityIds)) {
                             </div>
                         <?php endforeach; ?>
                         
-                        <?php if ($isOwnItem && count($allImages) < 10) : ?>
+                        <?php if ($canEditItem && count($allImages) < 10) : ?>
                         <!-- Add More Images Button -->
                         <div class="thumbnail-wrapper add-image-wrapper">
                             <label for="addImageInput" class="add-image-btn">
@@ -255,7 +256,7 @@ if ($canEditItem && !empty($itemCommunityIds)) {
                         </div>
                         <?php endif; ?>
                     </div>
-                    <?php elseif ($isOwnItem && count($allImages) === 1) : ?>
+                    <?php elseif ($canEditItem && count($allImages) === 1) : ?>
                     <!-- Show add button even with just 1 image -->
                     <div class="image-thumbnails">
                         <div class="thumbnail-wrapper add-image-wrapper">
