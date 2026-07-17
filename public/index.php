@@ -954,7 +954,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'settings' && isset($_GET['action'
 }
 
 // Handle admin AJAX requests before any HTML output
-if (isset($_GET['page']) && $_GET['page'] === 'admin' && isset($_GET['action'])) {
+if (isset($_GET['page']) && in_array($_GET['page'], ['admin-tests', 'admin-users']) && isset($_GET['action'])) {
     header('Content-Type: application/json');
 
     if (!isLoggedIn()) {
@@ -1067,7 +1067,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'admin' && isset($_GET['action']))
 }
 
 // Handle admin POST requests for updating users
-if (isset($_POST['action']) && $_POST['action'] === 'update_user' && isset($_GET['page']) && $_GET['page'] === 'admin') {
+if (isset($_POST['action']) && $_POST['action'] === 'update_user' && isset($_GET['page']) && $_GET['page'] === 'admin-users') {
     header('Content-Type: application/json');
 
     if (!isLoggedIn()) {
@@ -1889,7 +1889,7 @@ $page = $_GET['page'] ?? 'home';
 $page = preg_replace('/[^a-zA-Z0-9\-]/', '', $page);
 
 // Define available pages
-$availablePages = ['home', 'organizations', 'about', 'contact', 'claim', 'items', 'item', 'login', 'user-listings', 'settings', 'admin', 'changelog', 'communities', 'community', 'community-edit', 'admin-tenants', 'tenant-edit'];
+$availablePages = ['home', 'organizations', 'about', 'contact', 'claim', 'items', 'item', 'login', 'user-listings', 'settings', 'admin', 'changelog', 'communities', 'community', 'community-edit', 'admin-tenants', 'tenant-edit', 'admin-tests', 'admin-reports', 'admin-users'];
 
 if (!in_array($page, $availablePages)) {
     $page = 'home';
@@ -1907,7 +1907,7 @@ $isLoggedIn = false;
 // Check authentication for navigation (but don't initialize AWS unless needed)
 if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['authenticated']) && $_SESSION['authenticated']) {
     // Only initialize AWS if we actually need it for this page
-    $authRequiredPages = ['dashboard', 'claim', 'settings', 'admin', 'admin-tenants', 'tenant-edit'];
+    $authRequiredPages = ['dashboard', 'claim', 'settings', 'admin', 'admin-tenants', 'tenant-edit', 'admin-tests', 'admin-reports', 'admin-users'];
     if (in_array($page, $authRequiredPages)) {
         $currentUser = getCurrentUser();
         $isLoggedIn = isLoggedIn();
