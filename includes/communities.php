@@ -302,6 +302,31 @@ function getCommunityMemberCount($communityId)
 }
 
 /**
+ * Get item count for a community, split by visibility status
+ * @param int $communityId Community ID
+ * @return array ['total' => int, 'hidden' => int]
+ */
+function getCommunityItemCount($communityId)
+{
+    $pdo = getDbConnection();
+    if (!$pdo) {
+        return ['total' => 0, 'hidden' => 0];
+    }
+
+    try {
+        $stmt = $pdo->prepare(
+            "SELECT COUNT(*) AS total, SUM(status = 'hidden') AS hidden FROM items_communities WHERE community_id = ?"
+        );
+        $stmt->execute([$communityId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return ['total' => (int)($row['total'] ?? 0), 'hidden' => (int)($row['hidden'] ?? 0)];
+    } catch (Exception $e) {
+        error_log("Error getting community item count: " . $e->getMessage());
+        return ['total' => 0, 'hidden' => 0];
+    }
+}
+
+/**
  * Check if a user owns a community
  * @param string $userId User ID
  * @param int $communityId Community ID

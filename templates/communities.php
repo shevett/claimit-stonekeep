@@ -73,6 +73,7 @@ $flashMessage = showFlashMessage();
                             <th>Full Name</th>
                             <th>Description</th>
                             <th>Members</th>
+                            <th>Items</th>
                             <th>Owner</th>
                             <th>Created</th>
                             <?php if ($currentUser) : ?>
@@ -87,7 +88,7 @@ $flashMessage = showFlashMessage();
                         <?php if (empty($communities)) : ?>
                             <tr>
                                 <?php
-                                $colspan = 7; // Base columns (ID, Short Name, Full Name, Description, Members, Owner, Created)
+                                $colspan = 8; // Base columns (ID, Short Name, Full Name, Description, Members, Items, Owner, Created)
                                 if ($currentUser) {
                                     $colspan++; // Add membership column
                                 }
@@ -103,6 +104,7 @@ $flashMessage = showFlashMessage();
                             <?php foreach ($communities as $community) : ?>
                                 <?php
                                 $memberCount = getCommunityMemberCount($community['id']);
+                                $itemCount = getCommunityItemCount($community['id']);
                                 $isMember = $currentUser ? isUserInCommunity($currentUser['id'], $community['id']) : false;
                                 ?>
                                 <tr>
@@ -120,6 +122,12 @@ $flashMessage = showFlashMessage();
                                         ?>
                                     </td>
                                     <td class="member-count"><?php echo escape($memberCount); ?></td>
+                                    <td class="item-count">
+                                        <?php echo escape($itemCount['total']); ?>
+                                        <?php if ($itemCount['hidden'] > 0) : ?>
+                                            <span class="hidden-count">(<?php echo escape($itemCount['hidden']); ?>)</span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td class="owner-cell">
                                         <?php if ($community['owner_name']) : ?>
                                             <a href="/?page=user-listings&id=<?php echo escape($community['owner_id']); ?>" class="owner-link">
@@ -329,10 +337,16 @@ $flashMessage = showFlashMessage();
     font-style: italic;
 }
 
-.member-count {
+.member-count,
+.item-count {
     text-align: center;
     font-weight: 600;
     color: #666;
+}
+
+.item-count .hidden-count {
+    font-weight: 600;
+    color: #dc3545;
 }
 
 .membership-cell {

@@ -1207,7 +1207,8 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
     $ownerOrModeratorActions = [
         'get', 'update', 'get_moderators', 'add_moderator', 'remove_moderator',
         'get_allowlist', 'add_allowlist', 'remove_allowlist',
-        'get_denylist', 'add_denylist', 'remove_denylist'
+        'get_denylist', 'add_denylist', 'remove_denylist',
+        'get_moderation_items'
     ];
     $testActions = ['test_slack', 'test_discord'];
 
@@ -1269,6 +1270,15 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
         echo json_encode([
             'success' => true,
             'denylist' => getCommunityDenylist($requestCommunityId)
+        ]);
+        exit;
+    }
+
+    if ($action === 'get_moderation_items' && $requestCommunityId) {
+        $includeGone = isset($_GET['include_gone']) && $_GET['include_gone'] === '1';
+        echo json_encode([
+            'success' => true,
+            'items' => getAllItemsEfficiently($includeGone, $requestCommunityId, true)
         ]);
         exit;
     }

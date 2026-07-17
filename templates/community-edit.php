@@ -64,6 +64,7 @@ $flashMessage = showFlashMessage();
                     <button type="button" class="tab-btn" data-tab="settings">Settings</button>
                     <button type="button" class="tab-btn" data-tab="notifications">Notifications</button>
                     <?php if ($isEditing) : ?>
+                    <button type="button" class="tab-btn" data-tab="moderation">ModQueue</button>
                     <button type="button" class="tab-btn" data-tab="moderators">Moderators</button>
                     <button type="button" class="tab-btn" data-tab="allowlist">Allowlist</button>
                     <button type="button" class="tab-btn" data-tab="denylist">Denylist</button>
@@ -182,6 +183,20 @@ $flashMessage = showFlashMessage();
                     </div>
 
                     <?php if ($isEditing) : ?>
+                    <div class="tab-panel" data-tab="moderation">
+                        <div class="form-group">
+                            <div class="moderation-toolbar">
+                                <button type="button" class="btn btn-secondary" id="toggleGoneItemsBtn" onclick="toggleModerationGoneFilter()">
+                                    Show Gone Items
+                                </button>
+                            </div>
+
+                            <div id="moderationItemsBody" class="moderation-items-list">
+                                <div class="moderator-list-empty">Loading…</div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="tab-panel" data-tab="moderators">
                         <div class="form-group community-moderators-section" id="communityModeratorsSection">
                             <label>Moderators</label>
@@ -258,7 +273,7 @@ $flashMessage = showFlashMessage();
 
 <style>
 .community-edit-container {
-    max-width: 700px;
+    max-width: 900px;
     margin: 0 auto;
 }
 
@@ -418,6 +433,106 @@ $flashMessage = showFlashMessage();
     padding-top: 1rem;
 }
 
+.moderation-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 1rem;
+}
+
+.moderation-items-list {
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.moderation-item-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #f1f1f1;
+}
+
+.moderation-item-row:last-child {
+    border-bottom: none;
+}
+
+.moderation-item-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.moderation-item-title {
+    display: block;
+    font-weight: 500;
+    color: #007bff;
+    text-decoration: none;
+}
+
+.moderation-item-title:hover {
+    text-decoration: underline;
+}
+
+.moderation-item-description {
+    display: block;
+    color: #666;
+    font-size: 0.85rem;
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.moderation-item-description:hover {
+    text-decoration: underline;
+}
+
+.moderation-item-meta {
+    color: #666;
+    font-size: 0.85rem;
+}
+
+.badge-visible {
+    background: #d4edda;
+    color: #155724;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.badge-not-visible {
+    background: #f8d7da;
+    color: #721c24;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.btn-success {
+    background: #28a745;
+    color: white;
+}
+
+.btn-success:hover {
+    background: #218838;
+}
+
+.btn-warning {
+    background: #ffc107;
+    color: #333;
+}
+
+.btn-warning:hover {
+    background: #e0a800;
+}
+
 .moderator-list {
     margin: 0.75rem 0;
     border: 1px solid #e9ecef;
@@ -524,16 +639,19 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
         document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
         btn.classList.add('active');
         document.querySelector(`.tab-panel[data-tab="${btn.dataset.tab}"]`).classList.add('active');
-        const noFormActionsTabs = ['moderators', 'allowlist', 'denylist'];
+        const noFormActionsTabs = ['moderation', 'moderators', 'allowlist', 'denylist'];
         document.getElementById('formActions').style.display = noFormActionsTabs.includes(btn.dataset.tab) ? 'none' : 'flex';
     });
 });
 
 <?php if ($isEditing) : ?>
+let moderationIncludeGone = false;
+
 document.addEventListener('DOMContentLoaded', function() {
     loadCommunityModerators(editingCommunityId);
     loadCommunityAllowlist(editingCommunityId);
     loadCommunityDenylist(editingCommunityId);
+    loadCommunityModerationItems(editingCommunityId);
 });
 <?php endif; ?>
 
@@ -992,6 +1110,93 @@ function removeCommunityDenylistEntry(userId) {
     .catch(error => {
         console.error('Error removing denylist entry:', error);
         showMessage('Error removing denylist entry', 'error');
+    });
+}
+
+// Load the moderation item list for the currently-edited community
+function loadCommunityModerationItems(id) {
+    const listEl = document.getElementById('moderationItemsBody');
+    if (!listEl) return;
+    listEl.innerHTML = '<div class="moderator-list-empty">Loading…</div>';
+    const includeGone = moderationIncludeGone ? '1' : '0';
+    fetch('?page=communities&action=get_moderation_items&id=' + encodeURIComponent(id) + '&include_gone=' + includeGone)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderModerationItems(data.items || []);
+            } else {
+                listEl.innerHTML = '<div class="moderator-list-empty">Error: ' + escapeHtml(data.message || 'Unknown error') + '</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading moderation items:', error);
+            listEl.innerHTML = '<div class="moderator-list-empty">Error loading items</div>';
+        });
+}
+
+function renderModerationItems(items) {
+    const listEl = document.getElementById('moderationItemsBody');
+    if (!listEl) return;
+    if (!items.length) {
+        listEl.innerHTML = '<div class="moderator-list-empty">No items found.</div>';
+        return;
+    }
+    const rows = items.map(item => {
+        const isPending = item.is_pending_approval;
+        const badge = isPending
+            ? '<span class="badge badge-not-visible">Not Visible</span>'
+            : '<span class="badge badge-visible">Visible</span>';
+        const toggleLabel = isPending ? '✅ Approve / Make Visible' : '🚫 Hide from Community';
+        const toggleClass = isPending ? 'btn-success' : 'btn-warning';
+        const itemUrl = '?page=item&id=' + encodeURIComponent(item.id);
+        return '<div class="moderation-item-row">'
+            + '<div class="moderation-item-info">'
+            + '<a class="moderation-item-title" href="' + itemUrl + '">' + escapeHtml(item.title || '(untitled)') + '</a>'
+            + '<a class="moderation-item-description" href="' + itemUrl + '">' + escapeHtml(item.description || '') + '</a>'
+            + '<div class="moderation-item-meta">' + escapeHtml(item.user_name || '') + ' &middot; ' + escapeHtml(item.posted_date || '') + (item.is_item_gone ? ' &middot; Gone' : '') + '</div>'
+            + '</div>'
+            + badge
+            + '<button type="button" class="btn ' + toggleClass + ' moderation-toggle-btn" data-item-id="' + escapeHtml(item.id) + '">' + toggleLabel + '</button>'
+            + '</div>';
+    }).join('');
+    listEl.innerHTML = rows;
+    listEl.querySelectorAll('.moderation-toggle-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            toggleModerationItemVisibility(this.getAttribute('data-item-id'), this);
+        });
+    });
+}
+
+function toggleModerationGoneFilter() {
+    moderationIncludeGone = !moderationIncludeGone;
+    const btn = document.getElementById('toggleGoneItemsBtn');
+    if (btn) {
+        btn.textContent = moderationIncludeGone ? 'Hide Gone Items' : 'Show Gone Items';
+    }
+    loadCommunityModerationItems(editingCommunityId);
+}
+
+function toggleModerationItemVisibility(itemId, btn) {
+    if (!editingCommunityId) return;
+    btn.disabled = true;
+    fetch('', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'action=toggle_item_visibility&id=' + encodeURIComponent(itemId) + '&community_id=' + encodeURIComponent(editingCommunityId)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            loadCommunityModerationItems(editingCommunityId);
+        } else {
+            showMessage(data.message || 'Failed to update item visibility', 'error');
+            btn.disabled = false;
+        }
+    })
+    .catch(error => {
+        console.error('Error toggling item visibility:', error);
+        showMessage('Error updating item visibility', 'error');
+        btn.disabled = false;
     });
 }
 
