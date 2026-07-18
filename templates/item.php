@@ -289,6 +289,29 @@ if ($canEditItem && !empty($itemCommunityIds)) {
                             $<?php echo escape(number_format($item['price'], 2)); ?>
                         <?php endif; ?>
                     </h2>
+
+                    <?php if ($canEditItem) : ?>
+                        <div class="item-menu">
+                            <button type="button" class="item-menu-btn" onclick="toggleItemMenu(event)" title="Item options">
+                                Options ▾
+                            </button>
+                            <div class="item-menu-dropdown" id="itemMenuDropdown">
+                                <button type="button" onclick="openEditModalFromButton(this); closeItemMenu();"
+                                        class="item-menu-option"
+                                        data-tracking="<?php echo htmlspecialchars($item['id'], ENT_QUOTES, 'UTF-8'); ?>"
+                                        data-title="<?php echo htmlspecialchars($item['title'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+                                        data-description="<?php echo htmlspecialchars($item['description'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                                    ✏️ Edit...
+                                </button>
+                                <button type="button" onclick="openRepublishModal(); closeItemMenu();" class="item-menu-option">
+                                    📣 Re-publish...
+                                </button>
+                                <button type="button" onclick="deleteItem('<?php echo escape($item['id']); ?>')" class="item-menu-option item-menu-option-danger">
+                                    🗑️ Delete
+                                </button>
+                            </div>
+                        </div>
+                    <?php endif; ?>
                 </div>
                 
                 <div class="description-section">
@@ -401,7 +424,6 @@ if ($canEditItem && !empty($itemCommunityIds)) {
                         <?php
                         $currentUser = getCurrentUser();
                         $isOwnItem = currentUserOwnsItem($item['id']);
-                        $canEditItem = canUserEditItem($item['user_id'] ?? null);
                         $isUserClaimed = $currentUser ? isUserClaimed($item['id'], $currentUser['id']) : false;
                         $canUserClaim = $currentUser ? canUserClaim($item['id'], $currentUser['id']) : false;
                         $userClaimPosition = $currentUser ? getUserClaimPosition($item['id'], $currentUser['id']) : null;
@@ -435,39 +457,19 @@ if ($canEditItem && !empty($itemCommunityIds)) {
                         <?php endif; ?>
                         
                         <?php if ($canEditItem) : ?>
-                            <button onclick="openEditModalFromButton(this)" 
-                                    class="btn btn-primary btn-large edit-btn" 
-                                    title="Edit this item"
-                                    data-tracking="<?php echo htmlspecialchars($item['id'], ENT_QUOTES, 'UTF-8'); ?>"
-                                    data-title="<?php echo htmlspecialchars($item['title'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
-                                    data-description="<?php echo htmlspecialchars($item['description'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
-                                ✏️ Edit...
-                            </button>
-                            
                             <?php if ($isItemGone) : ?>
-                                <button onclick="relistItem('<?php echo escape($item['id']); ?>')" 
-                                        class="btn btn-success btn-large" 
+                                <button onclick="relistItem('<?php echo escape($item['id']); ?>')"
+                                        class="btn btn-success btn-large"
                                         title="Re-list this item">
                                     🔄 Re-list
                                 </button>
                             <?php else : ?>
-                                <button onclick="markItemGone('<?php echo escape($item['id']); ?>')" 
-                                        class="btn btn-warning btn-large" 
+                                <button onclick="markItemGone('<?php echo escape($item['id']); ?>')"
+                                        class="btn btn-warning btn-large"
                                         title="Mark this item as gone">
                                     ✅ Mark as Gone
                                 </button>
                             <?php endif; ?>
-                            
-                            <button onclick="deleteItem('<?php echo escape($item['id']); ?>')"
-                                    class="btn btn-danger btn-large delete-btn"
-                                    title="Delete this item">
-                                🗑️ Delete
-                            </button>
-                            <button onclick="openRepublishModal()"
-                                    class="btn btn-secondary btn-large"
-                                    title="Re-send this item's notification to a community">
-                                📣 Re-publish...
-                            </button>
                         <?php endif; ?>
                         
                         <!-- Share button - always visible -->
@@ -896,13 +898,77 @@ if ($canEditItem && !empty($itemCommunityIds)) {
 }
 
 .price-section {
-    margin-bottom: 2rem;
-    padding-bottom: 2rem;
-    border-bottom: 1px solid #eee;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem 1.5rem;
+    background: var(--gray-50);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--gray-200);
+}
+
+.item-menu {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.item-menu-btn {
+    background: white;
+    border: 1px solid var(--gray-300, #ccc);
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--gray-900, #333);
+}
+
+.item-menu-btn:hover {
+    background: var(--gray-50, #f8f9fa);
+}
+
+.item-menu-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 0.25rem);
+    right: 0;
+    min-width: 180px;
+    background: white;
+    border: 1px solid var(--gray-200, #e9ecef);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 100;
+    overflow: hidden;
+}
+
+.item-menu-dropdown.open {
+    display: block;
+}
+
+.item-menu-option {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.75rem 1rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.95rem;
+    color: var(--gray-900, #333);
+}
+
+.item-menu-option:hover {
+    background: var(--gray-50, #f8f9fa);
+}
+
+.item-menu-option-danger {
+    color: #dc3545;
 }
 
 .item-price-large {
     font-size: 2.5rem;
+    line-height: 1;
     font-weight: bold;
     color: #28a745;
     margin: 0;
@@ -918,9 +984,11 @@ if ($canEditItem && !empty($itemCommunityIds)) {
 }
 
 .description-section {
-    margin-bottom: 2rem;
-    padding-bottom: 2rem;
-    border-bottom: 1px solid #eee;
+    margin-bottom: 1.5rem;
+    padding: 1.5rem;
+    background: var(--gray-50);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--gray-200);
 }
 
 .description-section h3,
@@ -938,20 +1006,28 @@ if ($canEditItem && !empty($itemCommunityIds)) {
 }
 
 .details-section {
-    margin-bottom: 1.25rem;
+    margin-bottom: 1.5rem;
+    padding: 1.5rem;
+    background: var(--gray-50);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--gray-200);
 }
 
 .detail-grid {
     display: grid;
-    gap: 0.5rem;
+    gap: 0;
 }
 
 .detail-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.5rem 0;
-    border-bottom: 1px solid #f8f9fa;
+    padding: 0.35rem 0;
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.detail-item:last-child {
+    border-bottom: none;
 }
 
 .detail-item strong {
@@ -1444,6 +1520,22 @@ function removeClaimByOwner(trackingNumber, claimUserId) {
     });
 }
 
+
+function toggleItemMenu(event) {
+    event.stopPropagation();
+    document.getElementById('itemMenuDropdown').classList.toggle('open');
+}
+
+function closeItemMenu() {
+    document.getElementById('itemMenuDropdown').classList.remove('open');
+}
+
+document.addEventListener('click', function(event) {
+    const dropdown = document.getElementById('itemMenuDropdown');
+    if (dropdown && dropdown.classList.contains('open') && !event.target.closest('.item-menu')) {
+        dropdown.classList.remove('open');
+    }
+});
 
 function deleteItem(trackingNumber) {
     // Store the context for the modal
