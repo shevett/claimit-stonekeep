@@ -100,7 +100,10 @@ $flashMessage = showFlashMessage();
 }
 
 .admin-section {
-    padding: 0 0 1.5rem 0;
+    padding: 1.25rem 1.5rem;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
 }
 
 .admin-section h3 {
@@ -112,7 +115,7 @@ $flashMessage = showFlashMessage();
 .reports-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 0;
+    gap: 1.5rem;
 }
 
 .stat-item {
