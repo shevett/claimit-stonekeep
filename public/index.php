@@ -468,6 +468,7 @@ if ($ajaxAction && in_array($ajaxAction, ['add_claim', 'remove_claim', 'remove_c
             case 'add_claim':
                 $claim = addClaimToItem($trackingNumber);
                 $position = getUserClaimPosition($trackingNumber, $claim['user_id']);
+                logEvent('claim_added', ['item_id' => $trackingNumber, 'target_user_id' => $claim['user_id']]);
                 // nosemgrep: php.lang.security.injection.echoed-request.echoed-request
                 echo json_encode([
                     'success' => true,
@@ -479,6 +480,7 @@ if ($ajaxAction && in_array($ajaxAction, ['add_claim', 'remove_claim', 'remove_c
             case 'remove_claim':
                 try {
                     removeMyClaim($trackingNumber);
+                    logEvent('claim_removed', ['item_id' => $trackingNumber, 'target_user_id' => $currentUser['id']]);
                     echo json_encode(['success' => true, 'message' => 'You\'ve been removed from the waitlist']);
                 } catch (Exception $e) {
                     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
@@ -492,6 +494,7 @@ if ($ajaxAction && in_array($ajaxAction, ['add_claim', 'remove_claim', 'remove_c
                     exit;
                 }
                 removeClaimFromItem($trackingNumber, $claimUserId);
+                logEvent('claim_removed', ['item_id' => $trackingNumber, 'target_user_id' => $claimUserId]);
                 echo json_encode(['success' => true, 'message' => 'Claim removed successfully']);
                 break;
 
@@ -528,6 +531,8 @@ if ($ajaxAction && in_array($ajaxAction, ['add_claim', 'remove_claim', 'remove_c
                 if (!deleteItemFromDb($trackingNumber)) {
                     throw new Exception('Failed to delete item from database');
                 }
+
+                logEvent('item_deleted', ['item_id' => $trackingNumber, 'details' => ['title' => $item['title'] ?? null]]);
 
                 // Clear caches since we deleted an item
                 clearItemsCache();
@@ -585,6 +590,17 @@ if ($ajaxAction && in_array($ajaxAction, ['add_claim', 'remove_claim', 'remove_c
 
                 // Clear items cache since we updated an item
                 clearItemsCache();
+
+                $editDetails = [];
+                if ($item['title'] !== $title) {
+                    $editDetails['old_title'] = $item['title'];
+                    $editDetails['new_title'] = $title;
+                }
+                if ($item['description'] !== $description) {
+                    $editDetails['old_description'] = $item['description'];
+                    $editDetails['new_description'] = $description;
+                }
+                logEvent('item_edited', ['item_id' => $trackingNumber, 'details' => $editDetails]);
 
                 echo json_encode(['success' => true, 'message' => 'Item updated successfully']);
                 exit;
@@ -805,6 +821,7 @@ if ($ajaxAction && in_array($ajaxAction, ['add_claim', 'remove_claim', 'remove_c
                 try {
                     markItemAsGone($trackingNumber);
                     clearItemsCache(); // Clear cache since item status changed
+                    logEvent('item_gone', ['item_id' => $trackingNumber]);
                     echo json_encode(['success' => true, 'message' => 'Item marked as gone']);
                 } catch (Exception $e) {
                     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
@@ -815,6 +832,7 @@ if ($ajaxAction && in_array($ajaxAction, ['add_claim', 'remove_claim', 'remove_c
                 try {
                     relistItem($trackingNumber);
                     clearItemsCache(); // Clear cache since item status changed
+                    logEvent('item_relisted', ['item_id' => $trackingNumber]);
                     echo json_encode(['success' => true, 'message' => 'Item re-listed successfully']);
                 } catch (Exception $e) {
                     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
@@ -866,6 +884,11 @@ if ($ajaxAction && in_array($ajaxAction, ['add_claim', 'remove_claim', 'remove_c
                     exit;
                 }
                 clearItemsCache();
+                logEvent('item_visibility_toggled', [
+                    'item_id' => $trackingNumber,
+                    'community_id' => $communityId,
+                    'details' => ['new_status' => $newStatus]
+                ]);
                 $message = $newStatus === 'hidden' ? 'Item hidden from this community' : 'Item made visible in this community';
                 // nosemgrep: php.lang.security.injection.echoed-request.echoed-request
                 echo json_encode(['success' => true, 'message' => $message, 'status' => $newStatus]);
@@ -1158,9 +1181,15 @@ if (isset($_POST['action']) && in_array($_POST['action'], ['join', 'leave']) && 
         if ($action === 'join') {
             $success = joinCommunity($currentUser['id'], $communityId);
             $message = $success ? 'Successfully joined community' : 'Failed to join community';
+            if ($success) {
+                logEvent('community_joined', ['community_id' => $communityId]);
+            }
         } else {
             $success = leaveCommunity($currentUser['id'], $communityId);
             $message = $success ? 'Successfully left community' : 'Failed to leave community';
+            if ($success) {
+                logEvent('community_left', ['community_id' => $communityId]);
+            }
         }
 
         echo json_encode(['success' => $success, 'message' => $message]);
@@ -1309,6 +1338,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
 
                     $newId = createCommunity($data);
                     if ($newId) {
+                        logEvent('community_created', ['community_id' => $newId]);
                         echo json_encode(['success' => true, 'message' => 'Community created successfully', 'id' => $newId]);
                     } else {
                         echo json_encode(['success' => false, 'message' => 'Failed to create community']);
@@ -1320,6 +1350,8 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
                         echo json_encode(['success' => false, 'message' => 'Missing required fields']);
                         exit;
                     }
+
+                    $oldCommunity = getCommunityById((int)$_POST['id']);
 
                     $data = [
                         'short_name' => trim($_POST['short_name']),
@@ -1336,6 +1368,14 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
 
                     $success = updateCommunity((int)$_POST['id'], $data);
                     if ($success) {
+                        $updateDetails = [];
+                        if ($oldCommunity && (int)$oldCommunity['moderated'] !== $data['moderated']) {
+                            $updateDetails['moderated'] = ['old' => (int)$oldCommunity['moderated'], 'new' => $data['moderated']];
+                        }
+                        if ($oldCommunity && (int)$oldCommunity['private'] !== $data['private']) {
+                            $updateDetails['private'] = ['old' => (int)$oldCommunity['private'], 'new' => $data['private']];
+                        }
+                        logEvent('community_updated', ['community_id' => (int)$_POST['id'], 'details' => $updateDetails]);
                         echo json_encode(['success' => true, 'message' => 'Community updated successfully']);
                     } else {
                         echo json_encode(['success' => false, 'message' => 'Failed to update community']);
@@ -1348,8 +1388,10 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
                         exit;
                     }
 
-                    $success = deleteCommunity((int)$_POST['id']);
+                    $deletedCommunityId = (int)$_POST['id'];
+                    $success = deleteCommunity($deletedCommunityId);
                     if ($success) {
+                        logEvent('community_deleted', ['community_id' => $deletedCommunityId]);
                         echo json_encode(['success' => true, 'message' => 'Community deleted successfully']);
                     } else {
                         echo json_encode(['success' => false, 'message' => 'Failed to delete community']);
@@ -1502,6 +1544,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
                         exit;
                     }
                     if (addCommunityModerator($userToAdd['id'], $cid)) {
+                        logEvent('moderator_added', ['community_id' => $cid, 'target_user_id' => $userToAdd['id']]);
                         echo json_encode([
                             'success' => true,
                             'message' => 'Moderator added',
@@ -1520,6 +1563,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
                         exit;
                     }
                     if (removeCommunityModerator($uid, $cid)) {
+                        logEvent('moderator_removed', ['community_id' => $cid, 'target_user_id' => $uid]);
                         echo json_encode([
                             'success' => true,
                             'message' => 'Moderator removed',
@@ -1543,6 +1587,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
                         exit;
                     }
                     if (addCommunityAllowlistEntry($userToAdd['id'], $cid)) {
+                        logEvent('allowlist_added', ['community_id' => $cid, 'target_user_id' => $userToAdd['id']]);
                         echo json_encode([
                             'success' => true,
                             'message' => 'Allowlist entry added',
@@ -1561,6 +1606,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
                         exit;
                     }
                     if (removeCommunityAllowlistEntry($uid, $cid)) {
+                        logEvent('allowlist_removed', ['community_id' => $cid, 'target_user_id' => $uid]);
                         echo json_encode([
                             'success' => true,
                             'message' => 'Allowlist entry removed',
@@ -1584,6 +1630,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
                         exit;
                     }
                     if (addCommunityDenylistEntry($userToAdd['id'], $cid)) {
+                        logEvent('denylist_added', ['community_id' => $cid, 'target_user_id' => $userToAdd['id']]);
                         echo json_encode([
                             'success' => true,
                             'message' => 'Denylist entry added',
@@ -1602,6 +1649,7 @@ if (isset($_GET['page']) && $_GET['page'] === 'communities' && (isset($_GET['act
                         exit;
                     }
                     if (removeCommunityDenylistEntry($uid, $cid)) {
+                        logEvent('denylist_removed', ['community_id' => $cid, 'target_user_id' => $uid]);
                         echo json_encode([
                             'success' => true,
                             'message' => 'Denylist entry removed',
@@ -1899,7 +1947,7 @@ $page = $_GET['page'] ?? 'home';
 $page = preg_replace('/[^a-zA-Z0-9\-]/', '', $page);
 
 // Define available pages
-$availablePages = ['home', 'organizations', 'about', 'contact', 'claim', 'items', 'item', 'login', 'user-listings', 'settings', 'admin', 'changelog', 'communities', 'community', 'community-edit', 'admin-tenants', 'tenant-edit', 'admin-tests', 'admin-reports', 'admin-users'];
+$availablePages = ['home', 'organizations', 'about', 'contact', 'claim', 'items', 'item', 'login', 'user-listings', 'settings', 'admin', 'changelog', 'communities', 'community', 'community-edit', 'admin-tenants', 'tenant-edit', 'admin-tests', 'admin-reports', 'admin-users', 'admin-activity-log'];
 
 if (!in_array($page, $availablePages)) {
     $page = 'home';
@@ -1917,7 +1965,7 @@ $isLoggedIn = false;
 // Check authentication for navigation (but don't initialize AWS unless needed)
 if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['authenticated']) && $_SESSION['authenticated']) {
     // Only initialize AWS if we actually need it for this page
-    $authRequiredPages = ['dashboard', 'claim', 'settings', 'admin', 'admin-tenants', 'tenant-edit', 'admin-tests', 'admin-reports', 'admin-users'];
+    $authRequiredPages = ['dashboard', 'claim', 'settings', 'admin', 'admin-tenants', 'tenant-edit', 'admin-tests', 'admin-reports', 'admin-users', 'admin-activity-log'];
     if (in_array($page, $authRequiredPages)) {
         $currentUser = getCurrentUser();
         $isLoggedIn = isLoggedIn();

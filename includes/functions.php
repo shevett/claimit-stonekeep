@@ -29,6 +29,7 @@ require_once __DIR__ . '/cache.php';
 require_once __DIR__ . '/utilities.php';
 require_once __DIR__ . '/communities.php';
 require_once __DIR__ . '/tenants.php';
+require_once __DIR__ . '/activity.php';
 
 // ============================================================================
 // DATABASE HELPER FUNCTIONS FOR ITEMS AND CLAIMS

@@ -78,6 +78,13 @@ $flashMessage = showFlashMessage();
                                     <small>System statistics and activity overview</small>
                                 </span>
                             </a>
+                            <a href="?page=admin-activity-log" class="admin-link">
+                                <span class="link-icon">📜</span>
+                                <span class="link-content">
+                                    <strong>Activity Log</strong>
+                                    <small>Review site activity history</small>
+                                </span>
+                            </a>
                             <a href="?page=admin-tests" class="admin-link">
                                 <span class="link-icon">🧪</span>
                                 <span class="link-content">

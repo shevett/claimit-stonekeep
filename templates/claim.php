@@ -107,6 +107,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception('Failed to save item to database');
             }
 
+            logEvent('item_posted', ['item_id' => $trackingNumber, 'details' => ['community_ids' => $communityIdsForCreate]]);
+
             // Clear items cache since we added a new item
             clearItemsCache();
 

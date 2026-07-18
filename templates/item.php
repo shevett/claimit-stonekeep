@@ -533,6 +533,30 @@ if ($canEditItem && !empty($itemCommunityIds)) {
                     </div>
                 </div>
                 <?php endif; ?>
+
+                <?php if ($isOwnItem || isAdmin()) : ?>
+                    <?php $itemActivity = getActivityLog(['item_id' => $item['id']]); ?>
+                    <?php if (!empty($itemActivity)) : ?>
+                <details class="activity-section">
+                    <summary class="activity-toggle">
+                        <span class="activity-toggle-arrow">&gt;</span> History
+                    </summary>
+                    <div class="activity-timeline">
+                        <?php $activityActionLabels = getActivityActionLabels(); ?>
+                        <?php foreach ($itemActivity as $event) : ?>
+                            <div class="activity-entry">
+                                <div class="activity-entry-label">
+                                    <?php echo escape($activityActionLabels[$event['action']] ?? $event['action']); ?>
+                                </div>
+                                <div class="activity-entry-meta">
+                                    <?php echo escape(date('M j, Y g:i A', strtotime($event['occurred_at']))); ?>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </details>
+                    <?php endif; ?>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -1089,6 +1113,67 @@ if ($canEditItem && !empty($itemCommunityIds)) {
     border-color: #6c757d !important;
     cursor: not-allowed !important;
     transform: none !important;
+}
+
+/* Activity Styles */
+.activity-section {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: var(--gray-50);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--gray-200);
+}
+
+.activity-toggle {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--gray-900);
+    list-style: none;
+    user-select: none;
+}
+
+.activity-toggle::-webkit-details-marker {
+    display: none;
+}
+
+.activity-toggle-arrow {
+    display: inline-block;
+    transition: transform 0.15s ease;
+}
+
+.activity-section[open] .activity-toggle-arrow {
+    transform: rotate(90deg);
+}
+
+.activity-section[open] .activity-toggle {
+    margin-bottom: 1rem;
+}
+
+.activity-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.activity-entry {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    background: white;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--gray-200);
+    font-size: 0.9rem;
+}
+
+.activity-entry-label {
+    color: var(--gray-900);
+    font-weight: 500;
+}
+
+.activity-entry-meta {
+    color: var(--gray-500, #666);
+    font-size: 0.8rem;
 }
 
 /* Waitlist Styles */
