@@ -76,8 +76,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $communityIds = [];
 
             // Collect selected community IDs (empty = invisible/staging)
+            // Only communities the user is actually a member of are allowed
             foreach ($communities as $commValue) {
-                if (is_numeric($commValue)) {
+                if (is_numeric($commValue) && isUserInCommunity($currentUser['id'], (int)$commValue)) {
                     $communityIds[] = (int)$commValue;
                 }
             }
@@ -234,17 +235,30 @@ $flashMessage = showFlashMessage();
                     foreach ($allCommunities as $comm) :
                         // Default to General (community 1) being checked
                         $isChecked = ($comm['id'] == 1);
+                        $isMember = isUserInCommunity($currentUser['id'], $comm['id']);
+                        $willBeHidden = determineInitialItemStatus($comm['id'], $currentUser['id']) === 'hidden';
                         ?>
                     <div class="community-checkbox-item">
-                        <input type="checkbox" 
-                               name="communities[]" 
-                               value="<?php echo escape($comm['id']); ?>" 
+                        <input type="checkbox"
+                               name="communities[]"
+                               value="<?php echo escape($comm['id']); ?>"
                                id="community_<?php echo escape($comm['id']); ?>"
                                class="community-checkbox"
-                               <?php echo $isChecked ? 'checked' : ''; ?>>
+                               <?php echo ($isChecked && $isMember) ? 'checked' : ''; ?>
+                               <?php echo !$isMember ? 'disabled' : ''; ?>>
                         <label for="community_<?php echo escape($comm['id']); ?>">
                             <?php echo escape($comm['full_name']); ?>
                         </label>
+                        <?php if (!$isMember || $willBeHidden) : ?>
+                        <div class="community-checkbox-note">
+                            <?php if (!$isMember) : ?>
+                                <span>Not currently a member. <a href="?page=communities">Review your subscriptions</a>.</span>
+                            <?php endif; ?>
+                            <?php if ($willBeHidden) : ?>
+                                <span>Note: moderation is enabled for this community &mdash; your posting will be pending moderation approval.</span>
+                            <?php endif; ?>
+                        </div>
+                        <?php endif; ?>
                     </div>
                     <?php endforeach; ?>
                 </div>

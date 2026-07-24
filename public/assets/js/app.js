@@ -485,7 +485,18 @@ style.textContent = `
         let html = '';
 
         allCommunities.forEach(comm => {
-            const isChecked = itemCommunityIds.includes(comm.id);
+            const isChecked = itemCommunityIds.includes(comm.id) && comm.is_member;
+            let noteHtml = '';
+            if (!comm.is_member || comm.will_be_hidden) {
+                let notes = '';
+                if (!comm.is_member) {
+                    notes += `<span>Not currently a member. <a href="?page=communities">Review your subscriptions</a>.</span>`;
+                }
+                if (comm.will_be_hidden) {
+                    notes += `<span>Note: moderation is enabled for this community &mdash; your posting will be pending moderation approval.</span>`;
+                }
+                noteHtml = `<div class="community-checkbox-note">${notes}</div>`;
+            }
             html += `
                 <div class="community-checkbox-item">
                     <input type="checkbox"
@@ -493,8 +504,10 @@ style.textContent = `
                            value="${comm.id}"
                            id="edit_community_${comm.id}"
                            class="community-checkbox"
-                           ${isChecked ? 'checked' : ''}>
+                           ${isChecked ? 'checked' : ''}
+                           ${!comm.is_member ? 'disabled' : ''}>
                     <label for="edit_community_${comm.id}">${comm.full_name}</label>
+                    ${noteHtml}
                 </div>
                 `;
         });

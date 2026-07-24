@@ -663,6 +663,7 @@ if ($canEditItem && !empty($itemCommunityIds)) {
 
 .community-checkbox-item {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.5rem;
 }
@@ -677,6 +678,21 @@ if ($canEditItem && !empty($itemCommunityIds)) {
     cursor: pointer;
     margin: 0;
     font-weight: normal;
+}
+
+.community-checkbox-note {
+    flex-basis: 100%;
+    margin-left: 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    font-size: 0.8125rem;
+    color: #6c757d;
+}
+
+.community-checkbox-note a {
+    color: inherit;
+    text-decoration: underline;
 }
 
 .header-with-back {
@@ -1118,7 +1134,7 @@ if ($canEditItem && !empty($itemCommunityIds)) {
     transform: translate(-50%, -50%) scale(1);
 }
 
-.modal-content {
+.delete-modal .modal-content {
     background: white;
     border-radius: 12px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);

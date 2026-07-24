@@ -19,8 +19,18 @@
     border: none;
     border-radius: 12px;
     width: 90%;
-    max-width: 500px;
+    max-width: 1000px;
+    max-height: 85vh;
+    overflow-y: auto;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+@media (max-width: 768px) {
+    .modal-content {
+        width: 95%;
+        margin: 2.5% auto;
+        max-height: 90vh;
+    }
 }
 
 .modal-header {
@@ -1550,8 +1560,18 @@ footer {
     border: 1px solid #888;
     border-radius: 8px;
     width: 90%;
-    max-width: 500px;
+    max-width: 1000px;
+    max-height: 85vh;
+    overflow-y: auto;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+@media (max-width: 768px) {
+    .modal-content {
+        width: 95%;
+        margin: 2.5% auto;
+        max-height: 90vh;
+    }
 }
 
 .modal-header {

@@ -339,6 +339,18 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_item_communities' && isse
     $allCommunities = getAllCommunities();
     $itemCommunities = getItemCommunities($trackingNumber);
 
+    // Membership/moderation status is evaluated against the item's owner,
+    // matching the rules enforced when communities are actually saved.
+    $editItem = getItemFromDb($trackingNumber);
+    $editOwnerId = $editItem['user_id'] ?? null;
+    foreach ($allCommunities as &$comm) {
+        $comm['is_member'] = $editOwnerId ? isUserInCommunity($editOwnerId, $comm['id']) : false;
+        $comm['will_be_hidden'] = $editOwnerId
+            ? determineInitialItemStatus($comm['id'], $editOwnerId) === 'hidden'
+            : false;
+    }
+    unset($comm);
+
     // nosemgrep: php.lang.security.injection.echoed-request.echoed-request
     echo json_encode([
         'success' => true,
@@ -579,8 +591,9 @@ if ($ajaxAction && in_array($ajaxAction, ['add_claim', 'remove_claim', 'remove_c
                 $communityIds = [];
 
                 // Collect selected community IDs (empty = invisible/staging)
+                // Only communities the item's owner is actually a member of are allowed
                 foreach ($communities as $commValue) {
-                    if (is_numeric($commValue)) {
+                    if (is_numeric($commValue) && isUserInCommunity($item['user_id'], (int)$commValue)) {
                         $communityIds[] = (int)$commValue;
                     }
                 }
@@ -2276,6 +2289,25 @@ $performanceData = [
         cursor: pointer;
         margin: 0;
         font-weight: normal;
+    }
+
+    .community-checkbox-item {
+        flex-wrap: wrap;
+    }
+
+    .community-checkbox-note {
+        flex-basis: 100%;
+        margin-left: 26px;
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+        font-size: 0.8125rem;
+        color: var(--gray-500, #6c757d);
+    }
+
+    .community-checkbox-note a {
+        color: inherit;
+        text-decoration: underline;
     }
     </style>
 
