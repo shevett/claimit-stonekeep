@@ -48,9 +48,9 @@ $flashMessage = showFlashMessage();
                     </div>
 
                     <div class="form-group">
-                        <label for="zipcode">Zip Code</label>
-                        <input type="text" id="zipcode" name="zipcode" value="<?php echo escape(getUserZipcode($currentUser['id'])); ?>" maxlength="10" pattern="[0-9]{5}(-[0-9]{4})?" placeholder="12345">
-                        <small class="form-help">Your zip code helps show items near you (optional)</small>
+                        <label for="zipcode">Zip / Postal Code</label>
+                        <input type="text" id="zipcode" name="zipcode" value="<?php echo escape(getUserZipcode($currentUser['id'])); ?>" maxlength="10" pattern="[0-9]{5}(-[0-9]{4})?|[A-Za-z][0-9][A-Za-z] ?[0-9][A-Za-z][0-9]" placeholder="12345 or K0A 2Z0">
+                        <small class="form-help">Your zip/postal code helps show items near you (optional)</small>
                     </div>
 
                     <div class="form-group">

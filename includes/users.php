@@ -298,7 +298,25 @@ function getUserZipcode($userId)
 }
 
 /**
- * Look up city and state for a zip code using the postal_codes table.
+ * Normalize a zip/postal code and detect its country for postal_codes lookups.
+ * Canadian postal codes are stored as "A1A 1A1" (uppercase, single space).
+ *
+ * @param string $zipcode
+ * @return array{country: string, code: string}
+ */
+function normalizeZipcodeForLookup(string $zipcode): array
+{
+    $trimmed = trim($zipcode);
+
+    if (preg_match('/^([A-Za-z][0-9][A-Za-z])\s?([0-9][A-Za-z][0-9])$/', $trimmed, $m)) {
+        return ['country' => 'CA', 'code' => strtoupper($m[1] . ' ' . $m[2])];
+    }
+
+    return ['country' => 'US', 'code' => $trimmed];
+}
+
+/**
+ * Look up city and state/province for a zip/postal code using the postal_codes table.
  * Returns a formatted "City, ST ZIP" string, or just the zip if not found.
  *
  * @param string $zipcode
@@ -310,13 +328,15 @@ function getLocationByZipcode(?string $zipcode): ?string
         return null;
     }
 
+    $lookup = normalizeZipcodeForLookup($zipcode);
+
     $pdo = getDbConnection();
     $stmt = $pdo->prepare(
         'SELECT place_name, admin_code1 FROM postal_codes
          WHERE country_code = ? AND postal_code = ?
          LIMIT 1'
     );
-    $stmt->execute(['US', $zipcode]);
+    $stmt->execute([$lookup['country'], $lookup['code']]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$row) {
@@ -327,20 +347,22 @@ function getLocationByZipcode(?string $zipcode): ?string
 }
 
 /**
- * Look up latitude/longitude for a US zip code using the postal_codes table.
+ * Look up latitude/longitude for a zip/postal code using the postal_codes table.
  *
  * @param string $zipcode
  * @return array{lat: float, lng: float}|null null if not found
  */
 function getZipcodeCoordinates(string $zipcode): ?array
 {
+    $lookup = normalizeZipcodeForLookup($zipcode);
+
     $pdo = getDbConnection();
     $stmt = $pdo->prepare(
         'SELECT latitude, longitude FROM postal_codes
          WHERE country_code = ? AND postal_code = ?
          LIMIT 1'
     );
-    $stmt->execute(['US', $zipcode]);
+    $stmt->execute([$lookup['country'], $lookup['code']]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$row || $row['latitude'] === null || $row['longitude'] === null) {
