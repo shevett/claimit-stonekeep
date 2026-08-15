@@ -34,7 +34,7 @@
                 </ul>
 
                 <h2>Interested?</h2>
-                <p><strong>Email:</strong> <a href="mailto:shevett@pobox.com">shevett@pobox.com</a></p>
+                <p><strong>Email:</strong> <a href="mailto:info@pbwsoftware.llc">info@pbwsoftware.llc</a></p>
                 <p>We'd be happy to discuss your organization and answer any questions about bringing ClaimIt to your community.</p>
             </div>
             <div class="content-image">
